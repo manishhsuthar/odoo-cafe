@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'pos',
     'content',
     'floors',
+    'customers',
 ]
 
 MIDDLEWARE = [
