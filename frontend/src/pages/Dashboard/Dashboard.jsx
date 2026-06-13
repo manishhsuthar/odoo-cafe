@@ -7,7 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import useAuth from '../../hooks/useAuth';
-import { getOrders, getEmployeeLogs } from '../../utils/db';
+import { getOrders, getEmployeeLogs, getTables } from '../../utils/db';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
@@ -17,28 +17,34 @@ const Dashboard = () => {
     ordersCount: 0,
     revenue: 0,
     activeTables: 0,
+    vacantTables: 0,
     employeesOnShift: 0
   });
   const [recentActivities, setRecentActivities] = useState([]);
 
   useEffect(() => {
     Promise.all([
-      getOrders(),
-      Promise.resolve(getEmployeeLogs())
-    ]).then(([orders, logs]) => {
+      getOrders().catch(() => []),
+      Promise.resolve(getEmployeeLogs()).catch(() => []),
+      getTables().catch(() => [])
+    ]).then(([orders, logs, tables]) => {
       if (!Array.isArray(orders)) orders = [];
+      if (!Array.isArray(tables)) tables = [];
       const totalOrders = orders.length;
       const totalRev = orders
         .filter(o => o.status === 'Paid')
         .reduce((sum, o) => sum + o.amount, 0);
       const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
+      const totalTblsCount = tables.length || 12; // fallback to 12 if no tables in db
+      const vacantTbls = Math.max(0, totalTblsCount - activeTbls);
 
-      const activeLogs = Array.isArray(logs) ? logs.filter(l => l.clockOut === null || l.clockOut === undefined) : [];
+      const activeLogs = Array.isArray(logs) ? logs.filter(l => l.logoutTime === null || l.logoutTime === undefined) : [];
 
       setStats({
         ordersCount: totalOrders,
         revenue: totalRev,
         activeTables: activeTbls,
+        vacantTables: vacantTbls,
         employeesOnShift: activeLogs.length
       });
 
@@ -206,9 +212,10 @@ const Dashboard = () => {
   };
 
   const actionTextStyle = {
-    fontSize: '15px',
-    fontWeight: '700',
+    fontSize: '20px',
+    fontWeight: '1000',
     letterSpacing: '0.2px',
+    color: 'var(--bg-primary)',
   };
 
   return (
@@ -257,7 +264,12 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Active Tables</span>
-                  <span style={cardValueStyle}>{stats.activeTables}</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={cardValueStyle}>{stats.activeTables}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                      ({stats.vacantTables} Vacant)
+                    </span>
+                  </div>
                 </div>
               </div>
 
