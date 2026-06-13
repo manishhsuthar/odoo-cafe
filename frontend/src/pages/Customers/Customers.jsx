@@ -443,12 +443,13 @@ const Customers = () => {
             backgroundColor: 'var(--bg-card)',
             border: '1.5px solid var(--border-color)',
             borderRadius: '20px',
-            width: '100%',
+            width: '90%',
             maxWidth: '460px',
             boxShadow: 'var(--card-shadow)',
             padding: '28px',
             position: 'relative',
-            textAlign: 'left'
+            textAlign: 'left',
+            boxSizing: 'border-box'
           }}>
             <button
               onClick={() => setIsModalOpen(false)}
@@ -470,10 +471,10 @@ const Customers = () => {
               {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
             </h3>
 
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%', boxSizing: 'border-box' }}>
               
               {/* Name */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Full Name</label>
                 <input
                   type="text"
@@ -488,14 +489,16 @@ const Customers = () => {
                     color: 'var(--text-primary)',
                     outline: 'none',
                     fontSize: '14px',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 {errors.name && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.name}</span>}
               </div>
 
               {/* Email */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Email (Mail)</label>
                 <input
                   type="email"
@@ -510,14 +513,16 @@ const Customers = () => {
                     color: 'var(--text-primary)',
                     outline: 'none',
                     fontSize: '14px',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 {errors.email && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.email}</span>}
               </div>
 
               {/* Phone */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Phone (Number)</label>
                 <input
                   type="text"
@@ -532,15 +537,17 @@ const Customers = () => {
                     color: 'var(--text-primary)',
                     outline: 'none',
                     fontSize: '14px',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 {errors.phone && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.phone}</span>}
               </div>
 
               {/* Spend & Orders side by side */}
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Spend (₹)</label>
                   <input
                     type="number"
@@ -555,11 +562,13 @@ const Customers = () => {
                       color: 'var(--text-primary)',
                       outline: 'none',
                       fontSize: '14px',
-                      fontWeight: '600'
+                      fontWeight: '600',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Orders</label>
                   <input
                     type="number"
@@ -574,7 +583,9 @@ const Customers = () => {
                       color: 'var(--text-primary)',
                       outline: 'none',
                       fontSize: '14px',
-                      fontWeight: '600'
+                      fontWeight: '600',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
