@@ -6,6 +6,88 @@ import Table from '../../components/ui/Table';
 import { PlusCircle, X, Check, FolderPlus, Tag, Trash2, ArrowRight, Edit2 } from 'lucide-react';
 import { getProducts, getCategories, addProduct, addCategory, deleteProduct, updateProduct } from '../../utils/db';
 
+const MOCK_PRODUCTS = [
+  {
+    id: 1,
+    name: 'Espresso',
+    price: 90,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Strong and bold espresso shot',
+    inStock: true
+  },
+  {
+    id: 2,
+    name: 'Cappuccino',
+    price: 120,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Espresso with steamed milk and thick foam',
+    inStock: true
+  },
+  {
+    id: 3,
+    name: 'Cafe Latte',
+    price: 130,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Espresso with steamed milk and a light layer of foam',
+    inStock: true
+  },
+  {
+    id: 4,
+    name: 'Masala Tea',
+    price: 60,
+    tax: 5,
+    category: 'Tea',
+    description: 'Traditional spiced Indian tea',
+    inStock: true
+  },
+  {
+    id: 5,
+    name: 'Green Tea',
+    price: 70,
+    tax: 5,
+    category: 'Tea',
+    description: 'Healthy organic green tea',
+    inStock: true
+  },
+  {
+    id: 6,
+    name: 'Paneer Tikka Sandwich',
+    price: 150,
+    tax: 5,
+    category: 'Snacks',
+    description: 'Spicy paneer tikka stuffed in grilled bread',
+    inStock: true
+  },
+  {
+    id: 7,
+    name: 'French Fries',
+    price: 100,
+    tax: 5,
+    category: 'Snacks',
+    description: 'Crispy golden potato fries',
+    inStock: true
+  },
+  {
+    id: 8,
+    name: 'Chocolate Brownie',
+    price: 110,
+    tax: 18,
+    category: 'Desserts',
+    description: 'Fudgy chocolate brownie served warm',
+    inStock: true
+  }
+];
+
+const MOCK_CATEGORIES = [
+  { id: 1, name: 'Coffee', color: '#ea580c' },
+  { id: 2, name: 'Tea', color: '#0d9488' },
+  { id: 3, name: 'Snacks', color: '#7c3aed' },
+  { id: 4, name: 'Desserts', color: '#d97706' }
+];
+
 const Products = () => {
   const location = useLocation();
   const [products, setProducts] = useState([]);
@@ -55,9 +137,15 @@ const Products = () => {
   }, [location]);
 
   const loadData = async () => {
-    const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
-    setProducts(prods);
-    setCategories(cats);
+    try {
+      const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
+      setProducts(prods && prods.length > 0 ? prods : MOCK_PRODUCTS);
+      setCategories(cats && cats.length > 0 ? cats : MOCK_CATEGORIES);
+    } catch (err) {
+      console.error("Failed to load products/categories from API, using mock data:", err);
+      setProducts(MOCK_PRODUCTS);
+      setCategories(MOCK_CATEGORIES);
+    }
   };
 
   const handleStartEdit = (product) => {
@@ -126,7 +214,7 @@ const Products = () => {
     setIsCategoryDropdownOpen(false);
   };
 
-  const handleSaveProduct = (e) => {
+  const handleSaveProduct = async (e) => {
     e.preventDefault();
     if (!productForm.name || !productForm.price || !productForm.category) {
       alert('Please fill out Product Name, Price, and Category.');
@@ -139,53 +227,63 @@ const Products = () => {
       return;
     }
 
-    addProduct({
-      name: productForm.name,
-      price: priceNum,
-      tax: parseInt(productForm.tax),
-      category: productForm.category,
-      description: productForm.description
-    });
+    try {
+      await addProduct({
+        name: productForm.name,
+        price: priceNum,
+        tax: parseInt(productForm.tax),
+        category: productForm.category,
+        description: productForm.description
+      });
 
-    // Reset form & close modal
-    setProductForm({
-      name: '',
-      price: '',
-      tax: '5',
-      category: '',
-      description: ''
-    });
-    setIsProductModalOpen(false);
-    loadData();
+      // Reset form & close modal
+      setProductForm({
+        name: '',
+        price: '',
+        tax: '5',
+        category: '',
+        description: ''
+      });
+      setIsProductModalOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add product');
+    }
   };
 
-  const handleSaveCategory = (e) => {
+  const handleSaveCategory = async (e) => {
     e.preventDefault();
     if (!categoryForm.name) {
       alert('Please enter a category name.');
       return;
     }
 
-    // Add category
-    const newCat = addCategory({
-      name: categoryForm.name,
-      color: categoryForm.color
-    });
+    try {
+      // Add category
+      const newCat = await addCategory({
+        name: categoryForm.name,
+        color: categoryForm.color
+      });
 
-    // Set selected category in product form
-    setProductForm(prev => ({
-      ...prev,
-      category: newCat.name
-    }));
+      // Set selected category in product form
+      setProductForm(prev => ({
+        ...prev,
+        category: newCat.name
+      }));
 
-    // Reset category form & close category modal
-    setCategoryForm({
-      name: '',
-      color: '#0d9488'
-    });
-    setIsCategoryModalOpen(false);
-    setIsCategoryDropdownOpen(false);
-    loadData();
+      // Reset category form & close category modal
+      setCategoryForm({
+        name: '',
+        color: '#0d9488'
+      });
+      setIsCategoryModalOpen(false);
+      setIsCategoryDropdownOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add category');
+    }
   };
 
   const handleDeleteProduct = async (prodId) => {

@@ -1,61 +1,119 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  Monitor, 
-  Layers, 
-  PlusCircle, 
-  Grid, 
-  User, 
-  Menu, 
-  Send, 
-  ChevronRight, 
-  Trash2, 
-  IndianRupee, 
-  UserPlus, 
-  Percent 
+import {
+  Search,
+  Monitor,
+  Layers,
+  PlusCircle,
+  Grid,
+  User,
+  Menu,
+  Send,
+  ChevronRight,
+  Trash2,
+  IndianRupee,
+  UserPlus,
+  Percent
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct } from '../../utils/db';
 
-const getSafeCategoryString = (category) => {
-  if (category === null || category === undefined) {
-    console.warn('Invalid category value encountered: value is null or undefined.');
-    return '';
+const MOCK_PRODUCTS = [
+  {
+    id: 1,
+    name: 'Espresso',
+    price: 90,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Strong and bold espresso shot',
+    inStock: true
+  },
+  {
+    id: 2,
+    name: 'Cappuccino',
+    price: 120,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Espresso with steamed milk and thick foam',
+    inStock: true
+  },
+  {
+    id: 3,
+    name: 'Cafe Latte',
+    price: 130,
+    tax: 5,
+    category: 'Coffee',
+    description: 'Espresso with steamed milk and a light layer of foam',
+    inStock: true
+  },
+  {
+    id: 4,
+    name: 'Masala Tea',
+    price: 60,
+    tax: 5,
+    category: 'Tea',
+    description: 'Traditional spiced Indian tea',
+    inStock: true
+  },
+  {
+    id: 5,
+    name: 'Green Tea',
+    price: 70,
+    tax: 5,
+    category: 'Tea',
+    description: 'Healthy organic green tea',
+    inStock: true
+  },
+  {
+    id: 6,
+    name: 'Paneer Tikka Sandwich',
+    price: 150,
+    tax: 5,
+    category: 'Snacks',
+    description: 'Spicy paneer tikka stuffed in grilled bread',
+    inStock: true
+  },
+  {
+    id: 7,
+    name: 'French Fries',
+    price: 100,
+    tax: 5,
+    category: 'Snacks',
+    description: 'Crispy golden potato fries',
+    inStock: true
+  },
+  {
+    id: 8,
+    name: 'Chocolate Brownie',
+    price: 110,
+    tax: 18,
+    category: 'Desserts',
+    description: 'Fudgy chocolate brownie served warm',
+    inStock: true
   }
-  if (typeof category === 'string') {
-    return category;
-  }
-  if (typeof category === 'number') {
-    console.warn('Invalid category value encountered: value is a number.', category);
-    return String(category);
-  }
-  if (typeof category === 'object') {
-    if (category.name !== undefined && category.name !== null) {
-      return String(category.name);
-    }
-    console.warn('Invalid category value encountered: value is an object without a valid name property.', category);
-    return '';
-  }
-  console.warn('Invalid category value encountered: value is of type ' + typeof category, category);
-  return String(category);
-};
+];
+
+const MOCK_CATEGORIES = [
+  { id: 1, name: 'Coffee', color: '#ea580c' },
+  { id: 2, name: 'Tea', color: '#0d9488' },
+  { id: 3, name: 'Snacks', color: '#7c3aed' },
+  { id: 4, name: 'Desserts', color: '#d97706' }
+];
 
 const POS = ({ view = 'pos' }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Load from API
+  // Load from localStorage
   const [categoriesList, setCategoriesList] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState('');
-  const [couponList, setCouponList] = useState([]);
-  
+
   // Session Logs states
   const [logs, setLogs] = useState([]);
   const [activeRightTab, setActiveRightTab] = useState('checkout');
@@ -65,20 +123,20 @@ const POS = ({ view = 'pos' }) => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [searchOrdersQuery, setSearchOrdersQuery] = useState('');
 
-  const loadOrders = async () => {
-    try {
-      const data = await getOrders();
-      setOrdersList(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-      setOrdersList([]);
-    }
-  };
-
   useEffect(() => {
+    const loadOrders = () => {
+      const stored = localStorage.getItem('orders');
+      if (stored) {
+        try {
+          setOrdersList(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
     loadOrders();
-    const interval = setInterval(loadOrders, 5000);
-    return () => clearInterval(interval);
+    window.addEventListener('storage', loadOrders);
+    return () => window.removeEventListener('storage', loadOrders);
   }, []);
 
   // POS Products states and handlers
@@ -124,47 +182,60 @@ const POS = ({ view = 'pos' }) => {
   const [searchEmployeesQuery, setSearchEmployeesQuery] = useState('');
 
   // Combined management loader
-  const reloadManagementData = async () => {
+  const reloadManagementData = () => {
     // Payment methods
-    try {
-      const pmData = await getPaymentMethods();
-      setAllPaymentMethods(pmData);
-    } catch (e) {
-      setAllPaymentMethods([]);
+    const pmStored = localStorage.getItem('payment_methods');
+    if (pmStored) {
+      setAllPaymentMethods(JSON.parse(pmStored));
+    } else {
+      const defaultPM = [
+        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
+        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
+        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
+      ];
+      localStorage.setItem('payment_methods', JSON.stringify(defaultPM));
+      setAllPaymentMethods(defaultPM);
     }
     // Coupons list
-    try {
-      const cpData = await getCoupons();
-      setAllCouponsList(cpData);
-    } catch (e) {
-      setAllCouponsList([]);
+    const cpStored = localStorage.getItem('coupons_list');
+    if (cpStored) {
+      setAllCouponsList(JSON.parse(cpStored));
+    } else {
+      const defaultCoupons = [
+        { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
+        { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
+      ];
+      localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
+      setAllCouponsList(defaultCoupons);
     }
     // Bookings
     const bkStored = localStorage.getItem('pos_bookings');
     if (bkStored) {
-      try {
-        setBookingsList(JSON.parse(bkStored));
-      } catch (e) {
-        setBookingsList([]);
-      }
+      setBookingsList(JSON.parse(bkStored));
     } else {
-      setBookingsList([]);
+      const defaultBookings = [
+        { id: 'b_1', customerName: 'Manish Suthar', phone: '9876543210', dateTime: '2026-06-13T19:00', guests: 4, table: 'Table 4', status: 'Confirmed' },
+        { id: 'b_2', customerName: 'Aditya Raj', phone: '9988776655', dateTime: '2026-06-14T20:30', guests: 2, table: 'Table 12', status: 'Pending' }
+      ];
+      localStorage.setItem('pos_bookings', JSON.stringify(defaultBookings));
+      setBookingsList(defaultBookings);
     }
     // Employees
-    try {
-      const empData = await getEmployees();
-      setAllEmployeesList(empData);
-    } catch (e) {
-      setAllEmployeesList([]);
+    const empStored = localStorage.getItem('employees');
+    if (empStored) {
+      setAllEmployeesList(JSON.parse(empStored));
+    } else {
+      const defaultEmployees = [
+        { id: 'emp_1', name: 'Ramesh Chef', email: 'ramesh@cafe.com', role: 'Chef' },
+        { id: 'emp_2', name: 'Suresh Manager', email: 'suresh@cafe.com', role: 'Manager' }
+      ];
+      localStorage.setItem('employees', JSON.stringify(defaultEmployees));
+      setAllEmployeesList(defaultEmployees);
     }
     // Shift Attendance Logs
     const shStored = localStorage.getItem('employee_logs');
     if (shStored) {
-      try {
-        setAttendanceLogsList(JSON.parse(shStored));
-      } catch (e) {
-        setAttendanceLogsList([]);
-      }
+      setAttendanceLogsList(JSON.parse(shStored));
     }
   };
 
@@ -172,27 +243,42 @@ const POS = ({ view = 'pos' }) => {
     reloadManagementData();
   }, []);
 
-  const handleToggleStock = (prodId) => {
-    const updated = productsList.map(p => {
-      if (p.id === prodId) {
-        const newStock = !p.inStock;
-        addLogEntry(`Product "${p.name}" marked as ${newStock ? 'In Stock' : 'Out of Stock'}`, 'info');
-        return { ...p, inStock: newStock };
-      }
-      return p;
-    });
-    saveProducts(updated);
-    setProductsList(updated);
+  const handleToggleStock = async (prodId) => {
+    const prod = productsList.find(p => p.id === prodId);
+    if (!prod) return;
+    const newStock = !prod.inStock;
+    try {
+      await updateProduct(prodId, {
+        ...prod,
+        in_stock: newStock,
+      });
+      const updated = productsList.map(p => {
+        if (p.id === prodId) {
+          addLogEntry(`Product "${p.name}" marked as ${newStock ? 'In Stock' : 'Out of Stock'}`, 'info');
+          return { ...p, inStock: newStock };
+        }
+        return p;
+      });
+      setProductsList(updated);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to toggle stock status');
+    }
   };
 
-  const handleDeleteProduct = (prodId) => {
+  const handleDeleteProduct = async (prodId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       const prod = productsList.find(p => p.id === prodId);
-      const updated = productsList.filter(p => p.id !== prodId);
-      saveProducts(updated);
-      setProductsList(updated);
-      if (prod) {
-        addLogEntry(`Deleted product "${prod.name}"`, 'danger');
+      try {
+        await deleteProduct(prodId);
+        const updated = productsList.filter(p => p.id !== prodId);
+        setProductsList(updated);
+        if (prod) {
+          addLogEntry(`Deleted product "${prod.name}"`, 'danger');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete product');
       }
     }
   };
@@ -210,9 +296,9 @@ const POS = ({ view = 'pos' }) => {
     current.push(newCat);
     localStorage.setItem('categories', JSON.stringify(current));
     setNewCategoryName('');
-    
+
     // Update lists
-    setCategoriesList(current.map(c => getSafeCategoryString(c.name)).filter(Boolean));
+    setCategoriesList(current.map(c => c.name));
     addLogEntry(`Added new category: ${newCat.name}`, 'success');
     alert('Category added successfully!');
   };
@@ -222,7 +308,7 @@ const POS = ({ view = 'pos' }) => {
       const current = JSON.parse(localStorage.getItem('categories') || '[]');
       const updated = current.filter(c => c.name !== catName);
       localStorage.setItem('categories', JSON.stringify(updated));
-      setCategoriesList(updated.map(c => getSafeCategoryString(c.name)).filter(Boolean));
+      setCategoriesList(updated.map(c => c.name));
       addLogEntry(`Deleted category: ${catName}`, 'danger');
     }
   };
@@ -271,63 +357,49 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Coupons Handlers
-  const handleAddCoupon = async (e) => {
+  const handleAddCoupon = (e) => {
     e.preventDefault();
     if (!newCouponName || !newCouponCode || !newCouponValue) return;
-    try {
-      const created = await addCoupon({
-        name: newCouponName,
-        code: newCouponCode.toUpperCase(),
-        value: parseFloat(newCouponValue),
-        discount_type: newCouponDiscountType,
-        min_amount: parseFloat(newCouponMinAmount || 0),
-        activated: true
-      });
-      const list = await getCoupons();
-      setAllCouponsList(list);
-      setCouponList(list);
-      setNewCouponName('');
-      setNewCouponCode('');
-      setNewCouponValue('');
-      setNewCouponMinAmount('');
-      addLogEntry(`Added coupon code: ${created.code}`, 'success');
-      alert('Coupon added successfully!');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to add coupon');
-    }
+    const newCP = {
+      id: `cp_${Date.now()}`,
+      name: newCouponName,
+      code: newCouponCode.toUpperCase(),
+      value: parseFloat(newCouponValue),
+      discountType: newCouponDiscountType,
+      minAmount: parseFloat(newCouponMinAmount || 0),
+      activated: true
+    };
+    const updated = [...allCouponsList, newCP];
+    localStorage.setItem('coupons_list', JSON.stringify(updated));
+    setAllCouponsList(updated);
+    setNewCouponName('');
+    setNewCouponCode('');
+    setNewCouponValue('');
+    setNewCouponMinAmount('');
+    addLogEntry(`Added coupon code: ${newCP.code}`, 'success');
+    alert('Coupon added successfully!');
   };
 
-  const handleToggleCoupon = async (cpId) => {
-    const cp = allCouponsList.find(c => c.id === cpId);
-    if (!cp) return;
-    try {
-      const updated = await updateCoupon(cpId, {
-        activated: !cp.activated
-      });
-      const list = await getCoupons();
-      setAllCouponsList(list);
-      setCouponList(list);
-      addLogEntry(`Coupon ${updated.code} marked as ${updated.activated ? 'Active' : 'Inactive'}`, 'info');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to update coupon status');
-    }
-  };
-
-  const handleDeleteCoupon = async (cpId) => {
-    if (window.confirm('Are you sure you want to delete this coupon?')) {
-      try {
-        const cp = allCouponsList.find(c => c.id === cpId);
-        await deleteCoupon(cpId);
-        const list = await getCoupons();
-        setAllCouponsList(list);
-        setCouponList(list);
-        if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
-      } catch (err) {
-        console.error(err);
-        alert('Failed to delete coupon');
+  const handleToggleCoupon = (cpId) => {
+    const updated = allCouponsList.map(cp => {
+      if (cp.id === cpId) {
+        const newAct = !cp.activated;
+        addLogEntry(`Coupon ${cp.code} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
+        return { ...cp, activated: newAct };
       }
+      return cp;
+    });
+    localStorage.setItem('coupons_list', JSON.stringify(updated));
+    setAllCouponsList(updated);
+  };
+
+  const handleDeleteCoupon = (cpId) => {
+    if (window.confirm('Are you sure you want to delete this coupon?')) {
+      const cp = allCouponsList.find(c => c.id === cpId);
+      const updated = allCouponsList.filter(c => c.id !== cpId);
+      localStorage.setItem('coupons_list', JSON.stringify(updated));
+      setAllCouponsList(updated);
+      if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
     }
   };
 
@@ -378,41 +450,33 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Employees Handlers
-  const handleAddEmployee = async (e) => {
+  const handleAddEmployee = (e) => {
     e.preventDefault();
     if (!newEmpName || !newEmpEmail || !newEmpPassword) return;
-    try {
-      const created = await addEmployee({
-        name: newEmpName,
-        email: newEmpEmail,
-        role: newEmpRole,
-        password: newEmpPassword
-      });
-      const list = await getEmployees();
-      setAllEmployeesList(list);
-      setNewEmpName('');
-      setNewEmpEmail('');
-      setNewEmpPassword('');
-      addLogEntry(`Added employee: ${created.fullName || created.email} (${created.role})`, 'success');
-      alert('Employee registered successfully!');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to register employee');
-    }
+    const newEmp = {
+      id: `emp_${Date.now()}`,
+      name: newEmpName,
+      email: newEmpEmail,
+      role: newEmpRole,
+      password: newEmpPassword
+    };
+    const updated = [...allEmployeesList, newEmp];
+    localStorage.setItem('employees', JSON.stringify(updated));
+    setAllEmployeesList(updated);
+    setNewEmpName('');
+    setNewEmpEmail('');
+    setNewEmpPassword('');
+    addLogEntry(`Added employee: ${newEmp.name} (${newEmp.role})`, 'success');
+    alert('Employee registered successfully!');
   };
 
-  const handleDeleteEmployee = async (empId) => {
+  const handleDeleteEmployee = (empId) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        const emp = allEmployeesList.find(e => e.id === empId);
-        await deleteEmployee(empId);
-        const list = await getEmployees();
-        setAllEmployeesList(list);
-        if (emp) addLogEntry(`Deleted employee ${emp.fullName || emp.email}`, 'danger');
-      } catch (err) {
-        console.error(err);
-        alert('Failed to delete employee');
-      }
+      const emp = allEmployeesList.find(e => e.id === empId);
+      const updated = allEmployeesList.filter(e => e.id !== empId);
+      localStorage.setItem('employees', JSON.stringify(updated));
+      setAllEmployeesList(updated);
+      if (emp) addLogEntry(`Deleted employee ${emp.name}`, 'danger');
     }
   };
 
@@ -443,39 +507,61 @@ const POS = ({ view = 'pos' }) => {
   };
 
   useEffect(() => {
-    (async () => {
-      const [cats, prods, pmData, coupData] = await Promise.all([
-        getCategories().catch(() => []),
-        getProducts().catch(() => []),
-        getPaymentMethods().catch(() => []),
-        getCoupons().catch(() => []),
-      ]);
-      setCouponList(Array.isArray(coupData) ? coupData : []);
-      const safeCatsList = (cats || []).map(c => getSafeCategoryString(c)).filter(Boolean);
-      setCategoriesList(safeCatsList);
-      setProductsList(prods);
-      if (safeCatsList.length > 0) {
-        setSelectedCategory(safeCatsList[0]);
+    const loadInitialData = async () => {
+      try {
+        const cats = await getCategories();
+        const prods = await getProducts();
+        
+        const finalCats = cats && cats.length > 0 ? cats : MOCK_CATEGORIES;
+        const finalProds = prods && prods.length > 0 ? prods : MOCK_PRODUCTS;
+
+        setCategoriesList(finalCats.map(c => c.name));
+        setProductsList(finalProds);
+        if (finalCats.length > 0) {
+          setSelectedCategory(finalCats[0].name);
+        }
+      } catch (err) {
+        console.error("Error loading POS initial data, using mock data:", err);
+        setCategoriesList(MOCK_CATEGORIES.map(c => c.name));
+        setProductsList(MOCK_PRODUCTS);
+        setSelectedCategory(MOCK_CATEGORIES[0].name);
       }
-      const list = Array.isArray(pmData) ? pmData : [];
-      const active = list.filter(m => m.activated).map(m => ({
-        ...m,
-        name: m.name || m.type
-      }));
-      setPaymentMethods(active);
-      if (active.length > 0) {
-        setSelectedPayment(active[0].name);
-      }
-    })();
+    };
+    loadInitialData();
+
+    // Load dynamic active payment methods
+    const stored = localStorage.getItem('payment_methods');
+    let list = [];
+    if (stored) {
+      list = JSON.parse(stored);
+    } else {
+      list = [
+        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
+        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
+        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
+      ];
+      localStorage.setItem('payment_methods', JSON.stringify(list));
+    }
+    const active = list.filter(m => m.activated).map(m => ({
+      ...m,
+      name: m.name || m.type
+    }));
+    setPaymentMethods(active);
+    if (active.length > 0) {
+      setSelectedPayment(active[0].name);
+    }
 
     // Load session logs
     const storedLogs = localStorage.getItem('pos_session_logs');
     if (storedLogs) {
-      try {
-        setLogs(JSON.parse(storedLogs));
-      } catch { setLogs([]); }
+      setLogs(JSON.parse(storedLogs));
     } else {
-      setLogs([]);
+      const initialLogs = [
+        { id: 'l1', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: 'System initialization check: Passed', type: 'success' },
+        { id: 'l2', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: `POS Session started by: ${user ? user.name : 'Staff'}`, type: 'info' }
+      ];
+      setLogs(initialLogs);
+      localStorage.setItem('pos_session_logs', JSON.stringify(initialLogs));
     }
   }, []);
 
@@ -583,9 +669,9 @@ const POS = ({ view = 'pos' }) => {
     if (appliedCoupon.targetType === 'All' || !appliedCoupon.targetType) {
       discountableSum = subTotal;
     } else if (appliedCoupon.targetType === 'Category') {
-      const cat = getSafeCategoryString(appliedCoupon.targetValue).toLowerCase();
+      const cat = appliedCoupon.targetValue.toLowerCase();
       discountableSum = cart.reduce((acc, item) => {
-        if (getSafeCategoryString(item.category).toLowerCase() === cat) {
+        if (item.category && item.category.toLowerCase() === cat) {
           return acc + (item.price * item.quantity);
         }
         return acc;
@@ -611,17 +697,31 @@ const POS = ({ view = 'pos' }) => {
 
   // Automatic Promo engine
   useEffect(() => {
-    if (appliedCoupon && appliedCoupon.type === 'Coupon') return;
+    // If a coupon code is manually applied, that has precedence
+    if (appliedCoupon && appliedCoupon.type === 'Coupon') {
+      return;
+    }
 
-    getCoupons().then(list => {
-      const autoPromos = (list || []).filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= (c.minAmount || 0));
+    const stored = localStorage.getItem('coupons_list');
+    if (!stored) return;
+
+    try {
+      const list = JSON.parse(stored);
+      // Find active Automated Promos where subtotal fits
+      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= c.minAmount);
       if (autoPromos.length > 0) {
+        // Find the one with maximum benefit
         const bestPromo = autoPromos.sort((a, b) => b.value - a.value)[0];
         setAppliedCoupon(bestPromo);
-      } else if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
-        setAppliedCoupon(null);
+      } else {
+        // Clear if conditions no longer match
+        if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
+          setAppliedCoupon(null);
+        }
       }
-    }).catch(() => {});
+    } catch (e) {
+      console.error(e);
+    }
   }, [subTotal, cart]);
 
   const totalBeforeTax = Math.max(0, subTotal - discountAmount);
@@ -632,16 +732,22 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount(total.toString());
   }, [total]);
 
-  const handleApplyCouponCode = async (codeStr) => {
+  const handleApplyCouponCode = (codeStr) => {
     if (!codeStr.trim()) {
       alert('Please enter a coupon code.');
       return;
     }
+    const stored = localStorage.getItem('coupons_list');
     let couponsList = [];
-    try {
-      couponsList = await getCoupons();
-    } catch {
-      couponsList = [];
+    if (stored) {
+      couponsList = JSON.parse(stored);
+    } else {
+      couponsList = [
+        { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
+        { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
+        { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
+      ];
+      localStorage.setItem('coupons_list', JSON.stringify(couponsList));
     }
 
     const found = couponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
@@ -673,24 +779,24 @@ const POS = ({ view = 'pos' }) => {
       alert('Please fill out Name, Price and Category.');
       return;
     }
+    const newProd = {
+      name: newProdName,
+      price: parseFloat(newProdPrice),
+      category: newProdCategory,
+      description: newProdDesc || 'Custom POS Product',
+      tax: 5
+    };
     try {
-      const newProd = {
-        name: newProdName,
-        price: parseFloat(newProdPrice),
-        category: newProdCategory,
-        description: newProdDesc || 'Custom POS Product',
-        tax: 5
-      };
       const saved = await addProduct(newProd);
-      addLogEntry(`Created and added new product: ${saved.name} to ${getSafeCategoryString(saved.category)}`, 'success');
-      
+      addLogEntry(`Created and added new product: ${saved.name} to ${saved.category}`, 'success');
+
       // Refresh product lists
       const prods = await getProducts();
       setProductsList(prods);
 
       // Refresh categories in case it is new
       const cats = await getCategories();
-      setCategoriesList(cats.map(c => getSafeCategoryString(c)).filter(Boolean));
+      setCategoriesList(cats.map(c => c.name));
 
       // Clear form & close modal
       setNewProdName('');
@@ -724,22 +830,26 @@ const POS = ({ view = 'pos' }) => {
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = await addOrder({
-      table: activeTable,
-      amount: total,
-      status: 'Unpaid',
-      payment_method: '-',
-      items: orderItemsString,
-      coupon_code: appliedCoupon ? appliedCoupon.code : null,
-      discount_amount: discountAmount
-    });
-    addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
-    alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
-    setCart([]);
-    setPaidAmount('0');
-    setAppliedCoupon(null);
-    setDiscountAmount(0);
-    await loadOrders();
+    try {
+      const newOrder = await addOrder({
+        table: activeTable,
+        amount: total,
+        status: 'Unpaid',
+        paymentMethod: '-',
+        items: orderItemsString,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        discountAmount: discountAmount
+      });
+      addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
+      alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
+      setCart([]);
+      setPaidAmount('0');
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to send order to kitchen');
+    }
   };
 
   // Collect Payment (Paid)
@@ -749,33 +859,33 @@ const POS = ({ view = 'pos' }) => {
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = await addOrder({
-      table: activeTable,
-      amount: total,
-      status: 'Paid',
-      payment_method: selectedPayment,
-      items: orderItemsString,
-      coupon_code: appliedCoupon ? appliedCoupon.code : null,
-      discount_amount: discountAmount
-    });
-    addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
-    alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
-    setCart([]);
-    setPaidAmount('0');
-    setAppliedCoupon(null);
-    setDiscountAmount(0);
-    await loadOrders();
+    try {
+      const newOrder = await addOrder({
+        table: activeTable,
+        amount: total,
+        status: 'Paid',
+        paymentMethod: selectedPayment,
+        items: orderItemsString,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        discountAmount: discountAmount
+      });
+      addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
+      alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
+      setCart([]);
+      setPaidAmount('0');
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to collect payment');
+    }
   };
-  console.log(productsList);
-  console.log(productsList.map(p => getSafeCategoryString(p.category)));
+
   // Search filter
-  const filteredProducts = productsList.filter((p) => {
-    if (!p) return false;
-    const name = (p.name || '').toLowerCase();
-    const q = (searchCatalogQuery || '').toLowerCase();
-    const cat = getSafeCategoryString(p.category);
-    return name.includes(q) && (selectedCategory ? cat === selectedCategory : true);
-  });
+  const filteredProducts = productsList.filter((p) =>
+    p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase() &&
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSidebarNavigation = (path) => {
     setIsSidebarOpen(false);
@@ -1052,7 +1162,7 @@ const POS = ({ view = 'pos' }) => {
       <div style={slideSidebarStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>POS Menu</span>
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '24px', cursor: 'pointer' }}
           >
@@ -1068,7 +1178,7 @@ const POS = ({ view = 'pos' }) => {
           <button style={{ ...menuLinkStyle, backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}>Staff / Employees</button>
           <button style={{ ...menuLinkStyle, backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}>Sales Reports</button>
         </div>
-        <button 
+        <button
           onClick={handleLogout}
           style={{ ...menuLinkStyle, color: '#d9534f', borderTop: '1px solid #28211b', borderRadius: 0, marginTop: 'auto' }}
         >
@@ -1080,7 +1190,7 @@ const POS = ({ view = 'pos' }) => {
         {/* Top Header */}
         <header style={headerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div 
+            <div
               onClick={() => navigate('/pos')}
               style={{
                 backgroundColor: 'var(--border-focus)',
@@ -1095,7 +1205,7 @@ const POS = ({ view = 'pos' }) => {
             >
               Café POS
             </div>
-            
+
             {/* Search Bar */}
             <div style={{ position: 'relative', width: '280px' }}>
               <input
@@ -1120,40 +1230,73 @@ const POS = ({ view = 'pos' }) => {
           </div>
 
           <div style={headerButtonsStyle}>
-            {/* Table Dropdown selection */}
-            <select
-              value={activeTable}
-              onChange={(e) => setActiveTable(e.target.value)}
-              style={tableSelectStyle}
+            {/* Table Selection Button */}
+            <button
+              onClick={() => setIsTableModalOpen(true)}
+              style={{
+                backgroundColor: activeTable ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: activeTable ? 'var(--bg-primary)' : 'var(--text-primary)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
             >
-              <option value="Table 1">Table 1</option>
-              <option value="Table 4">Table 4</option>
-              <option value="Table 6">Table 6</option>
-              <option value="Table 12">Table 12</option>
-              <option value="Takeaway">Takeaway</option>
-            </select>
+              <Grid size={16} />
+              {activeTable ? `Table: ${activeTable}` : 'Select Table'}
+            </button>
 
-            <button style={iconBtnStyle} onClick={() => alert('Cash register drawer is open.')}>
+            {/* Customer Navigation Button */}
+            <button
+              style={{
+                ...iconBtnStyle,
+                backgroundColor: view === 'orders' ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: view === 'orders' ? 'var(--bg-primary)' : 'var(--text-primary)'
+              }}
+              onClick={() => navigate('/pos-orders')}
+              title="Go to POS Orders"
+            >
+              <User size={18} />
+            </button>
+
+            {/* Monitor/PC Navigation Button (Default POS Register) */}
+            <button
+              style={{
+                ...iconBtnStyle,
+                backgroundColor: view === 'pos' ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: view === 'pos' ? 'var(--bg-primary)' : 'var(--text-primary)'
+              }}
+              onClick={() => navigate('/pos')}
+              title="Go to POS Register"
+            >
               <Monitor size={18} />
             </button>
-            
+
             {/* Layers/Stack Navigation Button (POS Products Management) */}
-            <button 
+            <button
               style={{
                 ...iconBtnStyle,
                 backgroundColor: view === 'products' ? 'var(--border-focus)' : 'var(--bg-button)',
                 color: view === 'products' ? 'var(--bg-primary)' : 'var(--text-primary)'
-              }} 
+              }}
               onClick={() => navigate('/pos-products')}
               title="Go to POS Products Management"
             >
               <Layers size={18} />
             </button>
-            
+
             {/* Theme Toggle Button */}
-            <button 
-              style={iconBtnStyle} 
-              onClick={toggleTheme} 
+            <button
+              style={iconBtnStyle}
+              onClick={toggleTheme}
               title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -1187,21 +1330,21 @@ const POS = ({ view = 'pos' }) => {
             {/* Search and Title row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Orders History</h2>
-              
+
               {/* Search input for orders */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 transition: 'border-color 0.2s',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search by Customer Name, Order ID, or Date..."
                   value={searchOrdersQuery}
@@ -1254,7 +1397,7 @@ const POS = ({ view = 'pos' }) => {
                       const customer = (ord.customerName || 'Walk-in Customer').toLowerCase();
                       const orderId = (ord.id || '').toLowerCase();
                       const table = (ord.table || 'Takeaway').toLowerCase();
-                      
+
                       const dateObj = new Date(ord.dateTime);
                       const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
                       const dateFull = dateObj.toLocaleDateString().toLowerCase();
@@ -1282,9 +1425,9 @@ const POS = ({ view = 'pos' }) => {
                       const dateObj = new Date(ord.dateTime);
                       const dateFormatted = `${dateObj.getDate()}/${dateObj.getMonth() + 1} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
                       const isPaid = ord.status === 'Paid';
-                      
+
                       return (
-                        <tr 
+                        <tr
                           key={ord.id}
                           onClick={() => setSelectedOrderDetails(ord)}
                           style={{
@@ -1326,21 +1469,21 @@ const POS = ({ view = 'pos' }) => {
             {/* Products Page Header / Title */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Products Management</h2>
-              
+
               {/* Search input for products catalog */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 transition: 'border-color 0.2s',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search products by name or category..."
                   value={searchCatalogQuery}
@@ -1361,7 +1504,7 @@ const POS = ({ view = 'pos' }) => {
 
             {/* Split layout: Left column Add Form, Right column Catalog List */}
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Add Product Form Card */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -1375,31 +1518,31 @@ const POS = ({ view = 'pos' }) => {
                 <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
                   Add New Product
                 </h3>
-                
+
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!newProdName || !newProdPrice || !newProdCategory) {
                     alert('Please fill out Name, Price and Category.');
                     return;
                   }
+                  const newProd = {
+                    name: newProdName,
+                    price: parseFloat(newProdPrice),
+                    category: newProdCategory,
+                    description: newProdDesc || 'Custom POS Product',
+                    tax: 5
+                  };
                   try {
-                    const newProd = {
-                      name: newProdName,
-                      price: parseFloat(newProdPrice),
-                      category: newProdCategory,
-                      description: newProdDesc || 'Custom POS Product',
-                      tax: 5
-                    };
                     const saved = await addProduct(newProd);
-                    addLogEntry(`Created and added new product: ${saved.name} to ${getSafeCategoryString(saved.category)}`, 'success');
-                    
+                    addLogEntry(`Created and added new product: ${saved.name} to ${saved.category}`, 'success');
+
                     // Refresh product lists
                     const prods = await getProducts();
                     setProductsList(prods);
 
                     // Refresh categories list
                     const cats = await getCategories();
-                    setCategoriesList(cats.map(c => getSafeCategoryString(c)).filter(Boolean));
+                    setCategoriesList(cats.map(c => c.name));
 
                     // Clear form
                     setNewProdName('');
@@ -1412,7 +1555,7 @@ const POS = ({ view = 'pos' }) => {
                     alert('Failed to add product');
                   }
                 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
-                  
+
                   {/* Name */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Product Name *</label>
@@ -1475,10 +1618,9 @@ const POS = ({ view = 'pos' }) => {
                       }}
                     >
                       <option value="">Select Category</option>
-                      {categoriesList.map(cat => {
-                        const catStr = getSafeCategoryString(cat);
-                        return <option key={catStr} value={catStr}>{catStr}</option>;
-                      })}
+                      {categoriesList.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -1552,10 +1694,9 @@ const POS = ({ view = 'pos' }) => {
                   <tbody>
                     {(() => {
                       const filtered = productsList.filter((prod) => {
-                        if (!prod) return false;
-                        const q = (searchCatalogQuery || '').toLowerCase();
+                        const q = searchCatalogQuery.toLowerCase();
                         const name = (prod.name || '').toLowerCase();
-                        const cat = getSafeCategoryString(prod.category).toLowerCase();
+                        const cat = (prod.category || '').toLowerCase();
                         return name.includes(q) || cat.includes(q);
                       });
 
@@ -1571,7 +1712,7 @@ const POS = ({ view = 'pos' }) => {
 
                       return filtered.map((prod) => {
                         return (
-                          <tr 
+                          <tr
                             key={prod.id}
                             style={{
                               borderBottom: '1.5px solid var(--border-color)',
@@ -1581,7 +1722,7 @@ const POS = ({ view = 'pos' }) => {
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >
                             <td style={{ ...tdStyle, fontWeight: '700' }}>{prod.name}</td>
-                            <td style={tdStyle}>{getSafeCategoryString(prod.category)}</td>
+                            <td style={tdStyle}>{prod.category}</td>
                             <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{prod.price}</td>
                             <td style={tdStyle}>
                               <span style={{
@@ -1649,18 +1790,18 @@ const POS = ({ view = 'pos' }) => {
             {/* Categories Page Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Categories Management</h2>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search categories..."
                   value={searchCategoriesQuery}
@@ -1681,7 +1822,7 @@ const POS = ({ view = 'pos' }) => {
 
             {/* Split layout */}
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Add Category Form */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -1776,11 +1917,9 @@ const POS = ({ view = 'pos' }) => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = categoriesList.filter(cat => {
-                        const catStr = getSafeCategoryString(cat).toLowerCase();
-                        const query = (searchCategoriesQuery || '').toLowerCase();
-                        return catStr.includes(query);
-                      });
+                      const filtered = categoriesList.filter(cat =>
+                        cat.toLowerCase().includes(searchCategoriesQuery.toLowerCase())
+                      );
                       if (filtered.length === 0) {
                         return (
                           <tr>
@@ -1833,18 +1972,18 @@ const POS = ({ view = 'pos' }) => {
             {/* Payment Methods Page */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Payment Methods</h2>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search payment methods..."
                   value={searchPaymentQuery}
@@ -1864,7 +2003,7 @@ const POS = ({ view = 'pos' }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Add Payment Method */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -1979,7 +2118,7 @@ const POS = ({ view = 'pos' }) => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = allPaymentMethods.filter(pm => 
+                      const filtered = allPaymentMethods.filter(pm =>
                         (pm.name || '').toLowerCase().includes(searchPaymentQuery.toLowerCase()) ||
                         (pm.type || '').toLowerCase().includes(searchPaymentQuery.toLowerCase())
                       );
@@ -2054,18 +2193,18 @@ const POS = ({ view = 'pos' }) => {
             {/* Coupons & Promotions Page */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Coupons & Promos</h2>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search coupons by code or name..."
                   value={searchCouponsQuery}
@@ -2085,7 +2224,7 @@ const POS = ({ view = 'pos' }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Add Coupon Form */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -2241,7 +2380,7 @@ const POS = ({ view = 'pos' }) => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = allCouponsList.filter(cp => 
+                      const filtered = allCouponsList.filter(cp =>
                         (cp.name || '').toLowerCase().includes(searchCouponsQuery.toLowerCase()) ||
                         (cp.code || '').toLowerCase().includes(searchCouponsQuery.toLowerCase())
                       );
@@ -2317,18 +2456,18 @@ const POS = ({ view = 'pos' }) => {
             {/* Bookings & Reservations Page */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Bookings & Reservations</h2>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search bookings by customer name..."
                   value={searchBookingsQuery}
@@ -2348,7 +2487,7 @@ const POS = ({ view = 'pos' }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Add Booking Form */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -2504,7 +2643,7 @@ const POS = ({ view = 'pos' }) => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = bookingsList.filter(bk => 
+                      const filtered = bookingsList.filter(bk =>
                         (bk.customerName || '').toLowerCase().includes(searchBookingsQuery.toLowerCase())
                       );
                       if (filtered.length === 0) {
@@ -2528,12 +2667,12 @@ const POS = ({ view = 'pos' }) => {
                               fontWeight: '800',
                               padding: '4px 10px',
                               borderRadius: '6px',
-                              backgroundColor: 
-                                bk.status === 'Confirmed' ? 'rgba(16, 185, 129, 0.1)' : 
-                                bk.status === 'Pending' ? 'rgba(234, 88, 12, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                              color: 
-                                bk.status === 'Confirmed' ? '#10b981' : 
-                                bk.status === 'Pending' ? '#ea580c' : '#ef4444'
+                              backgroundColor:
+                                bk.status === 'Confirmed' ? 'rgba(16, 185, 129, 0.1)' :
+                                  bk.status === 'Pending' ? 'rgba(234, 88, 12, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color:
+                                bk.status === 'Confirmed' ? '#10b981' :
+                                  bk.status === 'Pending' ? '#ea580c' : '#ef4444'
                             }}>
                               {bk.status}
                             </span>
@@ -2604,18 +2743,18 @@ const POS = ({ view = 'pos' }) => {
             {/* Employees Management Page */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>Staff Attendance & Employees Directory</h2>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                backgroundColor: 'var(--input-bg)', 
-                border: '1.5px solid var(--border-color)', 
-                borderRadius: '20px', 
-                padding: '10px 18px', 
-                width: '450px', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--input-bg)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '10px 18px',
+                width: '450px',
                 position: 'relative'
               }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search staff members..."
                   value={searchEmployeesQuery}
@@ -2635,7 +2774,7 @@ const POS = ({ view = 'pos' }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
-              
+
               {/* Left Column: Register Employee */}
               <div style={{
                 backgroundColor: 'var(--bg-card)',
@@ -2750,7 +2889,7 @@ const POS = ({ view = 'pos' }) => {
 
               {/* Right Column: Employees Directory & Shift Attendance Lists */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                
+
                 {/* Employees Directory Table */}
                 <div style={{
                   backgroundColor: 'var(--bg-card)',
@@ -2774,7 +2913,7 @@ const POS = ({ view = 'pos' }) => {
                     </thead>
                     <tbody>
                       {(() => {
-                        const filtered = allEmployeesList.filter(emp => 
+                        const filtered = allEmployeesList.filter(emp =>
                           (emp.name || '').toLowerCase().includes(searchEmployeesQuery.toLowerCase()) ||
                           (emp.role || '').toLowerCase().includes(searchEmployeesQuery.toLowerCase())
                         );
@@ -2798,12 +2937,12 @@ const POS = ({ view = 'pos' }) => {
                                 padding: '4px 10px',
                                 borderRadius: '6px',
                                 textTransform: 'uppercase',
-                                backgroundColor: 
-                                  emp.role === 'Manager' ? 'rgba(239, 68, 68, 0.15)' : 
-                                  emp.role === 'Chef' ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.15)',
-                                color: 
-                                  emp.role === 'Manager' ? '#ef4444' : 
-                                  emp.role === 'Chef' ? '#ea580c' : '#2563eb'
+                                backgroundColor:
+                                  emp.role === 'Manager' ? 'rgba(239, 68, 68, 0.15)' :
+                                    emp.role === 'Chef' ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.15)',
+                                color:
+                                  emp.role === 'Manager' ? '#ef4444' :
+                                    emp.role === 'Chef' ? '#ea580c' : '#2563eb'
                               }}>
                                 {emp.role}
                               </span>
@@ -2913,7 +3052,7 @@ const POS = ({ view = 'pos' }) => {
             {/* POS Analytics & Reports page */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Business Reports & Dashboard</h2>
-              <button 
+              <button
                 onClick={reloadManagementData}
                 style={{
                   padding: '10px 16px',
@@ -2947,10 +3086,10 @@ const POS = ({ view = 'pos' }) => {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                  
+
                   {/* Top Stats Cards row */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-                    
+
                     {/* Revenue Card */}
                     <div style={{
                       padding: '24px',
@@ -3011,7 +3150,7 @@ const POS = ({ view = 'pos' }) => {
 
                   {/* Payment Distribution and Session Logs Section */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', alignItems: 'start' }}>
-                    
+
                     {/* Payment Distribution Card */}
                     <div style={{
                       backgroundColor: 'var(--bg-card)',
@@ -3038,10 +3177,10 @@ const POS = ({ view = 'pos' }) => {
                                 <div style={{
                                   width: `${percentage}%`,
                                   height: '100%',
-                                  backgroundColor: 
-                                    method === 'UPI' ? '#0d9488' : 
-                                    method === 'Cash' ? '#ea580c' : 
-                                    method === 'Card' ? '#7c3aed' : '#ef4444',
+                                  backgroundColor:
+                                    method === 'UPI' ? '#0d9488' :
+                                      method === 'Cash' ? '#ea580c' :
+                                        method === 'Card' ? '#7c3aed' : '#ef4444',
                                   borderRadius: '4px'
                                 }} />
                               </div>
@@ -3081,11 +3220,10 @@ const POS = ({ view = 'pos' }) => {
                             padding: '8px 12px',
                             borderRadius: '8px',
                             backgroundColor: 'var(--bg-primary)',
-                            borderLeft: `4px solid ${
-                              log.type === 'success' ? '#10b981' : 
-                              log.type === 'warning' ? '#ea580c' : 
-                              log.type === 'danger' ? '#ef4444' : 'var(--text-secondary)'
-                            }`,
+                            borderLeft: `4px solid ${log.type === 'success' ? '#10b981' :
+                              log.type === 'warning' ? '#ea580c' :
+                                log.type === 'danger' ? '#ef4444' : 'var(--text-secondary)'
+                              }`,
                             fontSize: '13px',
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -3112,533 +3250,530 @@ const POS = ({ view = 'pos' }) => {
           </div>
         ) : (
           <div style={bodyGridStyle}>
-            
+
             {!activeTable ? (
-            <div style={{
-              gridColumn: 'span 2',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '40px',
-              backgroundColor: 'rgba(0, 0, 0, 0.15)',
-              borderRadius: '16px',
-              margin: '20px',
-              border: '2px dashed var(--border-color)',
-              color: 'var(--text-secondary)',
-              gap: '20px',
-              textAlign: 'center'
-            }}>
               <div style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                gridColumn: 'span 2',
                 display: 'flex',
-                alignItems: 'center',
+                flexDirection: 'column',
                 justifyContent: 'center',
-                color: 'var(--border-focus)',
-                marginBottom: '10px'
+                alignItems: 'center',
+                padding: '40px',
+                backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                borderRadius: '16px',
+                margin: '20px',
+                border: '2px dashed var(--border-color)',
+                color: 'var(--text-secondary)',
+                gap: '20px',
+                textAlign: 'center'
               }}>
-                <Grid size={40} />
-              </div>
-              <h2 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '800' }}>Select Table First</h2>
-              <p style={{ maxWidth: '440px', fontSize: '15px', lineHeight: '1.6' }}>
-                Please choose a dining table from the floor plan layout first to display menu products and start building the active order.
-              </p>
-              <button
-                onClick={() => setIsTableModalOpen(true)}
-                style={{
-                  backgroundColor: 'var(--border-focus)',
-                  color: 'var(--bg-primary)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '14px 28px',
-                  fontSize: '15px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
-              >
-                Choose Table / Floor Plan
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Categories Sidebar */}
-              <div style={categorySidebarStyle}>
-                {categoriesList.map((cat) => {
-                  const catStr = getSafeCategoryString(cat);
-                  return (
-                    <button
-                      key={catStr}
-                      style={catBtnStyle(selectedCategory === catStr)}
-                      onClick={() => setSelectedCategory(catStr)}
-                    >
-                      {catStr}
-                    </button>
-                  );
-                })}
-                
-                {user?.role === 'admin' && (
-                  <button
-                    onClick={() => setIsAddProductModalOpen(true)}
-                    style={{
-                      marginTop: 'auto',
-                      backgroundColor: 'transparent',
-                      border: '1.5px dashed var(--border-color)',
-                      color: 'var(--text-secondary)',
-                      padding: '10px 8px',
-                      borderRadius: '10px',
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.borderColor = 'var(--border-focus)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.borderColor = 'var(--border-color)';
-                    }}
-                  >
-                    <PlusCircle size={14} />
-                    Add Product
-                  </button>
-                )}
-              </div>
-
-              {/* Product Items Grid */}
-              <div style={productsContainerStyle}>
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    style={productCardStyle(p.inStock)}
-                    onClick={() => addToCart(p)}
-                    onMouseEnter={(e) => {
-                      if (p.inStock) {
-                        e.currentTarget.style.borderColor = 'var(--border-focus)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (p.inStock) {
-                        e.currentTarget.style.borderColor = 'transparent';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }
-                    }}
-                  >
-                    {/* Stock status indicator dot */}
-                    <div style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: p.inStock ? '#10b981' : '#ef4444',
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                    }} />
-                    
-                    <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                      {p.name}
-                    </span>
-                    <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-link)' }}>
-                      ₹{p.price}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Shopping Cart List */}
-          <div style={cartPanelStyle}>
-            <div style={cartListStyle}>
-              {cart.map((item) => (
-                <div key={item.id} style={cartItemStyle}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', flex: 1 }}>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.name}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>₹{item.price} each</span>
-                  </div>
-                  
-                  {/* Quantity adjustment controls */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      style={{
-                        backgroundColor: 'var(--bg-button)',
-                        border: 'none',
-                        color: 'var(--text-primary)',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: '700',
-                      }}
-                    >
-                      -
-                    </button>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', width: '16px' }}>
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      style={{
-                        backgroundColor: 'var(--bg-button)',
-                        border: 'none',
-                        color: 'var(--text-primary)',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: '700',
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
-                  
-                  <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginLeft: '8px', minWidth: '40px', textAlign: 'right' }}>
-                    ₹{item.price * item.quantity}
-                  </span>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--border-focus)',
+                  marginBottom: '10px'
+                }}>
+                  <Grid size={40} />
                 </div>
-              ))}
-            </div>
-
-            {/* Calculations & Send to Kitchen */}
-            <div style={{
-              backgroundColor: 'var(--bg-card)',
-              borderTop: '1px solid var(--border-color)',
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
-            }}>
-              {/* Actions row */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {/* Send to Kitchen button */}
+                <h2 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '800' }}>Select Table First</h2>
+                <p style={{ maxWidth: '440px', fontSize: '15px', lineHeight: '1.6' }}>
+                  Please choose a dining table from the floor plan layout first to display menu products and start building the active order.
+                </p>
                 <button
-                  onClick={sendToKitchen}
+                  onClick={() => setIsTableModalOpen(true)}
                   style={{
-                    width: '100%',
-                    backgroundColor: 'var(--bg-button)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all var(--transition-speed)',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
-                >
-                  <Send size={15} />
-                  Send to Kitchen (Unpaid)
-                </button>
-
-                {/* Collect Payment button */}
-                <button
-                  onClick={collectPayment}
-                  style={{
-                    width: '100%',
                     backgroundColor: 'var(--border-focus)',
                     color: 'var(--bg-primary)',
                     border: 'none',
                     borderRadius: '12px',
-                    padding: '14px',
+                    padding: '14px 28px',
                     fontSize: '15px',
-                    fontWeight: '700',
+                    fontWeight: '800',
                     cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all var(--transition-speed)',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+                    transition: 'all 0.2s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
                   onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                 >
-                  <IndianRupee size={16} />
-                  Collect Payment (Paid)
+                  Choose Table / Floor Plan
                 </button>
               </div>
- 
-              {/* Utility buttons row */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={() => navigate('/pos-orders')}
-                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                >
-                  Customer
-                </button>
-                <button 
-                  onClick={() => setIsDiscountModalOpen(true)}
-                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                >
-                  Discount
-                </button>
-                <button 
-                  onClick={() => alert('Order printed.')}
-                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                >
-                  Send
-                </button>
-              </div>
- 
-              {/* Calculation math rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', transition: 'border-color var(--transition-speed)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Sub total</span>
-                  <span>₹{subTotal}</span>
+            ) : (
+              <>
+                {/* Categories Sidebar */}
+                <div style={categorySidebarStyle}>
+                  {categoriesList.map((cat) => (
+                    <button
+                      key={cat}
+                      style={catBtnStyle(selectedCategory === cat)}
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => setIsAddProductModalOpen(true)}
+                      style={{
+                        marginTop: 'auto',
+                        backgroundColor: 'transparent',
+                        border: '1.5px dashed var(--border-color)',
+                        color: 'var(--text-secondary)',
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                        e.currentTarget.style.borderColor = 'var(--border-focus)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                      }}
+                    >
+                      <PlusCircle size={14} />
+                      Add Product
+                    </button>
+                  )}
                 </div>
-                {appliedCoupon && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>Discount ({appliedCoupon.code || 'Auto Promo'})</span>
-                      <button 
-                        onClick={handleClearCoupon}
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', padding: '0 2px', fontWeight: '700' }}
-                        title="Remove coupon"
+
+                {/* Product Items Grid */}
+                <div style={productsContainerStyle}>
+                  {filteredProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      style={productCardStyle(p.inStock)}
+                      onClick={() => addToCart(p)}
+                      onMouseEnter={(e) => {
+                        if (p.inStock) {
+                          e.currentTarget.style.borderColor = 'var(--border-focus)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (p.inStock) {
+                          e.currentTarget.style.borderColor = 'transparent';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }
+                      }}
+                    >
+                      {/* Stock status indicator dot */}
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: p.inStock ? '#10b981' : '#ef4444',
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                      }} />
+
+                      <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                        {p.name}
+                      </span>
+                      <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-link)' }}>
+                        ₹{p.price}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Shopping Cart List */}
+            <div style={cartPanelStyle}>
+              <div style={cartListStyle}>
+                {cart.map((item) => (
+                  <div key={item.id} style={cartItemStyle}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', flex: 1 }}>
+                      <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.name}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>₹{item.price} each</span>
+                    </div>
+
+                    {/* Quantity adjustment controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        onClick={() => updateQuantity(item.id, -1)}
+                        style={{
+                          backgroundColor: 'var(--bg-button)',
+                          border: 'none',
+                          color: 'var(--text-primary)',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontWeight: '700',
+                        }}
                       >
-                        [Clear]
+                        -
+                      </button>
+                      <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', width: '16px' }}>
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(item.id, 1)}
+                        style={{
+                          backgroundColor: 'var(--bg-button)',
+                          border: 'none',
+                          color: 'var(--text-primary)',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontWeight: '700',
+                        }}
+                      >
+                        +
                       </button>
                     </div>
-                    <span>-₹{discountAmount}</span>
+
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginLeft: '8px', minWidth: '40px', textAlign: 'right' }}>
+                      ₹{item.price * item.quantity}
+                    </span>
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Tax(GST 5%)</span>
-                  <span>₹{tax}</span>
+                ))}
+              </div>
+
+              {/* Calculations & Send to Kitchen */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                borderTop: '1px solid var(--border-color)',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
+              }}>
+                {/* Actions row */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Send to Kitchen button */}
+                  <button
+                    onClick={sendToKitchen}
+                    style={{
+                      width: '100%',
+                      backgroundColor: 'var(--bg-button)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all var(--transition-speed)',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button-hover)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
+                  >
+                    <Send size={15} />
+                    Send to Kitchen (Unpaid)
+                  </button>
+
+                  {/* Collect Payment button */}
+                  <button
+                    onClick={collectPayment}
+                    style={{
+                      width: '100%',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all var(--transition-speed)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+                    onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+                  >
+                    <IndianRupee size={16} />
+                    Collect Payment (Paid)
+                  </button>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '16px', color: 'var(--text-primary)', marginTop: '4px', transition: 'color var(--transition-speed)' }}>
-                  <span>Total</span>
-                  <span>₹{total}</span>
+
+                {/* Utility buttons row */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => navigate('/pos-orders')}
+                    style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Customer
+                  </button>
+                  <button
+                    onClick={() => setIsDiscountModalOpen(true)}
+                    style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Discount
+                  </button>
+                  <button
+                    onClick={() => alert('Order printed.')}
+                    style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Send
+                  </button>
+                </div>
+
+                {/* Calculation math rows */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', transition: 'border-color var(--transition-speed)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                    <span>Sub total</span>
+                    <span>₹{subTotal}</span>
+                  </div>
+                  {appliedCoupon && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>Discount ({appliedCoupon.code || 'Auto Promo'})</span>
+                        <button
+                          onClick={handleClearCoupon}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', padding: '0 2px', fontWeight: '700' }}
+                          title="Remove coupon"
+                        >
+                          [Clear]
+                        </button>
+                      </div>
+                      <span>-₹{discountAmount}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                    <span>Tax(GST 5%)</span>
+                    <span>₹{tax}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '16px', color: 'var(--text-primary)', marginTop: '4px', transition: 'color var(--transition-speed)' }}>
+                    <span>Total</span>
+                    <span>₹{total}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Payment Panel */}
-          <div style={paymentPanelStyle}>
-            {/* Header Tabs inside Payment Panel */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
-              <button 
-                onClick={() => setActiveRightTab('checkout')}
-                style={{
-                  flex: 1,
-                  padding: '12px 6px',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  borderBottom: activeRightTab === 'checkout' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
-                  color: activeRightTab === 'checkout' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  fontSize: '13.5px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Checkout
-              </button>
-              <button 
-                onClick={() => setActiveRightTab('logs')}
-                style={{
-                  flex: 1,
-                  padding: '12px 6px',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  borderBottom: activeRightTab === 'logs' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
-                  color: activeRightTab === 'logs' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  fontSize: '13.5px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Session Logs
-              </button>
-            </div>
-
-            {activeRightTab === 'checkout' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
-                {/* Quick Payment Selection */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {paymentMethods.length === 0 ? (
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active payment methods.</span>
-                    ) : (
-                      paymentMethods.map((method) => (
-                        <button
-                          key={method.id}
-                          style={{
-                            ...payMethodBtnStyle(selectedPayment === method.name),
-                            flex: '1 1 calc(50% - 4px)',
-                            minWidth: '95px'
-                          }}
-                          onClick={() => setSelectedPayment(method.name)}
-                        >
-                          {method.type === 'Cash' && <IndianRupee size={15} />}
-                          {method.type === 'Card' && <Percent size={15} />}
-                          {method.type === 'UPI' && <UserPlus size={15} />}
-                          {method.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Paid Amount indicator */}
-                <div style={{ margin: '14px 0', textAlign: 'left' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Amount</span>
-                  <div style={{
-                    fontSize: '32px',
+            {/* Payment Panel */}
+            <div style={paymentPanelStyle}>
+              {/* Header Tabs inside Payment Panel */}
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
+                <button
+                  onClick={() => setActiveRightTab('checkout')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 6px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderBottom: activeRightTab === 'checkout' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
+                    color: activeRightTab === 'checkout' ? 'var(--text-primary)' : 'var(--text-secondary)',
                     fontWeight: '800',
-                    color: 'var(--text-primary)',
-                    borderBottom: '2px solid var(--border-color)',
-                    paddingBottom: '8px',
-                    marginTop: '6px',
-                    transition: 'color var(--transition-speed), border-color var(--transition-speed)',
-                  }}>
-                    ₹{paidAmount}
-                  </div>
-                </div>
+                    cursor: 'pointer',
+                    fontSize: '13.5px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Checkout
+                </button>
+                <button
+                  onClick={() => setActiveRightTab('logs')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 6px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderBottom: activeRightTab === 'logs' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
+                    color: activeRightTab === 'logs' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    fontSize: '13.5px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Session Logs
+                </button>
+              </div>
 
-                {/* Numeric Numpad */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '8px',
-                }}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              {activeRightTab === 'checkout' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                  {/* Quick Payment Selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {paymentMethods.length === 0 ? (
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active payment methods.</span>
+                      ) : (
+                        paymentMethods.map((method) => (
+                          <button
+                            key={method.id}
+                            style={{
+                              ...payMethodBtnStyle(selectedPayment === method.name),
+                              flex: '1 1 calc(50% - 4px)',
+                              minWidth: '95px'
+                            }}
+                            onClick={() => setSelectedPayment(method.name)}
+                          >
+                            {method.type === 'Cash' && <IndianRupee size={15} />}
+                            {method.type === 'Card' && <Percent size={15} />}
+                            {method.type === 'UPI' && <UserPlus size={15} />}
+                            {method.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Paid Amount indicator */}
+                  <div style={{ margin: '14px 0', textAlign: 'left' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Amount</span>
+                    <div style={{
+                      fontSize: '32px',
+                      fontWeight: '800',
+                      color: 'var(--text-primary)',
+                      borderBottom: '2px solid var(--border-color)',
+                      paddingBottom: '8px',
+                      marginTop: '6px',
+                      transition: 'color var(--transition-speed), border-color var(--transition-speed)',
+                    }}>
+                      ₹{paidAmount}
+                    </div>
+                  </div>
+
+                  {/* Numeric Numpad */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '8px',
+                  }}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                      <button
+                        key={num}
+                        style={numpadButtonStyle}
+                        onClick={() => handleNumpadClick(num)}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                      >
+                        {num}
+                      </button>
+                    ))}
+
                     <button
-                      key={num}
                       style={numpadButtonStyle}
-                      onClick={() => handleNumpadClick(num)}
+                      onClick={() => handleNumpadClick('0')}
                       onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
                       onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
                     >
-                      {num}
+                      0
                     </button>
-                  ))}
-                  
-                  <button
-                    style={numpadButtonStyle}
-                    onClick={() => handleNumpadClick('0')}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
-                  >
-                    0
-                  </button>
 
-                  <button
-                    style={numpadButtonStyle}
-                    onClick={() => handleNumpadClick('+/-')}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
-                  >
-                    +/-
-                  </button>
+                    <button
+                      style={numpadButtonStyle}
+                      onClick={() => handleNumpadClick('+/-')}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                    >
+                      +/-
+                    </button>
 
-                  <button
-                    style={{ ...numpadButtonStyle, backgroundColor: '#d9534f', color: '#ffffff' }}
-                    onClick={() => handleNumpadClick('x')}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#c9302c'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#d9534f'}
-                  >
-                    &larr;
-                  </button>
-                </div>
-
-                {/* Quick Action Payment options */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '10px' }}>
-                  <button 
-                    onClick={() => alert(`Prices set to base.`)}
-                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                  >
-                    Prices
-                  </button>
-                  <button 
-                    onClick={() => setIsDiscountModalOpen(true)}
-                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                  >
-                    Disc.
-                  </button>
-                  <button 
-                    onClick={() => alert(`Quantity multiplier ready.`)}
-                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-                  >
-                    Qty
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                height: '100%',
-                maxHeight: '440px',
-                overflowY: 'auto',
-                backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                borderRadius: '12px',
-                padding: '12px',
-                border: '1.5px solid var(--border-color)',
-                textAlign: 'left',
-                fontFamily: 'monospace',
-                fontSize: '12px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
-                  <span style={{ fontWeight: '800', color: 'var(--text-secondary)' }}>Log Feed</span>
-                  <button 
-                    onClick={() => {
-                      localStorage.removeItem('pos_session_logs');
-                      setLogs([]);
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
-                  >
-                    Clear Logs
-                  </button>
-                </div>
-                {logs.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
-                    No logs recorded in this session.
+                    <button
+                      style={{ ...numpadButtonStyle, backgroundColor: '#d9534f', color: '#ffffff' }}
+                      onClick={() => handleNumpadClick('x')}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#c9302c'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#d9534f'}
+                    >
+                      &larr;
+                    </button>
                   </div>
-                ) : (
-                  logs.map((log) => {
-                    let typeColor = 'var(--text-secondary)';
-                    if (log.type === 'success') typeColor = '#10b981';
-                    if (log.type === 'warning') typeColor = '#f97316';
-                    if (log.type === 'danger') typeColor = '#ef4444';
 
-                    return (
-                      <div key={log.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '6px', lineHeight: '1.4' }}>
-                        <span style={{ color: 'var(--text-link)', marginRight: '6px' }}>[{log.time}]</span>
-                        <span style={{ color: typeColor }}>{log.message}</span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+                  {/* Quick Action Payment options */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '10px' }}>
+                    <button
+                      onClick={() => alert(`Prices set to base.`)}
+                      style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                    >
+                      Prices
+                    </button>
+                    <button
+                      onClick={() => setIsDiscountModalOpen(true)}
+                      style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                    >
+                      Disc.
+                    </button>
+                    <button
+                      onClick={() => alert(`Quantity multiplier ready.`)}
+                      style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                    >
+                      Qty
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  height: '100%',
+                  maxHeight: '440px',
+                  overflowY: 'auto',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  border: '1.5px solid var(--border-color)',
+                  textAlign: 'left',
+                  fontFamily: 'monospace',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
+                    <span style={{ fontWeight: '800', color: 'var(--text-secondary)' }}>Log Feed</span>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('pos_session_logs');
+                        setLogs([]);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+                    >
+                      Clear Logs
+                    </button>
+                  </div>
+                  {logs.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                      No logs recorded in this session.
+                    </div>
+                  ) : (
+                    logs.map((log) => {
+                      let typeColor = 'var(--text-secondary)';
+                      if (log.type === 'success') typeColor = '#10b981';
+                      if (log.type === 'warning') typeColor = '#f97316';
+                      if (log.type === 'danger') typeColor = '#ef4444';
+
+                      return (
+                        <div key={log.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '6px', lineHeight: '1.4' }}>
+                          <span style={{ color: 'var(--text-link)', marginRight: '6px' }}>[{log.time}]</span>
+                          <span style={{ color: typeColor }}>{log.message}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
-
-        </div>
         )}
       </div>
 
@@ -3669,7 +3804,7 @@ const POS = ({ view = 'pos' }) => {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
               <span style={{ fontSize: '18px', fontWeight: '800' }}>Apply Coupon / Discount</span>
-              <button 
+              <button
                 onClick={() => {
                   setIsDiscountModalOpen(false);
                   setCouponInput('');
@@ -3730,7 +3865,10 @@ const POS = ({ view = 'pos' }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
               <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Available Store Coupons:</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                {(couponList || []).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
+                {(JSON.parse(localStorage.getItem('coupons_list')) || [
+                  { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
+                  { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
+                ]).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
                   <button
                     key={coupon.id}
                     onClick={() => {
@@ -3778,7 +3916,7 @@ const POS = ({ view = 'pos' }) => {
                 ))}
               </div>
             </div>
-            
+
             {appliedCoupon && (
               <button
                 onClick={() => {
@@ -3835,7 +3973,7 @@ const POS = ({ view = 'pos' }) => {
                 <h3 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Select Table & Floor Plan</h3>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Choose an active table session to start ordering</span>
               </div>
-              <button 
+              <button
                 onClick={() => setIsTableModalOpen(false)}
                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
               >
@@ -4003,7 +4141,7 @@ const POS = ({ view = 'pos' }) => {
           alignItems: 'center',
           zIndex: 1100
         }}>
-          <form 
+          <form
             onSubmit={handleAddNewProduct}
             style={{
               width: '450px',
@@ -4023,7 +4161,7 @@ const POS = ({ view = 'pos' }) => {
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Add New POS Product</h3>
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsAddProductModalOpen(false)}
                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
@@ -4095,10 +4233,9 @@ const POS = ({ view = 'pos' }) => {
                 }}
               >
                 <option value="">Select Category</option>
-                {categoriesList.map(cat => {
-                  const catStr = getSafeCategoryString(cat);
-                  return <option key={catStr} value={catStr}>{catStr}</option>;
-                })}
+                {categoriesList.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
             </div>
 
@@ -4196,7 +4333,7 @@ const POS = ({ view = 'pos' }) => {
                   {new Date(selectedOrderDetails.dateTime).toLocaleString()}
                 </span>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedOrderDetails(null)}
                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
               >
@@ -4234,10 +4371,10 @@ const POS = ({ view = 'pos' }) => {
               </div>
 
               {/* Items Summary list */}
-              <div style={{ 
-                borderTop: '1px dashed var(--border-color)', 
-                borderBottom: '1px dashed var(--border-color)', 
-                padding: '12px 0', 
+              <div style={{
+                borderTop: '1px dashed var(--border-color)',
+                borderBottom: '1px dashed var(--border-color)',
+                padding: '12px 0',
                 margin: '6px 0',
                 display: 'flex',
                 flexDirection: 'column',
@@ -4277,7 +4414,7 @@ const POS = ({ view = 'pos' }) => {
               >
                 Print Receipt
               </button>
-              
+
               {selectedOrderDetails.status === 'Unpaid' ? (
                 <button
                   onClick={() => {
@@ -4294,15 +4431,15 @@ const POS = ({ view = 'pos' }) => {
                         localStorage.setItem('orders', JSON.stringify(updated));
                         addLogEntry(`Order ${selectedOrderDetails.id} marked as Paid (Settled)`, 'success');
                         alert(`Order ${selectedOrderDetails.id} settled successfully!`);
-                        
+
                         if (selectedOrderDetails.customerName && selectedOrderDetails.customerName !== 'Walk-in Customer') {
                           const custStored = localStorage.getItem('customers');
                           if (custStored) {
                             const custs = JSON.parse(custStored);
                             const updatedCusts = custs.map(c => {
                               if (c.name === selectedOrderDetails.customerName) {
-                                return { 
-                                  ...c, 
+                                return {
+                                  ...c,
                                   spend: (c.spend || 0) + selectedOrderDetails.amount,
                                   ordersCount: (c.ordersCount || 0) + 1
                                 };
