@@ -40,7 +40,7 @@ const PaymentMethods = () => {
     const newMethod = {
       id: `pay_${Date.now()}`,
       type: 'UPI',
-      value: '',
+      value: 'mock_upi_id@bank',
       activated: true
     };
     const updated = [...methods, newMethod];

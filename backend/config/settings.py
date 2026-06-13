@@ -65,7 +65,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "cafe_pos_db",
-        "USER": "cafeadmin",
+        "USER": "cafeadmin",    
         "PASSWORD": "cafe123",
         "HOST": "localhost",
         "PORT": "5432",

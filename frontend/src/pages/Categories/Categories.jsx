@@ -10,7 +10,7 @@ const Categories = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [categoryForm, setCategoryForm] = useState({
-    name: '',
+    name: 'Mock Category',
     color: '#0d9488' // Default teal
   });
 

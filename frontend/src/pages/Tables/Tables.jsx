@@ -10,7 +10,7 @@ const Tables = () => {
   
   // Modal State
   const [selectedTable, setSelectedTable] = useState(null);
-  const [customerInput, setCustomerInput] = useState('');
+  const [customerInput, setCustomerInput] = useState('John Doe');
 
   useEffect(() => {
     loadTables();

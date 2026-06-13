@@ -12,11 +12,11 @@ const Customers = () => {
   // Modal form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formSpend, setFormSpend] = useState('');
-  const [formOrders, setFormOrders] = useState('');
+  const [formName, setFormName] = useState('Mock Customer');
+  const [formEmail, setFormEmail] = useState('mockcustomer@gmail.com');
+  const [formPhone, setFormPhone] = useState('9876543210');
+  const [formSpend, setFormSpend] = useState('0');
+  const [formOrders, setFormOrders] = useState('0');
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -27,9 +27,9 @@ const Customers = () => {
 
   const openAddModal = () => {
     setEditingCustomer(null);
-    setFormName('');
-    setFormEmail('');
-    setFormPhone('');
+    setFormName('Mock Customer');
+    setFormEmail('mockcustomer@gmail.com');
+    setFormPhone('9876543210');
     setFormSpend('0');
     setFormOrders('0');
     setErrors({});

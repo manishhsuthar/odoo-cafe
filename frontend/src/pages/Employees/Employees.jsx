@@ -13,10 +13,10 @@ const Employees = () => {
 
   // Modal & form states for adding new employees
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newEmpName, setNewEmpName] = useState('');
-  const [newEmpEmail, setNewEmpEmail] = useState('');
+  const [newEmpName, setNewEmpName] = useState('Mock Chef');
+  const [newEmpEmail, setNewEmpEmail] = useState('mockchef@cafe.com');
   const [newEmpRole, setNewEmpRole] = useState('chef');
-  const [newEmpPassword, setNewEmpPassword] = useState('');
+  const [newEmpPassword, setNewEmpPassword] = useState('mockpass123');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {

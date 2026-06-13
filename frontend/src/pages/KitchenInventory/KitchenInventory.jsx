@@ -13,10 +13,10 @@ const KitchenInventory = () => {
   // Modal forms
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formName, setFormName] = useState('');
+  const [formName, setFormName] = useState('Mock Ingredient');
   const [formCategory, setFormCategory] = useState('Vegetables');
-  const [formQuantity, setFormQuantity] = useState('');
-  const [formThreshold, setFormThreshold] = useState('');
+  const [formQuantity, setFormQuantity] = useState('10');
+  const [formThreshold, setFormThreshold] = useState('5');
   const [formUnit, setFormUnit] = useState('kg');
   const [errors, setErrors] = useState({});
 
@@ -43,9 +43,9 @@ const KitchenInventory = () => {
 
   const openAddModal = () => {
     setEditingItem(null);
-    setFormName('');
+    setFormName('Mock Ingredient');
     setFormCategory('Vegetables');
-    setFormQuantity('0');
+    setFormQuantity('10');
     setFormThreshold('5');
     setFormUnit('kg');
     setErrors({});
