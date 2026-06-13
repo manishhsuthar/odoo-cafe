@@ -77,7 +77,7 @@ const AppRoutes = () => {
       <Route
         path="/orders"
         element={
-          <PrivateRoute adminOnly>
+          <PrivateRoute>
             <Orders />
           </PrivateRoute>
         }
@@ -102,7 +102,71 @@ const AppRoutes = () => {
         path="/pos"
         element={
           <PrivateRoute>
-            <POS />
+            <POS view="pos" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-orders"
+        element={
+          <PrivateRoute>
+            <POS view="orders" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-products"
+        element={
+          <PrivateRoute>
+            <POS view="products" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-categories"
+        element={
+          <PrivateRoute>
+            <POS view="categories" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-payment-methods"
+        element={
+          <PrivateRoute>
+            <POS view="payment-methods" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-coupons"
+        element={
+          <PrivateRoute>
+            <POS view="coupons" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-bookings"
+        element={
+          <PrivateRoute>
+            <POS view="bookings" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-employees"
+        element={
+          <PrivateRoute>
+            <POS view="employees" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-reports"
+        element={
+          <PrivateRoute>
+            <POS view="reports" />
           </PrivateRoute>
         }
       />
