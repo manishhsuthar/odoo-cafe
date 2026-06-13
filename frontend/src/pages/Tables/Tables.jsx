@@ -220,7 +220,7 @@ const Tables = () => {
                 }}
               >
                 <Layers size={14} />
-                First Floor (f1 - f10)
+                First Floor
               </button>
               <button
                 onClick={() => setActiveFloor(2)}
@@ -240,7 +240,7 @@ const Tables = () => {
                 }}
               >
                 <Layers size={14} />
-                Second Floor (s1 - s10)
+                Second Floor
               </button>
             </div>
 

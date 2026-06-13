@@ -7,7 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import useAuth from '../../hooks/useAuth';
-import { getOrders, getEmployeeLogs } from '../../utils/db';
+import { getOrders, getEmployeeLogs, getTables } from '../../utils/db';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
@@ -17,43 +17,55 @@ const Dashboard = () => {
     ordersCount: 0,
     revenue: 0,
     activeTables: 0,
+    vacantTables: 0,
     employeesOnShift: 0
   });
   const [recentActivities, setRecentActivities] = useState([]);
+  const [viewAll, setViewAll] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      getOrders(),
-      Promise.resolve(getEmployeeLogs())
-    ]).then(([orders, logs]) => {
+      getOrders().catch(() => []),
+      Promise.resolve(getEmployeeLogs()).catch(() => []),
+      getTables().catch(() => [])
+    ]).then(([orders, logs, tables]) => {
       if (!Array.isArray(orders)) orders = [];
+      if (!Array.isArray(tables)) tables = [];
       const totalOrders = orders.length;
       const totalRev = orders
         .filter(o => o.status === 'Paid')
         .reduce((sum, o) => sum + o.amount, 0);
       const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
+      const totalTblsCount = tables.length || 12; // fallback to 12 if no tables in db
+      const vacantTbls = Math.max(0, totalTblsCount - activeTbls);
 
-      const activeLogs = Array.isArray(logs) ? logs.filter(l => l.clockOut === null || l.clockOut === undefined) : [];
-      
+      const activeLogs = Array.isArray(logs) ? logs.filter(l => l.logoutTime === null || l.logoutTime === undefined) : [];
+
       setStats({
         ordersCount: totalOrders,
         revenue: totalRev,
         activeTables: activeTbls,
+        vacantTables: vacantTbls,
         employeesOnShift: activeLogs.length
       });
 
-      // Recent activities from recent orders
-      const activities = orders.slice(0, 5).map(o => ({
+      // Filter activities to only include orders of "today" (that day) sorted newest first
+      const today = new Date().toDateString();
+      const todayOrders = orders
+        .filter(o => o.dateTime && new Date(o.dateTime).toDateString() === today)
+        .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+
+      const activities = todayOrders.map(o => ({
         id: o.id,
         iconColor: o.status === 'Paid' ? '#10b981' : '#f59e0b',
         icon: ShoppingBag,
         title: o.status === 'Paid' ? `Payment collected - ${o.table}` : `Order sent to kitchen - ${o.table}`,
-        time: o.dateTime ? new Date(o.dateTime).toLocaleString() : 'Just now',
+        time: o.dateTime ? new Date(o.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
         type: o.status === 'Paid' ? 'payment' : 'order',
         meta: o.status === 'Paid' ? `₹${o.amount}` : o.items ? `${o.items.split(',').length} items` : ''
       }));
       setRecentActivities(activities);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Modal states
@@ -206,9 +218,10 @@ const Dashboard = () => {
   };
 
   const actionTextStyle = {
-    fontSize: '15px',
-    fontWeight: '700',
+    fontSize: '20px',
+    fontWeight: '1000',
     letterSpacing: '0.2px',
+    color: 'var(--bg-primary)',
   };
 
   return (
@@ -216,7 +229,7 @@ const Dashboard = () => {
       <Sidebar />
       <div style={contentAreaStyle}>
         <Header title="Dashboard" />
-        
+
         <main style={mainContentStyle}>
           {/* Dashboard Welcome Header */}
           <div style={welcomeSectionStyle}>
@@ -257,7 +270,12 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Active Tables</span>
-                  <span style={cardValueStyle}>{stats.activeTables}</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={cardValueStyle}>{stats.activeTables}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                      ({stats.vacantTables} Vacant)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -339,7 +357,27 @@ const Dashboard = () => {
 
           {/* Recent Activity Section */}
           <div>
-            <h2 style={sectionTitleStyle}>Recent Activity</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Recent Activity</h2>
+              {recentActivities.length > 5 && (
+                <button
+                  onClick={() => setViewAll(!viewAll)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--border-focus)',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                  {viewAll ? 'View Less' : 'View All'}
+                </button>
+              )}
+            </div>
             <div style={{
               backgroundColor: 'var(--bg-card)',
               borderRadius: '20px',
@@ -354,48 +392,48 @@ const Dashboard = () => {
                   No recent activity yet
                 </div>
               ) : (
-              recentActivities.map((act, idx) => (
-                <div 
-                  key={act.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    paddingBottom: idx !== recentActivities.length - 1 ? '16px' : '0',
-                    borderBottom: idx !== recentActivities.length - 1 ? '1px solid var(--border-color)' : 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                (viewAll ? recentActivities : recentActivities.slice(0, 5)).map((act, idx, arr) => (
+                  <div
+                    key={act.id}
+                    style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      color: act.iconColor,
+                      justifyContent: 'space-between',
+                      paddingBottom: idx !== arr.length - 1 ? '16px' : '0',
+                      borderBottom: idx !== arr.length - 1 ? '1px solid var(--border-color)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: act.iconColor,
+                      }}>
+                        <act.icon size={18} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                        <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                          {act.title}
+                        </span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {act.time}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      color: act.type === 'payment' ? '#10b981' : 'var(--text-secondary)',
                     }}>
-                      <act.icon size={18} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                        {act.title}
-                      </span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {act.time}
-                      </span>
-                    </div>
+                      {act.meta}
+                    </span>
                   </div>
-                  <span style={{
-                    fontSize: '15px',
-                    fontWeight: '700',
-                    color: act.type === 'payment' ? '#10b981' : 'var(--text-secondary)',
-                  }}>
-                    {act.meta}
-                  </span>
-                </div>
-              ))
+                ))
               )}
             </div>
           </div>

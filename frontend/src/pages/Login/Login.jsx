@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, Sun, Moon } from 'lucide-react';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import loginBg from '../../assets/login_bg.png';
@@ -11,7 +11,6 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [isLogin, setIsLogin] = useState(true);
 
   // Login inputs
   const [loginEmail, setLoginEmail] = useState('');
@@ -20,31 +19,26 @@ const Login = () => {
   const [loginErrors, setLoginErrors] = useState({});
   const [loginGeneralError, setLoginGeneralError] = useState('');
 
-  // SignUp inputs
-  const [signUpName, setSignUpName] = useState('');
-  const [signUpEmail, setSignUpEmail] = useState('');
-  const [signUpPassword, setSignUpPassword] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [signUpErrors, setSignUpErrors] = useState({});
-
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginGeneralError('');
     const errors = {};
     if (!loginEmail) errors.email = 'Email Address is required';
     if (!loginPassword) errors.password = 'Password is required';
-    
+
     if (Object.keys(errors).length > 0) {
       setLoginErrors(errors);
       return;
     }
-    
+
     setLoginErrors({});
     const result = await login(loginEmail, loginPassword);
-    
+
     if (result.success) {
       if (result.role === 'admin') {
         navigate('/dashboard');
+      } else if (result.role === 'chef') {
+        navigate('/kds');
       } else {
         navigate('/pos');
       }
@@ -53,23 +47,7 @@ const Login = () => {
     }
   };
 
-  const handleSignUpSubmit = (e) => {
-    e.preventDefault();
-    const errors = {};
-    if (!signUpName) errors.name = 'Full Name is required';
-    if (!signUpEmail) errors.email = 'Email Address is required';
-    if (!signUpPassword) errors.password = 'Password is required';
-    if (!agreeTerms) errors.terms = 'You must agree to the Terms & Conditions';
-    
-    if (Object.keys(errors).length > 0) {
-      setSignUpErrors(errors);
-      return;
-    }
-    
-    setSignUpErrors({});
-    alert('Registration is not available. Please contact your administrator to create an account.');
-    setIsLogin(true);
-  };
+
 
   const pageStyle = {
     minHeight: '100vh',
@@ -172,207 +150,101 @@ const Login = () => {
 
       <div style={overlayStyle} />
       <div style={cardStyle}>
-        {isLogin ? (
-          /* LOGIN FORM */
-          <div style={{ width: '100%' }}>
-            <h1 style={titleStyle}>Welcome Back</h1>
-            <p style={subtitleStyle}>Sign in to your restaurant account</p>
- 
-            <form onSubmit={handleLoginSubmit} style={{ width: '100%' }}>
-              {loginGeneralError && (
-                <div style={{
-                  backgroundColor: '#fdf2f2',
-                  color: '#d9534f',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  marginBottom: '16px',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  border: '1px solid #f5c6cb',
-                }}>
-                  {loginGeneralError}
-                </div>
-              )}
- 
-              <Input
-                label="EMAIL ADDRESS"
-                type="email"
-                placeholder="you@restaurant.com"
-                leftIcon={Mail}
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                error={loginErrors.email}
-              />
- 
-              <Input
-                label="PASSWORD"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={Lock}
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                error={loginErrors.password}
-              />
- 
-              {/* Remember Me & Forgot Password Row */}
+        {/* LOGIN FORM */}
+        <div style={{ width: '100%' }}>
+          <h1 style={titleStyle}>Welcome Back</h1>
+          <p style={subtitleStyle}>Sign in to your restaurant account</p>
+
+          <form onSubmit={handleLoginSubmit} style={{ width: '100%' }}>
+            {loginGeneralError && (
               <div style={{
+                backgroundColor: '#fdf2f2',
+                color: '#d9534f',
+                padding: '12px',
+                borderRadius: '10px',
+                marginBottom: '16px',
+                fontSize: '14px',
+                textAlign: 'left',
+                border: '1px solid #f5c6cb',
+              }}>
+                {loginGeneralError}
+              </div>
+            )}
+
+            <Input
+              label="EMAIL ADDRESS"
+              type="email"
+              placeholder="you@restaurant.com"
+              leftIcon={Mail}
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              error={loginErrors.email}
+            />
+
+            <Input
+              label="PASSWORD"
+              type="password"
+              placeholder="••••••••"
+              leftIcon={Lock}
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              error={loginErrors.password}
+            />
+
+            {/* Remember Me & Forgot Password Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              width: '100%',
+              marginBottom: '28px',
+              fontSize: '14px',
+            }}>
+              <label style={{
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                width: '100%',
-                marginBottom: '28px',
-                fontSize: '14px',
+                gap: '8px',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                userSelect: 'none',
               }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    style={{
-                      accentColor: 'var(--bg-button)',
-                      width: '16px',
-                      height: '16px',
-                      cursor: 'pointer',
-                    }}
-                  />
-                  Remember me
-                </label>
-                <a 
-                  href="#forgot" 
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   style={{
-                    color: 'var(--text-link)',
-                    fontWeight: '600',
-                    textDecoration: 'none',
+                    accentColor: 'var(--bg-button)',
+                    width: '16px',
+                    height: '16px',
+                    cursor: 'pointer',
                   }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert('Please contact your administrator to reset your password.');
-                  }}
-                >
-                  Forgot password?
-                </a>
-              </div>
-
-              <Button type="submit" variant="primary" fullWidth>
-                SIGN IN
-              </Button>
-            </form>
-
-            <p style={footerTextStyle}>
-              Don't have an account?{' '}
-              <button 
-                style={linkStyle} 
-                onClick={() => {
-                  setIsLogin(false);
-                  setSignUpErrors({});
+                />
+                Remember me
+              </label>
+              <a
+                href="#forgot"
+                style={{
+                  color: 'var(--text-link)',
+                  fontWeight: '600',
+                  textDecoration: 'none',
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert('Please contact your administrator to reset your password.');
                 }}
               >
-                Create account
-              </button>
-            </p>
-          </div>
-        ) : (
-          /* SIGN UP FORM */
-          <div style={{ width: '100%' }}>
-            <h1 style={titleStyle}>Create Account</h1>
-            <p style={subtitleStyle}>Sign up for your restaurant account</p>
+                Forgot password?
+              </a>
+            </div>
 
-            <form onSubmit={handleSignUpSubmit} style={{ width: '100%' }}>
-              <Input
-                label="FULL NAME"
-                type="text"
-                placeholder="Your name"
-                leftIcon={User}
-                value={signUpName}
-                onChange={(e) => setSignUpName(e.target.value)}
-                error={signUpErrors.name}
-              />
-
-              <Input
-                label="EMAIL ADDRESS"
-                type="email"
-                placeholder="you@restaurant.com"
-                leftIcon={Mail}
-                value={signUpEmail}
-                onChange={(e) => setSignUpEmail(e.target.value)}
-                error={signUpErrors.email}
-              />
-
-              <Input
-                label="PASSWORD"
-                type="password"
-                placeholder="••••••••"
-                leftIcon={Lock}
-                value={signUpPassword}
-                onChange={(e) => setSignUpPassword(e.target.value)}
-                error={signUpErrors.password}
-              />
-
-              {/* Terms & Conditions Checkbox */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                width: '100%',
-                marginBottom: '28px',
-                fontSize: '14px',
-              }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                    style={{
-                      accentColor: 'var(--bg-button)',
-                      width: '16px',
-                      height: '16px',
-                      cursor: 'pointer',
-                    }}
-                  />
-                  I agree to the Terms & Conditions
-                </label>
-                {signUpErrors.terms && (
-                  <span style={{ color: '#d9534f', fontSize: '13px', marginTop: '6px' }}>
-                    {signUpErrors.terms}
-                  </span>
-                )}
-              </div>
-
-              <Button type="submit" variant="primary" fullWidth>
-                SIGN UP
-              </Button>
-            </form>
-
-            <p style={footerTextStyle}>
-              Already have an account?{' '}
-              <button 
-                style={linkStyle} 
-                onClick={() => {
-                  setIsLogin(true);
-                  setLoginErrors({});
-                }}
-              >
-                Sign In
-              </button>
-            </p>
-          </div>
-        )}
+            <Button type="submit" variant="primary" fullWidth>
+              SIGN IN
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
+
   );
 };
 

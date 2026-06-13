@@ -30,8 +30,8 @@ const Button = ({
 
   const variantStyle = variant === 'primary' 
     ? {
-        backgroundColor: 'var(--bg-button)',
-        color: '#ffffff',
+        backgroundColor: 'var(--bg-primary-button)',
+        color: 'var(--text-primary-button)',
       }
     : {
         backgroundColor: 'transparent',
@@ -42,7 +42,7 @@ const Button = ({
   const handleMouseEnter = (e) => {
     if (disabled) return;
     if (variant === 'primary') {
-      e.target.style.backgroundColor = 'var(--bg-button-hover)';
+      e.target.style.backgroundColor = 'var(--bg-primary-button-hover)';
     } else {
       e.target.style.borderColor = 'var(--border-focus)';
       e.target.style.backgroundColor = 'var(--input-bg)';
@@ -52,7 +52,7 @@ const Button = ({
   const handleMouseLeave = (e) => {
     if (disabled) return;
     if (variant === 'primary') {
-      e.target.style.backgroundColor = 'var(--bg-button)';
+      e.target.style.backgroundColor = 'var(--bg-primary-button)';
     } else {
       e.target.style.borderColor = 'var(--border-color)';
       e.target.style.backgroundColor = 'transparent';

@@ -3,13 +3,19 @@ import { useLocation } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
-import { PlusCircle, X, Check, FolderPlus, Tag, Trash2, ArrowRight } from 'lucide-react';
-import { getProducts, getCategories, addProduct, addCategory, deleteProduct } from '../../utils/db';
+import { PlusCircle, X, Check, FolderPlus, Tag, Trash2, ArrowRight, Edit2 } from 'lucide-react';
+import { getProducts, getCategories, addProduct, addCategory, deleteProduct, updateProduct } from '../../utils/db';
 
 const Products = () => {
   const location = useLocation();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  
+  // Inline row edit states
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editTax, setEditTax] = useState('5');
   
   // Modals state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -52,6 +58,48 @@ const Products = () => {
     const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
     setProducts(prods);
     setCategories(cats);
+  };
+
+  const handleStartEdit = (product) => {
+    setEditingId(product.id);
+    setEditName(product.name);
+    setEditPrice(String(product.price));
+    setEditTax(product.tax ? String(product.tax) : '5');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditName('');
+    setEditPrice('');
+    setEditTax('5');
+  };
+
+  const handleSaveInlineEdit = async (product) => {
+    if (!editName || !editPrice) {
+      alert('Please fill out Name and Price.');
+      return;
+    }
+    const priceNum = parseFloat(editPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      alert('Please enter a valid price.');
+      return;
+    }
+
+    try {
+      await updateProduct(product.id, {
+        name: editName,
+        price: priceNum,
+        tax: parseInt(editTax),
+        category: product.category,
+        description: product.description || '',
+        in_stock: product.inStock !== undefined ? product.inStock : true
+      });
+      setEditingId(null);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update product.');
+    }
   };
 
   const handleProductInputChange = (e) => {
@@ -171,9 +219,9 @@ const Products = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                backgroundColor: 'var(--border-focus)',
-                color: 'var(--bg-primary)',
-                border: 'none',
+                backgroundColor: 'var(--bg-button)',
+                color: 'var(--text-primary)',
+                border: 'var(--border-color)',
                 borderRadius: '8px',
                 padding: '10px 20px',
                 fontSize: '15px',
@@ -207,69 +255,205 @@ const Products = () => {
               <Table
                 headers={headers}
                 data={products}
-                renderRow={(product) => (
-                  <>
-                    <td style={{ padding: '16px 12px', fontSize: '14px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{product.id}</td>
-                    <td style={{ padding: '16px 12px', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{product.name}</td>
-                    <td style={{ padding: '16px 12px', fontSize: '14px' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        backgroundColor: 'var(--bg-button)',
-                        color: 'var(--text-link)',
-                        border: '1px solid var(--border-color)'
-                      }}>
-                        {product.category}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px 12px', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>₹{product.price}</td>
-                    <td style={{ padding: '16px 12px', fontSize: '14px', color: 'var(--text-secondary)' }}>{product.tax || 5}%</td>
-                    <td style={{ padding: '16px 12px', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {product.description || '-'}
-                    </td>
-                    <td style={{ padding: '16px 12px', fontSize: '14px' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        backgroundColor: product.inStock ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                        color: product.inStock ? '#10b981' : '#ef4444'
-                      }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: product.inStock ? '#10b981' : '#ef4444' }}></span>
-                        {product.inStock ? 'In Stock' : 'Out of Stock'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px 12px' }}>
-                      <button 
-                        onClick={() => handleDeleteProduct(product.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          padding: '6px',
-                          borderRadius: '4px',
-                          display: 'flex',
+                renderRow={(product) => {
+                  const isEditing = editingId === product.id;
+                  return (
+                    <>
+                      <td style={{ padding: '16px 12px', fontSize: '14px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{product.id}</td>
+                      <td style={{ padding: '16px 12px', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {isEditing ? (
+                          <input 
+                            type="text" 
+                            value={editName} 
+                            onChange={(e) => setEditName(e.target.value)} 
+                            style={{
+                              backgroundColor: 'var(--input-bg)',
+                              border: '1.5px solid var(--border-focus)',
+                              borderRadius: '8px',
+                              color: 'var(--text-primary)',
+                              padding: '6px 10px',
+                              fontSize: '14px',
+                              width: '100%',
+                              outline: 'none'
+                            }}
+                          />
+                        ) : (
+                          product.name
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '14px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          backgroundColor: 'var(--bg-button)',
+                          color: 'var(--text-link)',
+                          border: '1px solid var(--border-color)'
+                        }}>
+                          {product.categoryName || product.category}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--border-focus)', borderRadius: '8px', backgroundColor: 'var(--input-bg)', padding: '6px 10px' }}>
+                            <span style={{ color: 'var(--text-primary)', marginRight: '4px', fontSize: '14px' }}>₹</span>
+                            <input 
+                              type="number" 
+                              value={editPrice} 
+                              onChange={(e) => setEditPrice(e.target.value)} 
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                fontSize: '14px',
+                                width: '60px',
+                                outline: 'none'
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          `₹${product.price}`
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                        {isEditing ? (
+                          <select 
+                            value={editTax} 
+                            onChange={(e) => setEditTax(e.target.value)} 
+                            style={{
+                              backgroundColor: 'var(--input-bg)',
+                              border: '1.5px solid var(--border-focus)',
+                              borderRadius: '8px',
+                              color: 'var(--text-primary)',
+                              padding: '6px 10px',
+                              fontSize: '14px',
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="5" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>5%</option>
+                            <option value="18" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>18%</option>
+                            <option value="28" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>28%</option>
+                          </select>
+                        ) : (
+                          `${product.tax || 5}%`
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {product.description || '-'}
+                      </td>
+                      <td style={{ padding: '16px 12px', fontSize: '14px' }}>
+                        <span style={{
+                          display: 'inline-flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        title="Delete Product"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </>
-                )}
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          backgroundColor: product.inStock ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                          color: product.inStock ? '#10b981' : '#ef4444'
+                        }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: product.inStock ? '#10b981' : '#ef4444' }}></span>
+                          {product.inStock ? 'In Stock' : 'Out of Stock'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isEditing ? (
+                            <>
+                              <button 
+                                onClick={() => handleSaveInlineEdit(product)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#10b981',
+                                  cursor: 'pointer',
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Save Changes"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button 
+                                onClick={handleCancelEdit}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Cancel"
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleStartEdit(product)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--border-focus)',
+                                  cursor: 'pointer',
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(191, 174, 158, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Edit Product"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProduct(product.id)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  padding: '6px',
+                                  borderRadius: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Delete Product"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  );
+                }}
               />
             )}
           </div>
