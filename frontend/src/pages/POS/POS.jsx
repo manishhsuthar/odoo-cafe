@@ -18,7 +18,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts } from '../../utils/db';
+import { getCategories, getProducts, addOrder } from '../../utils/db';
 
 const POS = () => {
   const { logout, user } = useAuth();
@@ -98,13 +98,40 @@ const POS = () => {
     }
   };
 
-  // Submit order to Kitchen
+  // Submit order to Kitchen (Unpaid)
   const sendToKitchen = () => {
     if (cart.length === 0) {
       alert('Your cart is empty.');
       return;
     }
+    const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
+    addOrder({
+      table: activeTable,
+      amount: total,
+      status: 'Unpaid',
+      paymentMethod: '-',
+      items: orderItemsString
+    });
     alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
+    setCart([]);
+    setPaidAmount('0');
+  };
+
+  // Collect Payment (Paid)
+  const collectPayment = () => {
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      return;
+    }
+    const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
+    addOrder({
+      table: activeTable,
+      amount: total,
+      status: 'Paid',
+      paymentMethod: selectedPayment,
+      items: orderItemsString
+    });
+    alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
     setCart([]);
     setPaidAmount('0');
   };
@@ -602,31 +629,61 @@ const POS = () => {
               gap: '16px',
               transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
             }}>
-              {/* Send to Kitchen button */}
-              <button
-                onClick={sendToKitchen}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--border-focus)',
-                  color: 'var(--bg-primary)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  fontSize: '15px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'background-color var(--transition-speed), color var(--transition-speed)',
-                }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--border-focus)'}
-              >
-                <Send size={16} />
-                Send to Kitchen
-              </button>
+              {/* Actions row */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Send to Kitchen button */}
+                <button
+                  onClick={sendToKitchen}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--bg-button)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all var(--transition-speed)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
+                >
+                  <Send size={15} />
+                  Send to Kitchen (Unpaid)
+                </button>
+
+                {/* Collect Payment button */}
+                <button
+                  onClick={collectPayment}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all var(--transition-speed)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+                  onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+                >
+                  <DollarSign size={16} />
+                  Collect Payment (Paid)
+                </button>
+              </div>
  
               {/* Utility buttons row */}
               <div style={{ display: 'flex', gap: '8px' }}>

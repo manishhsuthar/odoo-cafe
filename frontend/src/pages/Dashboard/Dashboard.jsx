@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, DollarSign, Grid3X3, Users, Plus, CalendarClock, Ticket } from 'lucide-react';
 import Sidebar from '../../components/layout/Sidebar';
@@ -7,10 +7,32 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import useAuth from '../../hooks/useAuth';
+import { getOrders } from '../../utils/db';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
   const navigate = useNavigate();
+
+  const [stats, setStats] = useState({
+    ordersCount: 24,
+    revenue: 24500,
+    activeTables: 8
+  });
+
+  useEffect(() => {
+    const list = getOrders();
+    const totalOrders = list.length;
+    const totalRev = list
+      .filter(o => o.status === 'Paid')
+      .reduce((sum, o) => sum + o.amount, 0);
+    const activeTbls = new Set(list.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
+
+    setStats({
+      ordersCount: totalOrders,
+      revenue: totalRev,
+      activeTables: activeTbls
+    });
+  }, []);
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -262,7 +284,7 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Today's Orders</span>
-                  <span style={cardValueStyle}>24</span>
+                  <span style={cardValueStyle}>{stats.ordersCount}</span>
                 </div>
               </div>
 
@@ -273,7 +295,7 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Today's Revenue</span>
-                  <span style={cardValueStyle}>₹24,500</span>
+                  <span style={cardValueStyle}>₹{stats.revenue.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -284,7 +306,7 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Active Tables</span>
-                  <span style={cardValueStyle}>8</span>
+                  <span style={cardValueStyle}>{stats.activeTables}</span>
                 </div>
               </div>
 
@@ -295,7 +317,7 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Vacant Tables</span>
-                  <span style={cardValueStyle}>4</span>
+                  <span style={cardValueStyle}>{Math.max(0, 12 - stats.activeTables)}</span>
                 </div>
               </div>
 

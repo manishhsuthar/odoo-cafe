@@ -26,12 +26,23 @@ const DEFAULT_PRODUCTS = [
   { id: 'm3', name: 'Paneer Wrap', price: 160, inStock: true, category: 'Meal', tax: 18, description: 'Grilled flatbread wrap with spiced paneer' },
 ];
 
+const DEFAULT_ORDERS = [
+  { id: 'OR-8239', dateTime: '2026-06-13T13:45:00Z', table: 'Table 4', amount: 1450, status: 'Paid', paymentMethod: 'UPI', items: '2 x Cheese Burger, 1 x Chocolate Brownie, 2 x Cold Brew' },
+  { id: 'OR-1082', dateTime: '2026-06-13T13:30:00Z', table: 'Table 12', amount: 300, status: 'Unpaid', paymentMethod: '-', items: '2 x Veg Sandwich' },
+  { id: 'OR-9382', dateTime: '2026-06-13T13:15:00Z', table: 'Table 7', amount: 480, status: 'Paid', paymentMethod: 'Cash', items: '3 x Paneer Wrap, 1 x Lassi' },
+  { id: 'OR-4821', dateTime: '2026-06-13T12:50:00Z', table: 'Table 2', amount: 160, status: 'Paid', paymentMethod: 'Card', items: '1 x Paneer Wrap' },
+  { id: 'OR-3921', dateTime: '2026-06-13T12:30:00Z', table: 'Table 9', amount: 120, status: 'Unpaid', paymentMethod: '-', items: '1 x Veg Sandwich' }
+];
+
 export const initDb = () => {
   if (!localStorage.getItem('categories')) {
     localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
   }
   if (!localStorage.getItem('products')) {
     localStorage.setItem('products', JSON.stringify(DEFAULT_PRODUCTS));
+  }
+  if (!localStorage.getItem('orders')) {
+    localStorage.setItem('orders', JSON.stringify(DEFAULT_ORDERS));
   }
 };
 
@@ -74,4 +85,25 @@ export const addCategory = (category) => {
   categories.push(newCategory);
   saveCategories(categories);
   return newCategory;
+};
+
+export const getOrders = () => {
+  initDb();
+  return JSON.parse(localStorage.getItem('orders'));
+};
+
+export const saveOrders = (orders) => {
+  localStorage.setItem('orders', JSON.stringify(orders));
+};
+
+export const addOrder = (order) => {
+  const orders = getOrders();
+  const newOrder = {
+    id: `OR-${Math.floor(1000 + Math.random() * 9000)}`,
+    dateTime: new Date().toISOString(),
+    ...order
+  };
+  orders.unshift(newOrder);
+  saveOrders(orders);
+  return newOrder;
 };
