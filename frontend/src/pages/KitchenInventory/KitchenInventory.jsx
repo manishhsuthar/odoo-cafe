@@ -63,6 +63,43 @@ const KitchenInventory = () => {
     setIsModalOpen(true);
   };
 
+  const handleFormNameChange = (val) => {
+    if (val.length > 50) return;
+    const filtered = val.replace(/[^a-zA-Z\s]/g, '');
+    setFormName(filtered);
+    if (errors.name) {
+      setErrors(prev => ({ ...prev, name: '' }));
+    }
+  };
+
+  const handleFormQuantityChange = (val) => {
+    if (val === '') {
+      setFormQuantity('');
+      return;
+    }
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0) {
+      setFormQuantity(val);
+      if (errors.quantity) {
+        setErrors(prev => ({ ...prev, quantity: '' }));
+      }
+    }
+  };
+
+  const handleFormThresholdChange = (val) => {
+    if (val === '') {
+      setFormThreshold('');
+      return;
+    }
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0) {
+      setFormThreshold(val);
+      if (errors.threshold) {
+        setErrors(prev => ({ ...prev, threshold: '' }));
+      }
+    }
+  };
+
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to remove this ingredient?')) {
       const updated = inventory.filter(item => item.id !== id);
@@ -73,9 +110,32 @@ const KitchenInventory = () => {
   const handleSave = (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!formName.trim()) newErrors.name = 'Item name is required';
-    if (parseFloat(formQuantity) < 0) newErrors.quantity = 'Quantity cannot be negative';
-    if (parseFloat(formThreshold) < 0) newErrors.threshold = 'Threshold cannot be negative';
+
+    if (!formName.trim()) {
+      newErrors.name = 'Item name is required';
+    } else if (formName.trim().length > 50) {
+      newErrors.name = 'Item name cannot exceed 50 characters';
+    } else if (/[^a-zA-Z\s]/.test(formName.trim())) {
+      newErrors.name = 'Item name can only contain letters and spaces';
+    }
+
+    if (formQuantity === '') {
+      newErrors.quantity = 'Current stock is required';
+    } else {
+      const qty = parseFloat(formQuantity);
+      if (isNaN(qty) || qty < 0) {
+        newErrors.quantity = 'Quantity cannot be negative';
+      }
+    }
+
+    if (formThreshold === '') {
+      newErrors.threshold = 'Min safety threshold is required';
+    } else {
+      const thresh = parseFloat(formThreshold);
+      if (isNaN(thresh) || thresh < 0) {
+        newErrors.threshold = 'Threshold cannot be negative';
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -392,25 +452,11 @@ const KitchenInventory = () => {
                           {item.category}
                         </td>
 
-                        {/* Quantity with quick adjuster */}
+                        {/* Quantity */}
                         <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                            <button
-                              onClick={() => handleAdjustQuantity(item.id, -1)}
-                              style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-                            >
-                              <MinusCircle size={16} />
-                            </button>
-                            <span style={{ fontSize: '14.5px', fontWeight: '800', color: isLow ? '#ef4444' : 'var(--text-primary)', minWidth: '60px' }}>
-                              {item.quantity} {item.unit}
-                            </span>
-                            <button
-                              onClick={() => handleAdjustQuantity(item.id, 1)}
-                              style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-                            >
-                              <PlusCircle size={16} />
-                            </button>
-                          </div>
+                          <span style={{ fontSize: '14.5px', fontWeight: '800', color: isLow ? '#ef4444' : 'var(--text-primary)', minWidth: '60px', display: 'inline-block' }}>
+                            {item.quantity} {item.unit}
+                          </span>
                         </td>
 
                         {/* Min Threshold */}
@@ -520,12 +566,13 @@ const KitchenInventory = () => {
             backgroundColor: 'var(--bg-card)',
             border: '1.5px solid var(--border-color)',
             borderRadius: '20px',
-            width: '100%',
+            width: '90%',
             maxWidth: '460px',
             boxShadow: 'var(--card-shadow)',
             padding: '28px',
             position: 'relative',
-            textAlign: 'left'
+            textAlign: 'left',
+            boxSizing: 'border-box'
           }}>
             <button
               onClick={() => setIsModalOpen(false)}
@@ -547,16 +594,16 @@ const KitchenInventory = () => {
               {editingItem ? 'Edit Ingredient' : 'Add New Ingredient'}
             </h3>
 
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%', boxSizing: 'border-box' }}>
               
               {/* Name */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Ingredient Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Tomatoes"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => handleFormNameChange(e.target.value)}
                   style={{
                     padding: '10px 12px',
                     borderRadius: '8px',
@@ -565,14 +612,16 @@ const KitchenInventory = () => {
                     color: 'var(--text-primary)',
                     outline: 'none',
                     fontSize: '14px',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 {errors.name && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.name}</span>}
               </div>
 
               {/* Category */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Category</label>
                 <select
                   value={formCategory}
@@ -586,7 +635,9 @@ const KitchenInventory = () => {
                     outline: 'none',
                     fontSize: '14px',
                     fontWeight: '700',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <option value="Vegetables">Vegetables</option>
@@ -598,7 +649,7 @@ const KitchenInventory = () => {
               </div>
 
               {/* Unit of Measure */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Unit of Measure</label>
                 <select
                   value={formUnit}
@@ -612,7 +663,9 @@ const KitchenInventory = () => {
                     outline: 'none',
                     fontSize: '14px',
                     fontWeight: '700',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <option value="kg">kilograms (kg)</option>
@@ -623,50 +676,62 @@ const KitchenInventory = () => {
               </div>
 
               {/* Quantity & Threshold side by side */}
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Current Stock</label>
                   <input
                     type="number"
                     step="any"
                     min="0"
                     value={formQuantity}
-                    onChange={(e) => setFormQuantity(e.target.value)}
+                    onChange={(e) => handleFormQuantityChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                    }}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1.5px solid var(--border-color)',
+                      border: errors.quantity ? '1.5px solid #ef4444' : '1.5px solid var(--border-color)',
                       backgroundColor: 'var(--bg-primary)',
                       color: 'var(--text-primary)',
                       outline: 'none',
                       fontSize: '14px',
-                      fontWeight: '600'
+                      fontWeight: '600',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
+                  {errors.quantity && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.quantity}</span>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Min Threshold</label>
                   <input
                     type="number"
                     step="any"
                     min="0"
                     value={formThreshold}
-                    onChange={(e) => setFormThreshold(e.target.value)}
+                    onChange={(e) => handleFormThresholdChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                    }}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1.5px solid var(--border-color)',
+                      border: errors.threshold ? '1.5px solid #ef4444' : '1.5px solid var(--border-color)',
                       backgroundColor: 'var(--bg-primary)',
                       color: 'var(--text-primary)',
                       outline: 'none',
                       fontSize: '14px',
-                      fontWeight: '600'
+                      fontWeight: '600',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
+                  {errors.threshold && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.threshold}</span>}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', width: '100%', boxSizing: 'border-box' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -697,7 +762,6 @@ const KitchenInventory = () => {
                   Save Ingredient
                 </button>
               </div>
-
             </form>
           </div>
         </div>

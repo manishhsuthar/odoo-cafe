@@ -47,6 +47,48 @@ const Customers = () => {
     setIsModalOpen(true);
   };
 
+  const handleFormNameChange = (val) => {
+    if (val.length > 50) return;
+    const filtered = val.replace(/[^a-zA-Z\s\.\-]/g, '');
+    setFormName(filtered);
+    if (errors.name) {
+      setErrors(prev => ({ ...prev, name: '' }));
+    }
+  };
+
+  const handleFormPhoneChange = (val) => {
+    const filtered = val.replace(/\D/g, '');
+    if (filtered.length > 10) return;
+    setFormPhone(filtered);
+    if (errors.phone) {
+      setErrors(prev => ({ ...prev, phone: '' }));
+    }
+  };
+
+  const handleFormEmailChange = (val) => {
+    if (val.length > 100) return;
+    setFormEmail(val);
+    if (errors.email) {
+      setErrors(prev => ({ ...prev, email: '' }));
+    }
+  };
+
+  const handleFormSpendChange = (val) => {
+    const filtered = val.replace(/\D/g, '');
+    setFormSpend(filtered);
+    if (errors.spend) {
+      setErrors(prev => ({ ...prev, spend: '' }));
+    }
+  };
+
+  const handleFormOrdersChange = (val) => {
+    const filtered = val.replace(/\D/g, '');
+    setFormOrders(filtered);
+    if (errors.orders) {
+      setErrors(prev => ({ ...prev, orders: '' }));
+    }
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
@@ -61,9 +103,44 @@ const Customers = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!formName.trim()) newErrors.name = 'Name is required';
-    if (!formEmail.trim() || !formEmail.includes('@')) newErrors.email = 'Valid email is required';
-    if (!formPhone.trim()) newErrors.phone = 'Phone number is required';
+
+    // Name validation
+    if (!formName.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (formName.trim().length > 50) {
+      newErrors.name = 'Name cannot exceed 50 characters';
+    } else if (/[^a-zA-Z\s\.\-]/.test(formName.trim())) {
+      newErrors.name = 'Name can only contain letters, spaces, dots, or hyphens';
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formEmail.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (formEmail.trim().length > 100) {
+      newErrors.email = 'Email cannot exceed 100 characters';
+    } else if (!emailRegex.test(formEmail.trim())) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Phone validation
+    if (!formPhone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (formPhone.length !== 10) {
+      newErrors.phone = 'Phone number must contain exactly 10 digits';
+    }
+
+    // Spend validation
+    const spendNum = parseFloat(formSpend);
+    if (isNaN(spendNum) || spendNum < 0) {
+      newErrors.spend = 'Total spend must be a non-negative number';
+    }
+
+    // Orders validation
+    const ordersNum = parseInt(formOrders);
+    if (isNaN(ordersNum) || ordersNum < 0) {
+      newErrors.orders = 'Total orders must be a non-negative integer';
+    }
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -480,7 +557,7 @@ const Customers = () => {
                   type="text"
                   placeholder="e.g. Rajesh Kumar"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => handleFormNameChange(e.target.value)}
                   style={{
                     padding: '10px 12px',
                     borderRadius: '8px',
@@ -504,7 +581,7 @@ const Customers = () => {
                   type="email"
                   placeholder="e.g. rajesh@gmail.com"
                   value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
+                  onChange={(e) => handleFormEmailChange(e.target.value)}
                   style={{
                     padding: '10px 12px',
                     borderRadius: '8px',
@@ -526,9 +603,9 @@ const Customers = () => {
                 <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Phone (Number)</label>
                 <input
                   type="text"
-                  placeholder="e.g. +91 98765 43210"
+                  placeholder="e.g. 9876543210"
                   value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
+                  onChange={(e) => handleFormPhoneChange(e.target.value)}
                   style={{
                     padding: '10px 12px',
                     borderRadius: '8px',
@@ -553,11 +630,14 @@ const Customers = () => {
                     type="number"
                     min="0"
                     value={formSpend}
-                    onChange={(e) => setFormSpend(e.target.value)}
+                    onChange={(e) => handleFormSpendChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '.', '+', '-', ','].includes(e.key)) e.preventDefault();
+                    }}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1.5px solid var(--border-color)',
+                      border: errors.spend ? '1.5px solid #ef4444' : '1.5px solid var(--border-color)',
                       backgroundColor: 'var(--bg-primary)',
                       color: 'var(--text-primary)',
                       outline: 'none',
@@ -567,6 +647,7 @@ const Customers = () => {
                       boxSizing: 'border-box'
                     }}
                   />
+                  {errors.spend && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.spend}</span>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Orders</label>
@@ -574,11 +655,14 @@ const Customers = () => {
                     type="number"
                     min="0"
                     value={formOrders}
-                    onChange={(e) => setFormOrders(e.target.value)}
+                    onChange={(e) => handleFormOrdersChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '.', '+', '-', ','].includes(e.key)) e.preventDefault();
+                    }}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '8px',
-                      border: '1.5px solid var(--border-color)',
+                      border: errors.orders ? '1.5px solid #ef4444' : '1.5px solid var(--border-color)',
                       backgroundColor: 'var(--bg-primary)',
                       color: 'var(--text-primary)',
                       outline: 'none',
@@ -588,6 +672,7 @@ const Customers = () => {
                       boxSizing: 'border-box'
                     }}
                   />
+                  {errors.orders && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.orders}</span>}
                 </div>
               </div>
 
