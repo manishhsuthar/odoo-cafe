@@ -123,6 +123,54 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/pos-categories"
+        element={
+          <PrivateRoute>
+            <POS view="categories" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-payment-methods"
+        element={
+          <PrivateRoute>
+            <POS view="payment-methods" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-coupons"
+        element={
+          <PrivateRoute>
+            <POS view="coupons" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-bookings"
+        element={
+          <PrivateRoute>
+            <POS view="bookings" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-employees"
+        element={
+          <PrivateRoute>
+            <POS view="employees" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-reports"
+        element={
+          <PrivateRoute>
+            <POS view="reports" />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/pos-sessions"
         element={
           <PrivateRoute adminOnly>

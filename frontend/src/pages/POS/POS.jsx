@@ -60,6 +60,107 @@ const POS = ({ view = 'pos' }) => {
   // POS Products states and handlers
   const [searchCatalogQuery, setSearchCatalogQuery] = useState('');
 
+  // POS Categories states
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#ea580c');
+  const [searchCategoriesQuery, setSearchCategoriesQuery] = useState('');
+
+  // POS Payment Methods states
+  const [allPaymentMethods, setAllPaymentMethods] = useState([]);
+  const [newPaymentName, setNewPaymentName] = useState('');
+  const [newPaymentType, setNewPaymentType] = useState('Cash');
+  const [newPaymentValue, setNewPaymentValue] = useState('');
+  const [searchPaymentQuery, setSearchPaymentQuery] = useState('');
+
+  // POS Coupons & Promos states
+  const [allCouponsList, setAllCouponsList] = useState([]);
+  const [newCouponName, setNewCouponName] = useState('');
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponValue, setNewCouponValue] = useState('');
+  const [newCouponDiscountType, setNewCouponDiscountType] = useState('Percentage');
+  const [newCouponMinAmount, setNewCouponMinAmount] = useState('');
+  const [searchCouponsQuery, setSearchCouponsQuery] = useState('');
+
+  // POS Bookings & Tables states
+  const [bookingsList, setBookingsList] = useState([]);
+  const [newBookingCustomer, setNewBookingCustomer] = useState('');
+  const [newBookingPhone, setNewBookingPhone] = useState('');
+  const [newBookingDateTime, setNewBookingDateTime] = useState('');
+  const [newBookingGuests, setNewBookingGuests] = useState('2');
+  const [newBookingTable, setNewBookingTable] = useState('');
+  const [searchBookingsQuery, setSearchBookingsQuery] = useState('');
+
+  // POS Employees states
+  const [allEmployeesList, setAllEmployeesList] = useState([]);
+  const [attendanceLogsList, setAttendanceLogsList] = useState([]);
+  const [newEmpName, setNewEmpName] = useState('');
+  const [newEmpEmail, setNewEmpEmail] = useState('');
+  const [newEmpRole, setNewEmpRole] = useState('Chef');
+  const [newEmpPassword, setNewEmpPassword] = useState('');
+  const [searchEmployeesQuery, setSearchEmployeesQuery] = useState('');
+
+  // Combined management loader
+  const reloadManagementData = () => {
+    // Payment methods
+    const pmStored = localStorage.getItem('payment_methods');
+    if (pmStored) {
+      setAllPaymentMethods(JSON.parse(pmStored));
+    } else {
+      const defaultPM = [
+        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
+        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
+        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
+      ];
+      localStorage.setItem('payment_methods', JSON.stringify(defaultPM));
+      setAllPaymentMethods(defaultPM);
+    }
+    // Coupons list
+    const cpStored = localStorage.getItem('coupons_list');
+    if (cpStored) {
+      setAllCouponsList(JSON.parse(cpStored));
+    } else {
+      const defaultCoupons = [
+        { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
+        { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
+      ];
+      localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
+      setAllCouponsList(defaultCoupons);
+    }
+    // Bookings
+    const bkStored = localStorage.getItem('pos_bookings');
+    if (bkStored) {
+      setBookingsList(JSON.parse(bkStored));
+    } else {
+      const defaultBookings = [
+        { id: 'b_1', customerName: 'Manish Suthar', phone: '9876543210', dateTime: '2026-06-13T19:00', guests: 4, table: 'Table 4', status: 'Confirmed' },
+        { id: 'b_2', customerName: 'Aditya Raj', phone: '9988776655', dateTime: '2026-06-14T20:30', guests: 2, table: 'Table 12', status: 'Pending' }
+      ];
+      localStorage.setItem('pos_bookings', JSON.stringify(defaultBookings));
+      setBookingsList(defaultBookings);
+    }
+    // Employees
+    const empStored = localStorage.getItem('employees');
+    if (empStored) {
+      setAllEmployeesList(JSON.parse(empStored));
+    } else {
+      const defaultEmployees = [
+        { id: 'emp_1', name: 'Ramesh Chef', email: 'ramesh@cafe.com', role: 'Chef' },
+        { id: 'emp_2', name: 'Suresh Manager', email: 'suresh@cafe.com', role: 'Manager' }
+      ];
+      localStorage.setItem('employees', JSON.stringify(defaultEmployees));
+      setAllEmployeesList(defaultEmployees);
+    }
+    // Shift Attendance Logs
+    const shStored = localStorage.getItem('employee_logs');
+    if (shStored) {
+      setAttendanceLogsList(JSON.parse(shStored));
+    }
+  };
+
+  useEffect(() => {
+    reloadManagementData();
+  }, []);
+
   const handleToggleStock = (prodId) => {
     const updated = productsList.map(p => {
       if (p.id === prodId) {
@@ -83,6 +184,219 @@ const POS = ({ view = 'pos' }) => {
         addLogEntry(`Deleted product "${prod.name}"`, 'danger');
       }
     }
+  };
+
+  // Categories Handlers
+  const handleAddCategory = (e) => {
+    e.preventDefault();
+    if (!newCategoryName) return;
+    const newCat = {
+      id: `cat_${Date.now()}`,
+      name: newCategoryName,
+      color: newCategoryColor
+    };
+    const current = JSON.parse(localStorage.getItem('categories') || '[]');
+    current.push(newCat);
+    localStorage.setItem('categories', JSON.stringify(current));
+    setNewCategoryName('');
+    
+    // Update lists
+    setCategoriesList(current.map(c => c.name));
+    addLogEntry(`Added new category: ${newCat.name}`, 'success');
+    alert('Category added successfully!');
+  };
+
+  const handleDeleteCategory = (catName) => {
+    if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
+      const current = JSON.parse(localStorage.getItem('categories') || '[]');
+      const updated = current.filter(c => c.name !== catName);
+      localStorage.setItem('categories', JSON.stringify(updated));
+      setCategoriesList(updated.map(c => c.name));
+      addLogEntry(`Deleted category: ${catName}`, 'danger');
+    }
+  };
+
+  // Payment Methods Handlers
+  const handleAddPaymentMethod = (e) => {
+    e.preventDefault();
+    if (!newPaymentName) return;
+    const newPM = {
+      id: `pm_${Date.now()}`,
+      name: newPaymentName,
+      type: newPaymentType,
+      value: newPaymentValue,
+      activated: true
+    };
+    const updated = [...allPaymentMethods, newPM];
+    localStorage.setItem('payment_methods', JSON.stringify(updated));
+    setAllPaymentMethods(updated);
+    setNewPaymentName('');
+    setNewPaymentValue('');
+    addLogEntry(`Added payment method: ${newPM.name}`, 'success');
+    alert('Payment method added successfully!');
+  };
+
+  const handleTogglePaymentMethod = (pmId) => {
+    const updated = allPaymentMethods.map(pm => {
+      if (pm.id === pmId) {
+        const newAct = !pm.activated;
+        addLogEntry(`Payment method ${pm.name} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
+        return { ...pm, activated: newAct };
+      }
+      return pm;
+    });
+    localStorage.setItem('payment_methods', JSON.stringify(updated));
+    setAllPaymentMethods(updated);
+  };
+
+  const handleDeletePaymentMethod = (pmId) => {
+    if (window.confirm('Are you sure you want to delete this payment method?')) {
+      const pm = allPaymentMethods.find(p => p.id === pmId);
+      const updated = allPaymentMethods.filter(p => p.id !== pmId);
+      localStorage.setItem('payment_methods', JSON.stringify(updated));
+      setAllPaymentMethods(updated);
+      if (pm) addLogEntry(`Deleted payment method ${pm.name}`, 'danger');
+    }
+  };
+
+  // Coupons Handlers
+  const handleAddCoupon = (e) => {
+    e.preventDefault();
+    if (!newCouponName || !newCouponCode || !newCouponValue) return;
+    const newCP = {
+      id: `cp_${Date.now()}`,
+      name: newCouponName,
+      code: newCouponCode.toUpperCase(),
+      value: parseFloat(newCouponValue),
+      discountType: newCouponDiscountType,
+      minAmount: parseFloat(newCouponMinAmount || 0),
+      activated: true
+    };
+    const updated = [...allCouponsList, newCP];
+    localStorage.setItem('coupons_list', JSON.stringify(updated));
+    setAllCouponsList(updated);
+    setNewCouponName('');
+    setNewCouponCode('');
+    setNewCouponValue('');
+    setNewCouponMinAmount('');
+    addLogEntry(`Added coupon code: ${newCP.code}`, 'success');
+    alert('Coupon added successfully!');
+  };
+
+  const handleToggleCoupon = (cpId) => {
+    const updated = allCouponsList.map(cp => {
+      if (cp.id === cpId) {
+        const newAct = !cp.activated;
+        addLogEntry(`Coupon ${cp.code} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
+        return { ...cp, activated: newAct };
+      }
+      return cp;
+    });
+    localStorage.setItem('coupons_list', JSON.stringify(updated));
+    setAllCouponsList(updated);
+  };
+
+  const handleDeleteCoupon = (cpId) => {
+    if (window.confirm('Are you sure you want to delete this coupon?')) {
+      const cp = allCouponsList.find(c => c.id === cpId);
+      const updated = allCouponsList.filter(c => c.id !== cpId);
+      localStorage.setItem('coupons_list', JSON.stringify(updated));
+      setAllCouponsList(updated);
+      if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
+    }
+  };
+
+  // Bookings Handlers
+  const handleAddBooking = (e) => {
+    e.preventDefault();
+    if (!newBookingCustomer || !newBookingPhone || !newBookingDateTime) return;
+    const newBK = {
+      id: `bk_${Date.now()}`,
+      customerName: newBookingCustomer,
+      phone: newBookingPhone,
+      dateTime: newBookingDateTime,
+      guests: parseInt(newBookingGuests || 2),
+      table: newBookingTable || 'Unassigned',
+      status: 'Pending'
+    };
+    const updated = [...bookingsList, newBK];
+    localStorage.setItem('pos_bookings', JSON.stringify(updated));
+    setBookingsList(updated);
+    setNewBookingCustomer('');
+    setNewBookingPhone('');
+    setNewBookingDateTime('');
+    setNewBookingTable('');
+    addLogEntry(`Booked table for customer: ${newBK.customerName}`, 'success');
+    alert('Table booking added successfully!');
+  };
+
+  const handleUpdateBookingStatus = (bkId, status) => {
+    const updated = bookingsList.map(bk => {
+      if (bk.id === bkId) {
+        addLogEntry(`Booking for ${bk.customerName} set to ${status}`, 'info');
+        return { ...bk, status };
+      }
+      return bk;
+    });
+    localStorage.setItem('pos_bookings', JSON.stringify(updated));
+    setBookingsList(updated);
+  };
+
+  const handleDeleteBooking = (bkId) => {
+    if (window.confirm('Are you sure you want to delete this booking reservation?')) {
+      const bk = bookingsList.find(b => b.id === bkId);
+      const updated = bookingsList.filter(b => b.id !== bkId);
+      localStorage.setItem('pos_bookings', JSON.stringify(updated));
+      setBookingsList(updated);
+      if (bk) addLogEntry(`Deleted booking for ${bk.customerName}`, 'danger');
+    }
+  };
+
+  // Employees Handlers
+  const handleAddEmployee = (e) => {
+    e.preventDefault();
+    if (!newEmpName || !newEmpEmail || !newEmpPassword) return;
+    const newEmp = {
+      id: `emp_${Date.now()}`,
+      name: newEmpName,
+      email: newEmpEmail,
+      role: newEmpRole,
+      password: newEmpPassword
+    };
+    const updated = [...allEmployeesList, newEmp];
+    localStorage.setItem('employees', JSON.stringify(updated));
+    setAllEmployeesList(updated);
+    setNewEmpName('');
+    setNewEmpEmail('');
+    setNewEmpPassword('');
+    addLogEntry(`Added employee: ${newEmp.name} (${newEmp.role})`, 'success');
+    alert('Employee registered successfully!');
+  };
+
+  const handleDeleteEmployee = (empId) => {
+    if (window.confirm('Are you sure you want to delete this employee?')) {
+      const emp = allEmployeesList.find(e => e.id === empId);
+      const updated = allEmployeesList.filter(e => e.id !== empId);
+      localStorage.setItem('employees', JSON.stringify(updated));
+      setAllEmployeesList(updated);
+      if (emp) addLogEntry(`Deleted employee ${emp.name}`, 'danger');
+    }
+  };
+
+  const handleToggleShift = (logId) => {
+    const updated = attendanceLogsList.map(log => {
+      if (log.id === logId) {
+        const isCurrentlyActive = !log.logoutTime;
+        return {
+          ...log,
+          logoutTime: isCurrentlyActive ? new Date().toISOString() : null
+        };
+      }
+      return log;
+    });
+    localStorage.setItem('employee_logs', JSON.stringify(updated));
+    setAttendanceLogsList(updated);
+    addLogEntry(`Toggled shift status for log ID ${logId}`, 'info');
   };
 
   const addLogEntry = (message, type = 'info') => {
@@ -721,29 +1035,22 @@ const POS = ({ view = 'pos' }) => {
       {/* Slide out hamburger Sidebar */}
       <div style={slideSidebarStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <span style={{ fontSize: '18px', fontWeight: '700', color: '#ffffff' }}>POS Menu</span>
+          <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>POS Menu</span>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            style={{ background: 'none', border: 'none', color: '#ffffff', fontSize: '24px', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '24px', cursor: 'pointer' }}
           >
             &times;
           </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-          {user?.role === 'admin' && (
-            <>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/products')}>Products</button>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/categories')}>Category</button>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/payment-methods')}>Payment method</button>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/coupons')}>Coupon & Promotion</button>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/employees')}>User/Employee</button>
-            </>
-          )}
-          <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/pos-orders')}>Orders</button>
-          <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/kds')}>KDS</button>
-          {user?.role === 'admin' && (
-            <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/reports')}>Reports</button>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, overflowY: 'auto' }}>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'products' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'products' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-products')}>Products</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'categories' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'categories' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-categories')}>Categories</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'payment-methods' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'payment-methods' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-payment-methods')}>Payment Methods</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'coupons' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'coupons' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-coupons')}>Coupons & Promos</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'bookings' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'bookings' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-bookings')}>Bookings & Tables</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}>Staff / Employees</button>
+          <button style={{ ...menuLinkStyle, backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}>Sales Reports</button>
         </div>
         <button 
           onClick={handleLogout}
@@ -1346,6 +1653,1470 @@ const POS = ({ view = 'pos' }) => {
               </div>
 
             </div>
+          </div>
+        ) : view === 'categories' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Categories Page Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Categories Management</h2>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search categories..."
+                  value={searchCategoriesQuery}
+                  onChange={(e) => setSearchCategoriesQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" />
+              </div>
+            </div>
+
+            {/* Split layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
+              
+              {/* Left Column: Add Category Form */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-standard)'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
+                  Add New Category
+                </h3>
+                <form onSubmit={handleAddCategory} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Category Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Desserts"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Color Badge Theme *</label>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {['#ea580c', '#0d9488', '#7c3aed', '#b45309', '#db2777', '#2563eb', '#16a34a', '#dc2626'].map(color => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setNewCategoryColor(color)}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: color,
+                            border: newCategoryColor === color ? '3px solid var(--text-primary)' : '1px solid rgba(0,0,0,0.2)',
+                            cursor: 'pointer',
+                            transform: newCategoryColor === color ? 'scale(1.15)' : 'none',
+                            transition: 'all 0.15s'
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '10px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Add Category
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Categories List */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={thStyle}>Category Name</th>
+                      <th style={thStyle}>Color Tag</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = categoriesList.filter(cat => 
+                        cat.toLowerCase().includes(searchCategoriesQuery.toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="3" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                              No categories found.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      // Find colors from all categories loaded
+                      const catsDetails = JSON.parse(localStorage.getItem('categories') || '[]');
+                      return filtered.map(catName => {
+                        const detail = catsDetails.find(d => d.name === catName) || { color: '#888' };
+                        return (
+                          <tr key={catName} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                            <td style={{ ...tdStyle, fontWeight: '700' }}>{catName}</td>
+                            <td style={tdStyle}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: detail.color }} />
+                                <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{detail.color}</span>
+                              </div>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleDeleteCategory(catName)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : view === 'payment-methods' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Payment Methods Page */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Payment Methods</h2>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search payment methods..."
+                  value={searchPaymentQuery}
+                  onChange={(e) => setSearchPaymentQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
+              
+              {/* Left Column: Add Payment Method */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-standard)'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
+                  Add Payment Method
+                </h3>
+                <form onSubmit={handleAddPaymentMethod} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Method Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. PhonePe UPI"
+                      value={newPaymentName}
+                      onChange={(e) => setNewPaymentName(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Type *</label>
+                    <select
+                      value={newPaymentType}
+                      onChange={(e) => setNewPaymentType(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="UPI">UPI</option>
+                      <option value="Wallet">Digital Wallet</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Gateway details (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. merchant@ybl"
+                      value={newPaymentValue}
+                      onChange={(e) => setNewPaymentValue(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '10px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Register Payment Mode
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Payment Methods List */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={thStyle}>Method Name</th>
+                      <th style={thStyle}>Type</th>
+                      <th style={thStyle}>Gateway info</th>
+                      <th style={thStyle}>Status</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = allPaymentMethods.filter(pm => 
+                        (pm.name || '').toLowerCase().includes(searchPaymentQuery.toLowerCase()) ||
+                        (pm.type || '').toLowerCase().includes(searchPaymentQuery.toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                              No payment methods registered.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return filtered.map(pm => (
+                        <tr key={pm.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{pm.name}</td>
+                          <td style={tdStyle}>{pm.type}</td>
+                          <td style={{ ...tdStyle, fontFamily: 'var(--mono)', fontSize: '13px' }}>{pm.value || '-'}</td>
+                          <td style={tdStyle}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: pm.activated ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: pm.activated ? '#10b981' : '#ef4444'
+                            }}>
+                              {pm.activated ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                              <button
+                                onClick={() => handleTogglePaymentMethod(pm.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: pm.activated ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                  color: pm.activated ? '#ef4444' : '#10b981',
+                                  fontSize: '12px',
+                                  fontWeight: '850',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {pm.activated ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePaymentMethod(pm.id)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : view === 'coupons' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Coupons & Promotions Page */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Coupons & Promos</h2>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search coupons by code or name..."
+                  value={searchCouponsQuery}
+                  onChange={(e) => setSearchCouponsQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
+              
+              {/* Left Column: Add Coupon Form */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-standard)'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
+                  Create Coupon / Promo
+                </h3>
+                <form onSubmit={handleAddCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Promotion Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Festival Special Offer"
+                      value={newCouponName}
+                      onChange={(e) => setNewCouponName(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Coupon Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. DIWALI50"
+                      value={newCouponCode}
+                      onChange={(e) => setNewCouponCode(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none',
+                        textTransform: 'uppercase'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Type *</label>
+                      <select
+                        value={newCouponDiscountType}
+                        onChange={(e) => setNewCouponDiscountType(e.target.value)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="Percentage">Percent (%)</option>
+                        <option value="Fixed">Fixed (₹)</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Value *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder="e.g. 20"
+                        value={newCouponValue}
+                        onChange={(e) => setNewCouponValue(e.target.value)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Min Order Amount (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 300"
+                      value={newCouponMinAmount}
+                      onChange={(e) => setNewCouponMinAmount(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '10px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Create Promo Coupon
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Coupons List */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={thStyle}>Promo Name</th>
+                      <th style={thStyle}>Coupon Code</th>
+                      <th style={thStyle}>Value Off</th>
+                      <th style={thStyle}>Min. Order</th>
+                      <th style={thStyle}>Status</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = allCouponsList.filter(cp => 
+                        (cp.name || '').toLowerCase().includes(searchCouponsQuery.toLowerCase()) ||
+                        (cp.code || '').toLowerCase().includes(searchCouponsQuery.toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                              No coupon promo codes created.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return filtered.map(cp => (
+                        <tr key={cp.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{cp.name}</td>
+                          <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750', fontFamily: 'var(--mono)' }}>{cp.code}</td>
+                          <td style={tdStyle}>{cp.discountType === 'Percentage' ? `${cp.value}%` : `₹${cp.value}`} Off</td>
+                          <td style={tdStyle}>₹{cp.minAmount || '0'}</td>
+                          <td style={tdStyle}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: cp.activated ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: cp.activated ? '#10b981' : '#ef4444'
+                            }}>
+                              {cp.activated ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                              <button
+                                onClick={() => handleToggleCoupon(cp.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: cp.activated ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                  color: cp.activated ? '#ef4444' : '#10b981',
+                                  fontSize: '12px',
+                                  fontWeight: '850',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {cp.activated ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCoupon(cp.id)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : view === 'bookings' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Bookings & Reservations Page */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Bookings & Reservations</h2>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search bookings by customer name..."
+                  value={searchBookingsQuery}
+                  onChange={(e) => setSearchBookingsQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
+              
+              {/* Left Column: Add Booking Form */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-standard)'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
+                  Reserve a Table
+                </h3>
+                <form onSubmit={handleAddBooking} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Customer Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. John Doe"
+                      value={newBookingCustomer}
+                      onChange={(e) => setNewBookingCustomer(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Contact Phone *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. +91 98765 43210"
+                      value={newBookingPhone}
+                      onChange={(e) => setNewBookingPhone(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Date & Time *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={newBookingDateTime}
+                      onChange={(e) => setNewBookingDateTime(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Guests count</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newBookingGuests}
+                        onChange={(e) => setNewBookingGuests(e.target.value)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Table Select</label>
+                      <select
+                        value={newBookingTable}
+                        onChange={(e) => setNewBookingTable(e.target.value)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">Unassigned</option>
+                        {Array.from({ length: 15 }, (_, i) => `Table ${i + 1}`).map(tName => (
+                          <option key={tName} value={tName}>{tName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '10px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Confirm Booking
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Bookings List */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={thStyle}>Customer</th>
+                      <th style={thStyle}>Contact</th>
+                      <th style={thStyle}>Booking Date & Time</th>
+                      <th style={thStyle}>Seating</th>
+                      <th style={thStyle}>Status</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filtered = bookingsList.filter(bk => 
+                        (bk.customerName || '').toLowerCase().includes(searchBookingsQuery.toLowerCase())
+                      );
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                              No table reservations booked.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return filtered.map(bk => (
+                        <tr key={bk.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{bk.customerName}</td>
+                          <td style={tdStyle}>{bk.phone}</td>
+                          <td style={tdStyle}>{new Date(bk.dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                          <td style={{ ...tdStyle, fontWeight: '650' }}>{bk.table} ({bk.guests} Guests)</td>
+                          <td style={tdStyle}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 
+                                bk.status === 'Confirmed' ? 'rgba(16, 185, 129, 0.1)' : 
+                                bk.status === 'Pending' ? 'rgba(234, 88, 12, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: 
+                                bk.status === 'Confirmed' ? '#10b981' : 
+                                bk.status === 'Pending' ? '#ea580c' : '#ef4444'
+                            }}>
+                              {bk.status}
+                            </span>
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                              {bk.status !== 'Confirmed' && (
+                                <button
+                                  onClick={() => handleUpdateBookingStatus(bk.id, 'Confirmed')}
+                                  style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                    color: '#10b981',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Accept
+                                </button>
+                              )}
+                              {bk.status !== 'Cancelled' && (
+                                <button
+                                  onClick={() => handleUpdateBookingStatus(bk.id, 'Cancelled')}
+                                  style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                    color: '#ef4444',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteBooking(bk.id)}
+                                style={{
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                  color: 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : view === 'employees' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Employees Management Page */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>Staff Attendance & Employees Directory</h2>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search staff members..."
+                  value={searchEmployeesQuery}
+                  onChange={(e) => setSearchEmployeesQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '30px', alignItems: 'start' }}>
+              
+              {/* Left Column: Register Employee */}
+              <div style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '20px',
+                padding: '24px',
+                boxShadow: 'var(--card-shadow)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-standard)'
+              }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px', textAlign: 'left' }}>
+                  Register New Staff
+                </h3>
+                <form onSubmit={handleAddEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Employee Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ramesh Kumar"
+                      value={newEmpName}
+                      onChange={(e) => setNewEmpName(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. ramesh@cafe.com"
+                      value={newEmpEmail}
+                      onChange={(e) => setNewEmpEmail(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Designated Role *</label>
+                    <select
+                      value={newEmpRole}
+                      onChange={(e) => setNewEmpRole(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="Chef">Chef</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Cashier">Cashier</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)' }}>Access Password *</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={newEmpPassword}
+                      onChange={(e) => setNewEmpPassword(e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: 'var(--border-focus)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      marginTop: '10px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Register Employee
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Employees Directory & Shift Attendance Lists */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                
+                {/* Employees Directory Table */}
+                <div style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '20px',
+                  overflow: 'hidden',
+                  boxShadow: 'var(--card-shadow)',
+                  color: 'var(--text-primary)'
+                }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1.5px solid var(--border-color)', fontSize: '16px', fontWeight: '800', textAlign: 'left' }}>
+                    Staff Members Directory
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={thStyle}>Staff Name</th>
+                        <th style={thStyle}>Email</th>
+                        <th style={thStyle}>Role Badge</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const filtered = allEmployeesList.filter(emp => 
+                          (emp.name || '').toLowerCase().includes(searchEmployeesQuery.toLowerCase()) ||
+                          (emp.role || '').toLowerCase().includes(searchEmployeesQuery.toLowerCase())
+                        );
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                No employees matched query.
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return filtered.map(emp => (
+                          <tr key={emp.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                            <td style={{ ...tdStyle, fontWeight: '700' }}>{emp.name}</td>
+                            <td style={tdStyle}>{emp.email}</td>
+                            <td style={tdStyle}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                textTransform: 'uppercase',
+                                backgroundColor: 
+                                  emp.role === 'Manager' ? 'rgba(239, 68, 68, 0.15)' : 
+                                  emp.role === 'Chef' ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.15)',
+                                color: 
+                                  emp.role === 'Manager' ? '#ef4444' : 
+                                  emp.role === 'Chef' ? '#ea580c' : '#2563eb'
+                              }}>
+                                {emp.role}
+                              </span>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleDeleteEmployee(emp.id)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Shift Attendance Log Table */}
+                <div style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '20px',
+                  overflow: 'hidden',
+                  boxShadow: 'var(--card-shadow)',
+                  color: 'var(--text-primary)'
+                }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1.5px solid var(--border-color)', fontSize: '16px', fontWeight: '800', textAlign: 'left' }}>
+                    Shift Attendance Logs
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={thStyle}>Staff Employee</th>
+                        <th style={thStyle}>Clock In Time</th>
+                        <th style={thStyle}>Clock Out Time</th>
+                        <th style={thStyle}>Duty Status</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Shift Management</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceLogsList.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            No attendance logs stored in history.
+                          </td>
+                        </tr>
+                      ) : (
+                        attendanceLogsList.slice(0, 10).map(log => (
+                          <tr key={log.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                            <td style={{ ...tdStyle, fontWeight: '700' }}>
+                              <div>{log.employeeName}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>{log.employeeEmail}</div>
+                            </td>
+                            <td style={tdStyle}>{new Date(log.loginTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+                            <td style={tdStyle}>
+                              {log.logoutTime ? new Date(log.logoutTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                            </td>
+                            <td style={tdStyle}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                backgroundColor: log.logoutTime ? 'rgba(255, 255, 255, 0.08)' : 'rgba(16, 185, 129, 0.15)',
+                                color: log.logoutTime ? 'var(--text-secondary)' : '#10b981'
+                              }}>
+                                {log.logoutTime ? 'Completed' : 'On Duty'}
+                              </span>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleToggleShift(log.id)}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  border: '1.5px solid var(--border-color)',
+                                  backgroundColor: 'var(--bg-button)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '12px',
+                                  fontWeight: '800',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {log.logoutTime ? 'Reopen Shift' : 'End Duty Shift'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : view === 'reports' ? (
+          <div style={bodyOrdersStyle}>
+            {/* POS Analytics & Reports page */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Business Reports & Dashboard</h2>
+              <button 
+                onClick={reloadManagementData}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--border-focus)',
+                  color: 'var(--bg-primary)',
+                  border: 'none',
+                  fontWeight: '800',
+                  cursor: 'pointer'
+                }}
+              >
+                Sync Data Log
+              </button>
+            </div>
+
+            {(() => {
+              // Calculate statistics
+              const totalRevenue = ordersList.reduce((acc, o) => acc + o.amount, 0);
+              const totalOrdersCount = ordersList.length;
+              const aov = totalOrdersCount > 0 ? (totalRevenue / totalOrdersCount).toFixed(2) : 0;
+              const unpaidRevenue = ordersList
+                .filter(o => o.status === 'Unpaid')
+                .reduce((acc, o) => acc + o.amount, 0);
+
+              // Calculate payment method percentage statistics
+              const paymentCounts = ordersList.reduce((acc, o) => {
+                const method = o.paymentMethod || '-';
+                acc[method] = (acc[method] || 0) + o.amount;
+                return acc;
+              }, {});
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                  
+                  {/* Top Stats Cards row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                    
+                    {/* Revenue Card */}
+                    <div style={{
+                      padding: '24px',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(135deg, #ea580c 0%, #ca8a04 100%)',
+                      color: '#ffffff',
+                      boxShadow: 'var(--card-shadow)',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', opacity: 0.85, textTransform: 'uppercase' }}>Gross Revenue</div>
+                      <div style={{ fontSize: '32px', fontWeight: '850', marginTop: '8px' }}>₹{totalRevenue}</div>
+                      <div style={{ fontSize: '12px', marginTop: '10px', opacity: 0.9 }}>Aggregate sales values logged</div>
+                    </div>
+
+                    {/* Orders Card */}
+                    <div style={{
+                      padding: '24px',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
+                      color: '#ffffff',
+                      boxShadow: 'var(--card-shadow)',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', opacity: 0.85, textTransform: 'uppercase' }}>Orders Handled</div>
+                      <div style={{ fontSize: '32px', fontWeight: '850', marginTop: '8px' }}>{totalOrdersCount}</div>
+                      <div style={{ fontSize: '12px', marginTop: '10px', opacity: 0.9 }}>Total transactional orders registered</div>
+                    </div>
+
+                    {/* Average Ticket Value (AOV) Card */}
+                    <div style={{
+                      padding: '24px',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(135deg, #7c3aed 0%, #db2777 100%)',
+                      color: '#ffffff',
+                      boxShadow: 'var(--card-shadow)',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', opacity: 0.85, textTransform: 'uppercase' }}>Average Ticket</div>
+                      <div style={{ fontSize: '32px', fontWeight: '850', marginTop: '8px' }}>₹{aov}</div>
+                      <div style={{ fontSize: '12px', marginTop: '10px', opacity: 0.9 }}>Average billing price per cart</div>
+                    </div>
+
+                    {/* Unpaid Outstanding Card */}
+                    <div style={{
+                      padding: '24px',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(135deg, #dc2626 0%, #e11d48 100%)',
+                      color: '#ffffff',
+                      boxShadow: 'var(--card-shadow)',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', opacity: 0.85, textTransform: 'uppercase' }}>Outstanding Unpaid</div>
+                      <div style={{ fontSize: '32px', fontWeight: '850', marginTop: '8px' }}>₹{unpaidRevenue}</div>
+                      <div style={{ fontSize: '12px', marginTop: '10px', opacity: 0.9 }}>Receivables pending settlement</div>
+                    </div>
+
+                  </div>
+
+                  {/* Payment Distribution and Session Logs Section */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', alignItems: 'start' }}>
+                    
+                    {/* Payment Distribution Card */}
+                    <div style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1.5px solid var(--border-color)',
+                      borderRadius: '20px',
+                      padding: '24px',
+                      boxShadow: 'var(--card-shadow)',
+                      color: 'var(--text-primary)',
+                      textAlign: 'left'
+                    }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
+                        Sales Volume by Payment Option
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {Object.entries(paymentCounts).map(([method, amount]) => {
+                          const percentage = totalRevenue > 0 ? ((amount / totalRevenue) * 100).toFixed(1) : 0;
+                          return (
+                            <div key={method} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700' }}>
+                                <span>{method === '-' ? 'Unpaid Settlement' : method}</span>
+                                <span>₹{amount} ({percentage}%)</span>
+                              </div>
+                              <div style={{ height: '8px', backgroundColor: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{
+                                  width: `${percentage}%`,
+                                  height: '100%',
+                                  backgroundColor: 
+                                    method === 'UPI' ? '#0d9488' : 
+                                    method === 'Cash' ? '#ea580c' : 
+                                    method === 'Card' ? '#7c3aed' : '#ef4444',
+                                  borderRadius: '4px'
+                                }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {Object.keys(paymentCounts).length === 0 && (
+                          <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                            No sales records computed yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Active Session Logs Card */}
+                    <div style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1.5px solid var(--border-color)',
+                      borderRadius: '20px',
+                      padding: '24px',
+                      boxShadow: 'var(--card-shadow)',
+                      color: 'var(--text-primary)',
+                      textAlign: 'left'
+                    }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
+                        Active POS Operations Logs
+                      </h3>
+                      <div style={{
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}>
+                        {logs.slice(0, 10).map((log) => (
+                          <div key={log.id} style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            backgroundColor: 'var(--bg-primary)',
+                            borderLeft: `4px solid ${
+                              log.type === 'success' ? '#10b981' : 
+                              log.type === 'warning' ? '#ea580c' : 
+                              log.type === 'danger' ? '#ef4444' : 'var(--text-secondary)'
+                            }`,
+                            fontSize: '13px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span>{log.message}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{log.time}</span>
+                          </div>
+                        ))}
+                        {logs.length === 0 && (
+                          <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                            No session activity logs registered.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              );
+            })()}
+
           </div>
         ) : (
           <div style={bodyGridStyle}>
