@@ -15,12 +15,12 @@ const Coupons = () => {
   const [selectedCoupon, setSelectedCoupon] = useState(null);
 
   // New/Edit Form State
-  const [formName, setFormName] = useState('');
+  const [formName, setFormName] = useState('Mock Promo');
   const [formType, setFormType] = useState('Coupon');
-  const [formCode, setFormCode] = useState('');
+  const [formCode, setFormCode] = useState('MOCK50');
   const [formDiscountType, setFormDiscountType] = useState('Percentage');
-  const [formValue, setFormValue] = useState(10);
-  const [formMinAmount, setFormMinAmount] = useState(0);
+  const [formValue, setFormValue] = useState(50);
+  const [formMinAmount, setFormMinAmount] = useState(200);
   const [formTargetType, setFormTargetType] = useState('All'); // 'All', 'Category', 'Product'
   const [formTargetValue, setFormTargetValue] = useState('');
   const [formActivated, setFormActivated] = useState(true);
@@ -68,12 +68,12 @@ const Coupons = () => {
 
   const handleOpenNewModal = () => {
     setSelectedCoupon(null);
-    setFormName('');
+    setFormName('Mock Promo');
     setFormType('Coupon');
-    setFormCode('');
+    setFormCode('MOCK50');
     setFormDiscountType('Percentage');
-    setFormValue(10);
-    setFormMinAmount(0);
+    setFormValue(50);
+    setFormMinAmount(200);
     setFormTargetType('All');
     setFormTargetValue('');
     setFormActivated(true);

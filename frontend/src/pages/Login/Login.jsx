@@ -13,8 +13,8 @@ const Login = () => {
   const { theme, toggleTheme } = useTheme();
 
   // Login inputs
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('cafe@admin.com');
+  const [loginPassword, setLoginPassword] = useState('cafe123');
   const [rememberMe, setRememberMe] = useState(false);
   const [loginErrors, setLoginErrors] = useState({});
   const [loginGeneralError, setLoginGeneralError] = useState('');
@@ -37,7 +37,7 @@ const Login = () => {
     if (result.success) {
       if (result.role === 'admin') {
         navigate('/dashboard');
-      } else if (result.role === 'chef') {
+      } else if (result.role === 'chef' || result.role === 'kitchen') {
         navigate('/kds');
       } else {
         navigate('/pos');

@@ -26,15 +26,15 @@ const Products = () => {
 
   // Form states
   const [productForm, setProductForm] = useState({
-    name: '',
-    price: '',
+    name: 'Mock Espresso',
+    price: '120',
     tax: '5',
     category: '',
-    description: ''
+    description: 'Rich and smooth mock espresso shot'
   });
 
   const [categoryForm, setCategoryForm] = useState({
-    name: '',
+    name: 'Mock Category',
     color: '#0d9488' // Default teal
   });
 
