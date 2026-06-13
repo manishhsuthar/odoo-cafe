@@ -18,4 +18,5 @@ urlpatterns = [
     path("api/", include("orders.urls")),
     path("api/", include("payments.urls")),
     path("api/pos/", include("pos.urls")),
+    path("api/kds/", include("kds.urls")),
 ]
