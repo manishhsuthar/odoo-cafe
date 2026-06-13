@@ -18,12 +18,31 @@ const POSBookingsManagement = ({
   const handleAddBooking = (e) => {
     e.preventDefault();
     if (!newBookingCustomer || !newBookingPhone || !newBookingDateTime) return;
+
+    const nameTrimmed = newBookingCustomer.trim();
+    if (!/^[a-zA-Z\s]+$/.test(nameTrimmed)) {
+      alert('Customer name must contain only letters and spaces.');
+      return;
+    }
+
+    const phoneTrimmed = newBookingPhone.trim();
+    if (!/^\d{10}$/.test(phoneTrimmed)) {
+      alert('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    const guestsString = String(newBookingGuests).trim();
+    if (!/^\d+$/.test(guestsString) || parseInt(guestsString, 10) < 1) {
+      alert('Guest count must be a positive integer.');
+      return;
+    }
+
     const newBK = {
       id: `bk_${Date.now()}`,
-      customerName: newBookingCustomer,
-      phone: newBookingPhone,
+      customerName: nameTrimmed,
+      phone: phoneTrimmed,
       dateTime: newBookingDateTime,
-      guests: parseInt(newBookingGuests || 2),
+      guests: parseInt(guestsString, 10),
       table: newBookingTable || 'Unassigned',
       status: 'Pending'
     };
@@ -119,8 +138,7 @@ const POSBookingsManagement = ({
                 placeholder="e.g. John Doe"
                 value={newBookingCustomer}
                 onChange={(e) => setNewBookingCustomer(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -138,8 +156,7 @@ const POSBookingsManagement = ({
                 placeholder="e.g. +91 98765 43210"
                 value={newBookingPhone}
                 onChange={(e) => setNewBookingPhone(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -156,8 +173,7 @@ const POSBookingsManagement = ({
                 required
                 value={newBookingDateTime}
                 onChange={(e) => setNewBookingDateTime(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -176,8 +192,7 @@ const POSBookingsManagement = ({
                   min="1"
                   value={newBookingGuests}
                   onChange={(e) => setNewBookingGuests(e.target.value)}
-                  style={{
-                    padding: '10px 12px',
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
                     backgroundColor: 'var(--bg-primary)',
@@ -192,8 +207,7 @@ const POSBookingsManagement = ({
                 <select
                   value={newBookingTable}
                   onChange={(e) => setNewBookingTable(e.target.value)}
-                  style={{
-                    padding: '10px 12px',
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
                     backgroundColor: 'var(--bg-primary)',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, Edit2, Save, X } from 'lucide-react';
 import { bodyOrdersStyle, thStyle, tdStyle } from './POSSharedStyles';
 
 const POSEmployeesManagement = ({
@@ -15,13 +15,65 @@ const POSEmployeesManagement = ({
   const [newEmpRole, setNewEmpRole] = useState('Chef');
   const [newEmpPassword, setNewEmpPassword] = useState('');
 
+  const [editEmpId, setEditEmpId] = useState(null);
+  const [editEmpData, setEditEmpData] = useState({ name: '', email: '' });
+
+  const handleEditClick = (emp) => {
+    setEditEmpId(emp.id);
+    setEditEmpData({ name: emp.name, email: emp.email });
+  };
+
+  const handleCancelEdit = () => {
+    setEditEmpId(null);
+  };
+
+  const handleSaveEdit = (empId) => {
+    if (!editEmpData.name || !editEmpData.email) return;
+    const nameTrimmed = editEmpData.name.trim();
+    if (!/^[a-zA-Z\s]+$/.test(nameTrimmed)) {
+      alert('Employee name must contain only letters and spaces.');
+      return;
+    }
+    const emailTrimmed = editEmpData.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    const updated = allEmployeesList.map(e => 
+      e.id === empId ? { ...e, name: nameTrimmed, email: emailTrimmed } : e
+    );
+    localStorage.setItem('employees', JSON.stringify(updated));
+    setAllEmployeesList(updated);
+    addLogEntry(`Updated employee: ${nameTrimmed}`, 'success');
+    setEditEmpId(null);
+  };
+
   const handleAddEmployee = (e) => {
     e.preventDefault();
     if (!newEmpName || !newEmpEmail || !newEmpPassword) return;
+
+    const nameTrimmed = newEmpName.trim();
+    if (!/^[a-zA-Z\s]+$/.test(nameTrimmed)) {
+      alert('Employee name must contain only letters and spaces.');
+      return;
+    }
+
+    const emailTrimmed = newEmpEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    if (newEmpRole !== 'Manager' && newEmpRole !== 'Chef') {
+      alert('Role must be either Manager or Chef.');
+      return;
+    }
+
     const newEmp = {
       id: `emp_${Date.now()}`,
-      name: newEmpName,
-      email: newEmpEmail,
+      name: nameTrimmed,
+      email: emailTrimmed,
       role: newEmpRole,
       password: newEmpPassword
     };
@@ -250,9 +302,22 @@ const POSEmployeesManagement = ({
                     );
                   }
                   return filtered.map(emp => (
-                    <tr key={emp.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
-                      <td style={{ ...tdStyle, fontWeight: '700' }}>{emp.name}</td>
-                      <td style={tdStyle}>{emp.email}</td>
+                    <tr key={emp.id} style={{ borderBottom: '1.5px solid var(--border-color)', transition: 'background-color 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                      {editEmpId === emp.id ? (
+                        <>
+                          <td style={tdStyle}>
+                            <input type="text" value={editEmpData.name} onChange={(e) => setEditEmpData({ ...editEmpData, name: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="email" value={editEmpData.email} onChange={(e) => setEditEmpData({ ...editEmpData, email: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{emp.name}</td>
+                          <td style={tdStyle}>{emp.email}</td>
+                        </>
+                      )}
                       <td style={tdStyle}>
                         <span style={{
                           fontSize: '11px',
@@ -271,19 +336,42 @@ const POSEmployeesManagement = ({
                         </span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDeleteEmployee(emp.id)}
-                          style={{
-                            padding: '6px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                          {editEmpId === emp.id ? (
+                            <>
+                              <button onClick={() => handleSaveEdit(emp.id)} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Save">
+                                <Save size={14} />
+                              </button>
+                              <button onClick={handleCancelEdit} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Cancel">
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => handleEditClick(emp)} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} title="Edit Employee">
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEmployee(emp.id)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s'
+                                }}
+                                title="Delete Employee"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ));
