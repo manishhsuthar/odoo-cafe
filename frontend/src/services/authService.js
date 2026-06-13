@@ -2,7 +2,7 @@ import axiosInstance from './axios';
 
 const authService = {
   login: async (email, password) => {
-    const response = await axiosInstance.post('/auth/login/', { email, password });
+    const response = await axiosInstance.post('api/auth/login/', { email, password });
     return response.data;
   },
 
@@ -17,7 +17,7 @@ const authService = {
   },
 
   getCurrentUser: async () => {
-    const response = await axiosInstance.get('/auth/me/');
+    const response = await axiosInstance.get('api/auth/me/');
     return response.data;
   },
 

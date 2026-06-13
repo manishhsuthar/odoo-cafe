@@ -23,9 +23,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
         CASHIER = "cashier", "Cashier"
-        KITCHEN = "kitchen", "Kitchen"
-        MANAGER = "manager", "Manager"
-        CHEF = "chef", "Chef"
+        KITCHEN = "kitchen", "Chef"
+
 
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=150)
