@@ -144,7 +144,7 @@ const Dashboard = () => {
     display: 'flex',
     flexDirection: 'column',
   };
-
+  
   const mainContentStyle = {
     padding: '40px',
     display: 'flex',
