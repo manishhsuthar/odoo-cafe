@@ -18,19 +18,20 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, addProduct, getOrders, saveProducts } from '../../utils/db';
+import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders } from '../../utils/db';
 
 const POS = ({ view = 'pos' }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Load from localStorage
+  // Load from API
   const [categoriesList, setCategoriesList] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState('');
+  const [couponList, setCouponList] = useState([]);
   
   // Session Logs states
   const [logs, setLogs] = useState([]);
@@ -41,20 +42,20 @@ const POS = ({ view = 'pos' }) => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [searchOrdersQuery, setSearchOrdersQuery] = useState('');
 
+  const loadOrders = async () => {
+    try {
+      const data = await getOrders();
+      setOrdersList(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setOrdersList([]);
+    }
+  };
+
   useEffect(() => {
-    const loadOrders = () => {
-      const stored = localStorage.getItem('orders');
-      if (stored) {
-        try {
-          setOrdersList(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    };
     loadOrders();
-    window.addEventListener('storage', loadOrders);
-    return () => window.removeEventListener('storage', loadOrders);
+    const interval = setInterval(loadOrders, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // POS Products states and handlers
@@ -100,60 +101,47 @@ const POS = ({ view = 'pos' }) => {
   const [searchEmployeesQuery, setSearchEmployeesQuery] = useState('');
 
   // Combined management loader
-  const reloadManagementData = () => {
+  const reloadManagementData = async () => {
     // Payment methods
-    const pmStored = localStorage.getItem('payment_methods');
-    if (pmStored) {
-      setAllPaymentMethods(JSON.parse(pmStored));
-    } else {
-      const defaultPM = [
-        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
-        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
-        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
-      ];
-      localStorage.setItem('payment_methods', JSON.stringify(defaultPM));
-      setAllPaymentMethods(defaultPM);
+    try {
+      const pmData = await getPaymentMethods();
+      setAllPaymentMethods(pmData);
+    } catch (e) {
+      setAllPaymentMethods([]);
     }
     // Coupons list
-    const cpStored = localStorage.getItem('coupons_list');
-    if (cpStored) {
-      setAllCouponsList(JSON.parse(cpStored));
-    } else {
-      const defaultCoupons = [
-        { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
-        { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
-      setAllCouponsList(defaultCoupons);
+    try {
+      const cpData = await getCoupons();
+      setAllCouponsList(cpData);
+    } catch (e) {
+      setAllCouponsList([]);
     }
     // Bookings
     const bkStored = localStorage.getItem('pos_bookings');
     if (bkStored) {
-      setBookingsList(JSON.parse(bkStored));
+      try {
+        setBookingsList(JSON.parse(bkStored));
+      } catch (e) {
+        setBookingsList([]);
+      }
     } else {
-      const defaultBookings = [
-        { id: 'b_1', customerName: 'Manish Suthar', phone: '9876543210', dateTime: '2026-06-13T19:00', guests: 4, table: 'Table 4', status: 'Confirmed' },
-        { id: 'b_2', customerName: 'Aditya Raj', phone: '9988776655', dateTime: '2026-06-14T20:30', guests: 2, table: 'Table 12', status: 'Pending' }
-      ];
-      localStorage.setItem('pos_bookings', JSON.stringify(defaultBookings));
-      setBookingsList(defaultBookings);
+      setBookingsList([]);
     }
     // Employees
-    const empStored = localStorage.getItem('employees');
-    if (empStored) {
-      setAllEmployeesList(JSON.parse(empStored));
-    } else {
-      const defaultEmployees = [
-        { id: 'emp_1', name: 'Ramesh Chef', email: 'ramesh@cafe.com', role: 'Chef' },
-        { id: 'emp_2', name: 'Suresh Manager', email: 'suresh@cafe.com', role: 'Manager' }
-      ];
-      localStorage.setItem('employees', JSON.stringify(defaultEmployees));
-      setAllEmployeesList(defaultEmployees);
+    try {
+      const empData = await getEmployees();
+      setAllEmployeesList(empData);
+    } catch (e) {
+      setAllEmployeesList([]);
     }
     // Shift Attendance Logs
     const shStored = localStorage.getItem('employee_logs');
     if (shStored) {
-      setAttendanceLogsList(JSON.parse(shStored));
+      try {
+        setAttendanceLogsList(JSON.parse(shStored));
+      } catch (e) {
+        setAttendanceLogsList([]);
+      }
     }
   };
 
@@ -260,49 +248,63 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Coupons Handlers
-  const handleAddCoupon = (e) => {
+  const handleAddCoupon = async (e) => {
     e.preventDefault();
     if (!newCouponName || !newCouponCode || !newCouponValue) return;
-    const newCP = {
-      id: `cp_${Date.now()}`,
-      name: newCouponName,
-      code: newCouponCode.toUpperCase(),
-      value: parseFloat(newCouponValue),
-      discountType: newCouponDiscountType,
-      minAmount: parseFloat(newCouponMinAmount || 0),
-      activated: true
-    };
-    const updated = [...allCouponsList, newCP];
-    localStorage.setItem('coupons_list', JSON.stringify(updated));
-    setAllCouponsList(updated);
-    setNewCouponName('');
-    setNewCouponCode('');
-    setNewCouponValue('');
-    setNewCouponMinAmount('');
-    addLogEntry(`Added coupon code: ${newCP.code}`, 'success');
-    alert('Coupon added successfully!');
+    try {
+      const created = await addCoupon({
+        name: newCouponName,
+        code: newCouponCode.toUpperCase(),
+        value: parseFloat(newCouponValue),
+        discount_type: newCouponDiscountType,
+        min_amount: parseFloat(newCouponMinAmount || 0),
+        activated: true
+      });
+      const list = await getCoupons();
+      setAllCouponsList(list);
+      setCouponList(list);
+      setNewCouponName('');
+      setNewCouponCode('');
+      setNewCouponValue('');
+      setNewCouponMinAmount('');
+      addLogEntry(`Added coupon code: ${created.code}`, 'success');
+      alert('Coupon added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add coupon');
+    }
   };
 
-  const handleToggleCoupon = (cpId) => {
-    const updated = allCouponsList.map(cp => {
-      if (cp.id === cpId) {
-        const newAct = !cp.activated;
-        addLogEntry(`Coupon ${cp.code} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
-        return { ...cp, activated: newAct };
-      }
-      return cp;
-    });
-    localStorage.setItem('coupons_list', JSON.stringify(updated));
-    setAllCouponsList(updated);
+  const handleToggleCoupon = async (cpId) => {
+    const cp = allCouponsList.find(c => c.id === cpId);
+    if (!cp) return;
+    try {
+      const updated = await updateCoupon(cpId, {
+        activated: !cp.activated
+      });
+      const list = await getCoupons();
+      setAllCouponsList(list);
+      setCouponList(list);
+      addLogEntry(`Coupon ${updated.code} marked as ${updated.activated ? 'Active' : 'Inactive'}`, 'info');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update coupon status');
+    }
   };
 
-  const handleDeleteCoupon = (cpId) => {
+  const handleDeleteCoupon = async (cpId) => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
-      const cp = allCouponsList.find(c => c.id === cpId);
-      const updated = allCouponsList.filter(c => c.id !== cpId);
-      localStorage.setItem('coupons_list', JSON.stringify(updated));
-      setAllCouponsList(updated);
-      if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
+      try {
+        const cp = allCouponsList.find(c => c.id === cpId);
+        await deleteCoupon(cpId);
+        const list = await getCoupons();
+        setAllCouponsList(list);
+        setCouponList(list);
+        if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete coupon');
+      }
     }
   };
 
@@ -353,33 +355,41 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Employees Handlers
-  const handleAddEmployee = (e) => {
+  const handleAddEmployee = async (e) => {
     e.preventDefault();
     if (!newEmpName || !newEmpEmail || !newEmpPassword) return;
-    const newEmp = {
-      id: `emp_${Date.now()}`,
-      name: newEmpName,
-      email: newEmpEmail,
-      role: newEmpRole,
-      password: newEmpPassword
-    };
-    const updated = [...allEmployeesList, newEmp];
-    localStorage.setItem('employees', JSON.stringify(updated));
-    setAllEmployeesList(updated);
-    setNewEmpName('');
-    setNewEmpEmail('');
-    setNewEmpPassword('');
-    addLogEntry(`Added employee: ${newEmp.name} (${newEmp.role})`, 'success');
-    alert('Employee registered successfully!');
+    try {
+      const created = await addEmployee({
+        name: newEmpName,
+        email: newEmpEmail,
+        role: newEmpRole,
+        password: newEmpPassword
+      });
+      const list = await getEmployees();
+      setAllEmployeesList(list);
+      setNewEmpName('');
+      setNewEmpEmail('');
+      setNewEmpPassword('');
+      addLogEntry(`Added employee: ${created.fullName || created.email} (${created.role})`, 'success');
+      alert('Employee registered successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to register employee');
+    }
   };
 
-  const handleDeleteEmployee = (empId) => {
+  const handleDeleteEmployee = async (empId) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
-      const emp = allEmployeesList.find(e => e.id === empId);
-      const updated = allEmployeesList.filter(e => e.id !== empId);
-      localStorage.setItem('employees', JSON.stringify(updated));
-      setAllEmployeesList(updated);
-      if (emp) addLogEntry(`Deleted employee ${emp.name}`, 'danger');
+      try {
+        const emp = allEmployeesList.find(e => e.id === empId);
+        await deleteEmployee(empId);
+        const list = await getEmployees();
+        setAllEmployeesList(list);
+        if (emp) addLogEntry(`Deleted employee ${emp.fullName || emp.email}`, 'danger');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete employee');
+      }
     }
   };
 
@@ -410,47 +420,38 @@ const POS = ({ view = 'pos' }) => {
   };
 
   useEffect(() => {
-    const cats = getCategories();
-    const prods = getProducts();
-    setCategoriesList(cats.map(c => c.name));
-    setProductsList(prods);
-    if (cats.length > 0) {
-      setSelectedCategory(cats[0].name);
-    }
-
-    // Load dynamic active payment methods
-    const stored = localStorage.getItem('payment_methods');
-    let list = [];
-    if (stored) {
-      list = JSON.parse(stored);
-    } else {
-      list = [
-        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
-        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
-        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
-      ];
-      localStorage.setItem('payment_methods', JSON.stringify(list));
-    }
-    const active = list.filter(m => m.activated).map(m => ({
-      ...m,
-      name: m.name || m.type
-    }));
-    setPaymentMethods(active);
-    if (active.length > 0) {
-      setSelectedPayment(active[0].name);
-    }
+    (async () => {
+      const [cats, prods, pmData, coupData] = await Promise.all([
+        getCategories().catch(() => []),
+        getProducts().catch(() => []),
+        getPaymentMethods().catch(() => []),
+        getCoupons().catch(() => []),
+      ]);
+      setCouponList(Array.isArray(coupData) ? coupData : []);
+      setCategoriesList(cats.map(c => c.name));
+      setProductsList(prods);
+      if (cats.length > 0) {
+        setSelectedCategory(cats[0].name);
+      }
+      const list = Array.isArray(pmData) ? pmData : [];
+      const active = list.filter(m => m.activated).map(m => ({
+        ...m,
+        name: m.name || m.type
+      }));
+      setPaymentMethods(active);
+      if (active.length > 0) {
+        setSelectedPayment(active[0].name);
+      }
+    })();
 
     // Load session logs
     const storedLogs = localStorage.getItem('pos_session_logs');
     if (storedLogs) {
-      setLogs(JSON.parse(storedLogs));
+      try {
+        setLogs(JSON.parse(storedLogs));
+      } catch { setLogs([]); }
     } else {
-      const initialLogs = [
-        { id: 'l1', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: 'System initialization check: Passed', type: 'success' },
-        { id: 'l2', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: `POS Session started by: ${user ? user.name : 'Staff'}`, type: 'info' }
-      ];
-      setLogs(initialLogs);
-      localStorage.setItem('pos_session_logs', JSON.stringify(initialLogs));
+      setLogs([]);
     }
   }, []);
 
@@ -586,31 +587,17 @@ const POS = ({ view = 'pos' }) => {
 
   // Automatic Promo engine
   useEffect(() => {
-    // If a coupon code is manually applied, that has precedence
-    if (appliedCoupon && appliedCoupon.type === 'Coupon') {
-      return;
-    }
+    if (appliedCoupon && appliedCoupon.type === 'Coupon') return;
 
-    const stored = localStorage.getItem('coupons_list');
-    if (!stored) return;
-
-    try {
-      const list = JSON.parse(stored);
-      // Find active Automated Promos where subtotal fits
-      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= c.minAmount);
+    getCoupons().then(list => {
+      const autoPromos = (list || []).filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= (c.minAmount || 0));
       if (autoPromos.length > 0) {
-        // Find the one with maximum benefit
         const bestPromo = autoPromos.sort((a, b) => b.value - a.value)[0];
         setAppliedCoupon(bestPromo);
-      } else {
-        // Clear if conditions no longer match
-        if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
-          setAppliedCoupon(null);
-        }
+      } else if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
+        setAppliedCoupon(null);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    }).catch(() => {});
   }, [subTotal, cart]);
 
   const totalBeforeTax = Math.max(0, subTotal - discountAmount);
@@ -621,22 +608,16 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount(total.toString());
   }, [total]);
 
-  const handleApplyCouponCode = (codeStr) => {
+  const handleApplyCouponCode = async (codeStr) => {
     if (!codeStr.trim()) {
       alert('Please enter a coupon code.');
       return;
     }
-    const stored = localStorage.getItem('coupons_list');
     let couponsList = [];
-    if (stored) {
-      couponsList = JSON.parse(stored);
-    } else {
-      couponsList = [
-        { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-        { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
-        { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(couponsList));
+    try {
+      couponsList = await getCoupons();
+    } catch {
+      couponsList = [];
     }
 
     const found = couponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
@@ -708,20 +689,20 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Submit order to Kitchen (Unpaid)
-  const sendToKitchen = () => {
+  const sendToKitchen = async () => {
     if (cart.length === 0) {
       alert('Your cart is empty.');
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = addOrder({
+    const newOrder = await addOrder({
       table: activeTable,
       amount: total,
       status: 'Unpaid',
-      paymentMethod: '-',
+      payment_method: '-',
       items: orderItemsString,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      discountAmount: discountAmount
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
+      discount_amount: discountAmount
     });
     addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
     alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
@@ -729,23 +710,24 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    await loadOrders();
   };
 
   // Collect Payment (Paid)
-  const collectPayment = () => {
+  const collectPayment = async () => {
     if (cart.length === 0) {
       alert('Your cart is empty.');
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = addOrder({
+    const newOrder = await addOrder({
       table: activeTable,
       amount: total,
       status: 'Paid',
-      paymentMethod: selectedPayment,
+      payment_method: selectedPayment,
       items: orderItemsString,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      discountAmount: discountAmount
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
+      discount_amount: discountAmount
     });
     addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
     alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
@@ -753,6 +735,7 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    await loadOrders();
   };
 
   // Search filter
@@ -1104,53 +1087,20 @@ const POS = ({ view = 'pos' }) => {
           </div>
 
           <div style={headerButtonsStyle}>
-            {/* Table Selection Button */}
-            <button 
-              onClick={() => setIsTableModalOpen(true)}
-              style={{
-                backgroundColor: activeTable ? 'var(--border-focus)' : 'var(--bg-button)',
-                color: activeTable ? 'var(--bg-primary)' : 'var(--text-primary)',
-                border: '1.5px solid var(--border-color)',
-                borderRadius: '10px',
-                padding: '10px 16px',
-                fontSize: '14px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
-              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+            {/* Table Dropdown selection */}
+            <select
+              value={activeTable}
+              onChange={(e) => setActiveTable(e.target.value)}
+              style={tableSelectStyle}
             >
-              <Grid size={16} />
-              {activeTable ? `Table: ${activeTable}` : 'Select Table'}
-            </button>
+              <option value="Table 1">Table 1</option>
+              <option value="Table 4">Table 4</option>
+              <option value="Table 6">Table 6</option>
+              <option value="Table 12">Table 12</option>
+              <option value="Takeaway">Takeaway</option>
+            </select>
 
-            {/* Customer Navigation Button */}
-            <button 
-              style={{
-                ...iconBtnStyle,
-                backgroundColor: view === 'orders' ? 'var(--border-focus)' : 'var(--bg-button)',
-                color: view === 'orders' ? 'var(--bg-primary)' : 'var(--text-primary)'
-              }} 
-              onClick={() => navigate('/pos-orders')}
-              title="Go to POS Orders"
-            >
-              <User size={18} />
-            </button>
-
-            {/* Monitor/PC Navigation Button (Default POS Register) */}
-            <button 
-              style={{
-                ...iconBtnStyle,
-                backgroundColor: view === 'pos' ? 'var(--border-focus)' : 'var(--bg-button)',
-                color: view === 'pos' ? 'var(--bg-primary)' : 'var(--text-primary)'
-              }} 
-              onClick={() => navigate('/pos')}
-              title="Go to POS Register"
-            >
+            <button style={iconBtnStyle} onClick={() => alert('Cash register drawer is open.')}>
               <Monitor size={18} />
             </button>
             
@@ -3735,10 +3685,7 @@ const POS = ({ view = 'pos' }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
               <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Available Store Coupons:</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                {(JSON.parse(localStorage.getItem('coupons_list')) || [
-                  { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-                  { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-                ]).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
+                {(couponList || []).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
                   <button
                     key={coupon.id}
                     onClick={() => {

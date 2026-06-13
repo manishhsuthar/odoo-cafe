@@ -1,22 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
-import { Search, Plus, Trash2, Edit2, AlertTriangle, CheckCircle, PlusCircle, MinusCircle, Filter, X } from 'lucide-react';
-
-const DEFAULT_INVENTORY = [
-  { id: 'inv_1', name: 'Tomatoes', category: 'Vegetables', quantity: 18, minThreshold: 5, unit: 'kg' },
-  { id: 'inv_2', name: 'Onions', category: 'Vegetables', quantity: 4, minThreshold: 10, unit: 'kg' },
-  { id: 'inv_3', name: 'Potatoes', category: 'Vegetables', quantity: 25, minThreshold: 8, unit: 'kg' },
-  { id: 'inv_4', name: 'Garlic', category: 'Vegetables', quantity: 1.2, minThreshold: 2, unit: 'kg' },
-  { id: 'inv_5', name: 'Milk', category: 'Dairy & Eggs', quantity: 12, minThreshold: 4, unit: 'Liters' },
-  { id: 'inv_6', name: 'Paneer', category: 'Dairy & Eggs', quantity: 5.5, minThreshold: 2, unit: 'kg' },
-  { id: 'inv_7', name: 'Butter', category: 'Dairy & Eggs', quantity: 1.5, minThreshold: 3, unit: 'kg' },
-  { id: 'inv_8', name: 'Chicken Breast', category: 'Meat & Seafood', quantity: 8, minThreshold: 4, unit: 'kg' },
-  { id: 'inv_9', name: 'Basmati Rice', category: 'Pantry Staples', quantity: 45, minThreshold: 15, unit: 'kg' },
-  { id: 'inv_10', name: 'Cooking Oil', category: 'Pantry Staples', quantity: 15, minThreshold: 5, unit: 'Liters' },
-  { id: 'inv_11', name: 'Garam Masala', category: 'Spices', quantity: 2.5, minThreshold: 1, unit: 'kg' },
-  { id: 'inv_12', name: 'Turmeric Powder', category: 'Spices', quantity: 0.8, minThreshold: 1.5, unit: 'kg' }
-];
+import { Search, Plus, Trash2, Edit2, AlertTriangle, CheckCircle, PlusCircle, MinusCircle, X } from 'lucide-react';
+import { getKitchenInventory, saveKitchenInventory } from '../../utils/db';
 
 const KitchenInventory = () => {
   const [inventory, setInventory] = useState([]);
@@ -35,18 +21,13 @@ const KitchenInventory = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    const stored = localStorage.getItem('kitchen_inventory');
-    if (stored) {
-      setInventory(JSON.parse(stored));
-    } else {
-      setInventory(DEFAULT_INVENTORY);
-      localStorage.setItem('kitchen_inventory', JSON.stringify(DEFAULT_INVENTORY));
-    }
+    const data = getKitchenInventory();
+    setInventory(Array.isArray(data) ? data : []);
   }, []);
 
   const saveToStorage = (updatedList) => {
     setInventory(updatedList);
-    localStorage.setItem('kitchen_inventory', JSON.stringify(updatedList));
+    saveKitchenInventory(updatedList);
   };
 
   const handleAdjustQuantity = (id, change) => {

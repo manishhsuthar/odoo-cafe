@@ -27,7 +27,7 @@ const Login = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [signUpErrors, setSignUpErrors] = useState({});
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginGeneralError('');
     const errors = {};
@@ -40,7 +40,7 @@ const Login = () => {
     }
     
     setLoginErrors({});
-    const result = login(loginEmail, loginPassword);
+    const result = await login(loginEmail, loginPassword);
     
     if (result.success) {
       if (result.role === 'admin') {
@@ -67,7 +67,7 @@ const Login = () => {
     }
     
     setSignUpErrors({});
-    alert('For security reasons, only the default cafe admin account can access the dashboard. Please sign in with cafe@admin.com / cafe123');
+    alert('Registration is not available. Please contact your administrator to create an account.');
     setIsLogin(true);
   };
 
@@ -253,7 +253,7 @@ const Login = () => {
                   }}
                   onClick={(e) => {
                     e.preventDefault();
-                    alert('Forgot password? Log in with: cafe@admin.com / cafe123');
+                    alert('Please contact your administrator to reset your password.');
                   }}
                 >
                   Forgot password?

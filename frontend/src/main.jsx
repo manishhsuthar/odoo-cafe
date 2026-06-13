@@ -7,9 +7,6 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import './styles/globals.css';
 import App from './App.jsx';
-import { initDb } from './utils/db';
-
-initDb();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

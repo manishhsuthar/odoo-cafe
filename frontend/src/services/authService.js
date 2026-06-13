@@ -2,22 +2,27 @@ import axiosInstance from './axios';
 
 const authService = {
   login: async (email, password) => {
-    const response = await axiosInstance.post('/auth/login', { email, password });
+    const response = await axiosInstance.post('/auth/login/', { email, password });
     return response.data;
   },
 
-  register: async (name, email, password) => {
-    const response = await axiosInstance.post('/auth/register', { name, email, password });
+  register: async (name, email, password, role = 'cashier') => {
+    const response = await axiosInstance.post('/auth/register/', {
+      full_name: name,
+      email,
+      password,
+      role: role.toLowerCase()
+    });
     return response.data;
   },
 
   getCurrentUser: async () => {
-    const response = await axiosInstance.get('/auth/me');
+    const response = await axiosInstance.get('/auth/me/');
     return response.data;
   },
 
   logout: async () => {
-    const response = await axiosInstance.post('/auth/logout');
+    const response = await axiosInstance.post('/auth/logout/');
     return response.data;
   },
 };

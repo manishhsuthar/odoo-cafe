@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
-import { Search, Plus, Trash2, Edit, Mail, Phone, User, TrendingUp, Coins, Award, X } from 'lucide-react';
-
-const DEFAULT_CUSTOMERS = [
-  { id: 'cust_1', name: 'Rajesh Kumar', email: 'rajesh.kumar@gmail.com', phone: '+91 98765 43210', spend: 12850, ordersCount: 6 },
-  { id: 'cust_2', name: 'Priya Singh', email: 'priya.singh@yahoo.com', phone: '+91 87654 32109', spend: 10420, ordersCount: 5 },
-  { id: 'cust_3', name: 'Amit Patel', email: 'amit.patel@outlook.com', phone: '+91 76543 21098', spend: 8180, ordersCount: 4 },
-  { id: 'cust_4', name: 'Neha Gupta', email: 'neha.gupta@gmail.com', phone: '+91 99999 88888', spend: 7950, ordersCount: 4 },
-  { id: 'cust_5', name: 'Vikram Shah', email: 'vikram.shah@gmail.com', phone: '+91 88888 77777', spend: 6840, ordersCount: 3 },
-  { id: 'cust_6', name: 'Kunal Sharma', email: 'kunal.sharma@gmail.com', phone: '+91 77777 66666', spend: 1500, ordersCount: 1 }
-];
+import { Search, Plus, Trash2, Edit, Mail, Phone, User, TrendingUp, Coins, X } from 'lucide-react';
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from '../../utils/db';
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
@@ -28,19 +20,10 @@ const Customers = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    const stored = localStorage.getItem('customers');
-    if (stored) {
-      setCustomers(JSON.parse(stored));
-    } else {
-      setCustomers(DEFAULT_CUSTOMERS);
-      localStorage.setItem('customers', JSON.stringify(DEFAULT_CUSTOMERS));
-    }
+    getCustomers()
+      .then(data => setCustomers(Array.isArray(data) ? data : []))
+      .catch(() => setCustomers([]));
   }, []);
-
-  const saveToStorage = (updatedList) => {
-    setCustomers(updatedList);
-    localStorage.setItem('customers', JSON.stringify(updatedList));
-  };
 
   const openAddModal = () => {
     setEditingCustomer(null);
@@ -64,14 +47,18 @@ const Customers = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
-      const updated = customers.filter(c => c.id !== id);
-      saveToStorage(updated);
+      try {
+        await deleteCustomer(id);
+        setCustomers(prev => prev.filter(c => c.id !== id));
+      } catch (e) {
+        alert('Failed to delete customer');
+      }
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const newErrors = {};
     if (!formName.trim()) newErrors.name = 'Name is required';
@@ -83,24 +70,24 @@ const Customers = () => {
       return;
     }
 
-    const customerPayload = {
-      id: editingCustomer ? editingCustomer.id : `cust_${Date.now()}`,
-      name: formName,
-      email: formEmail,
-      phone: formPhone,
-      spend: parseFloat(formSpend) || 0,
-      ordersCount: parseInt(formOrders) || 0
-    };
-
-    let updatedList;
-    if (editingCustomer) {
-      updatedList = customers.map(c => c.id === editingCustomer.id ? customerPayload : c);
-    } else {
-      updatedList = [customerPayload, ...customers];
+    try {
+      if (editingCustomer) {
+        const updated = await updateCustomer(editingCustomer.id, {
+          name: formName, email: formEmail, phone: formPhone,
+          spend: parseFloat(formSpend) || 0, orders_count: parseInt(formOrders) || 0
+        });
+        setCustomers(prev => prev.map(c => c.id === editingCustomer.id ? { ...c, ...updated } : c));
+      } else {
+        const created = await addCustomer({
+          name: formName, email: formEmail, phone: formPhone,
+          spend: parseFloat(formSpend) || 0, orders_count: parseInt(formOrders) || 0
+        });
+        setCustomers(prev => [created, ...prev]);
+      }
+      setIsModalOpen(false);
+    } catch (e) {
+      alert('Failed to save customer');
     }
-
-    saveToStorage(updatedList);
-    setIsModalOpen(false);
   };
 
   // Compute metrics

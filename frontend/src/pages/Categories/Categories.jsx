@@ -3,7 +3,7 @@ import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
 import { PlusCircle, X, Trash2 } from 'lucide-react';
-import { getCategories, addCategory, saveCategories } from '../../utils/db';
+import { getCategories, addCategory, deleteCategory } from '../../utils/db';
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
@@ -26,8 +26,9 @@ const Categories = () => {
     loadCategories();
   }, []);
 
-  const loadCategories = () => {
-    setCategories(getCategories());
+  const loadCategories = async () => {
+    const data = await getCategories();
+    setCategories(data);
   };
 
   const handleInputChange = (e) => {
@@ -58,11 +59,12 @@ const Categories = () => {
     loadCategories();
   };
 
-  const handleDeleteCategory = (catId) => {
+  const handleDeleteCategory = async (catId) => {
     if (window.confirm('Are you sure you want to delete this category? (Note: Products referencing this category will lose their group association)')) {
-      const updated = categories.filter(c => c.id !== catId);
-      saveCategories(updated);
-      loadCategories();
+      try {
+        await deleteCategory(catId);
+        loadCategories();
+      } catch { }
     }
   };
 

@@ -4,46 +4,10 @@ import Sidebar from '../../components/layout/Sidebar';
 import { getOrders } from '../../utils/db';
 import { Calendar, User, Clock, ShoppingBag, ArrowUpRight, TrendingUp, BarChart3, Receipt, Award, Download, ChevronDown, Search } from 'lucide-react';
 
-const SEED_ORDERS = [
-  { id: '#2305', customerName: 'Rajesh Kumar', amount: 2850, items: '8 x Masala Tea, 2 x Butter Chicken', dateTime: '2024-06-13T12:30:00Z', server: 'John Doe' },
-  { id: '#2304', customerName: 'Priya Singh', amount: 2450, items: '6 x Coffee, 1 x Biryani', dateTime: '2024-06-13T14:45:00Z', server: 'Sarah Smith' },
-  { id: '#2303', customerName: 'Amit Patel', amount: 2180, items: '5 x Lassi, 2 x Biryani', dateTime: '2024-06-12T19:15:00Z', server: 'Admin' },
-  { id: '#2302', customerName: 'Neha Gupta', amount: 1950, items: '4 x Masala Tea, 1 x Butter Chicken', dateTime: '2024-06-12T13:00:00Z', server: 'John Doe' },
-  { id: '#2301', customerName: 'Vikram Shah', amount: 1840, items: '4 x Coffee, 1 x Biryani', dateTime: '2024-06-11T16:20:00Z', server: 'Sarah Smith' },
-  { id: '#2300', customerName: 'Rajesh Kumar', amount: 1250, items: '2 x Coffee, 1 x Butter Chicken', dateTime: '2024-06-10T11:00:00Z', server: 'John Doe' },
-  { id: '#2299', customerName: 'Priya Singh', amount: 950, items: '3 x Masala Tea, 1 x Appetizers', dateTime: '2024-06-09T17:30:00Z', server: 'Sarah Smith' },
-  { id: '#2298', customerName: 'Amit Patel', amount: 3200, items: '10 x Masala Tea, 3 x Biryani', dateTime: '2024-06-08T20:00:00Z', server: 'Admin' },
-  { id: '#2297', customerName: 'Kunal Sharma', amount: 1500, items: '4 x Lassi, 1 x Butter Chicken', dateTime: '2024-06-07T14:10:00Z', server: 'John Doe' },
-  { id: '#2296', customerName: 'Neha Gupta', amount: 2200, items: '5 x Coffee, 2 x Biryani', dateTime: '2024-06-06T18:50:00Z', server: 'Sarah Smith' }
-];
-
-const MOCK_TOP_ORDERS = [
-  { id: '#2305', customer: 'Rajesh Kumar', amount: 2850, items: 8, date: '2024-06-13' },
-  { id: '#2304', customer: 'Priya Singh', amount: 2450, items: 6, date: '2024-06-13' },
-  { id: '#2303', customer: 'Amit Patel', amount: 2180, items: 5, date: '2024-06-12' },
-  { id: '#2302', customer: 'Neha Gupta', amount: 1950, items: 4, date: '2024-06-12' },
-  { id: '#2301', customer: 'Vikram Shah', amount: 1840, items: 4, date: '2024-06-11' }
-];
-
-const MOCK_TOP_PRODUCTS = [
-  { name: 'Masala Tea', quantity: 342, revenue: 18468, percent: 21.6 },
-  { name: 'Butter Chicken', quantity: 156, revenue: 54600, percent: 63.9 },
-  { name: 'Biryani', quantity: 128, revenue: 32000, percent: 37.5 },
-  { name: 'Coffee', quantity: 296, revenue: 16092, percent: 18.8 },
-  { name: 'Lassi', quantity: 215, revenue: 11610, percent: 13.6 }
-];
-
-const MOCK_TOP_CATEGORIES = [
-  { name: 'Beverages', revenue: 45170, orders: 855, percent: 52.9 },
-  { name: 'Main Course', revenue: 28350, orders: 284, percent: 33.2 },
-  { name: 'Desserts', revenue: 9200, orders: 142, percent: 10.8 },
-  { name: 'Appetizers', revenue: 2700, orders: 89, percent: 3.2 }
-];
-
 const Reports = () => {
   // Filter states
-  const [fromDate, setFromDate] = useState('2024-06-01');
-  const [toDate, setToDate] = useState('2024-06-15');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [session, setSession] = useState('All');
   const [product, setProduct] = useState('All');
@@ -53,26 +17,24 @@ const Reports = () => {
 
   // Dynamic Metrics states
   const [liveStats, setLiveStats] = useState({
-    totalOrders: 1248,
-    totalRevenue: 85420,
-    avgOrderValue: 684
+    totalOrders: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0
   });
 
-  const [topOrders, setTopOrders] = useState(MOCK_TOP_ORDERS);
-  const [topProducts, setTopProducts] = useState(MOCK_TOP_PRODUCTS);
-  const [topCategories, setTopCategories] = useState(MOCK_TOP_CATEGORIES);
+  const [topOrders, setTopOrders] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [topCategories, setTopCategories] = useState([]);
+  const [chartData, setChartData] = useState([]);
 
   useEffect(() => {
     computeLiveMetrics();
   }, [fromDate, toDate, customerSearch, session, product]);
 
-  const computeLiveMetrics = () => {
-    const dbOrders = getOrders() || [];
+  const computeLiveMetrics = async () => {
+    const dbOrders = (await getOrders()) || [];
     
-    // Combine live database orders with seed dataset to ensure rich, filterable content
-    const allOrders = [...dbOrders, ...SEED_ORDERS];
-
-    let filtered = allOrders;
+    let filtered = dbOrders;
 
     // Filter by Date Range (From - To)
     if (fromDate) {
@@ -138,11 +100,13 @@ const Reports = () => {
     // Calculate live items and categories stats
     const categoryStatsMap = {};
     const productStatsMap = {};
-    let grandRevenue = 0;
+    const orderAmount = filtered.reduce((sum, o) => sum + (o.amount || 0), 0);
 
     filtered.forEach(o => {
       if (o.items) {
         const itemsList = o.items.split(',');
+        const itemCount = itemsList.length;
+
         itemsList.forEach(itemStr => {
           const trimmed = itemStr.trim();
           if (!trimmed) return;
@@ -161,39 +125,56 @@ const Reports = () => {
             name = suffixMatch[1].trim();
           }
 
-          let price = 150;
-          const nameLower = name.toLowerCase();
-          if (nameLower.includes('tea')) price = 54;
-          else if (nameLower.includes('chicken')) price = 350;
-          else if (nameLower.includes('biryani')) price = 250;
-          else if (nameLower.includes('coffee')) price = 54;
-          else if (nameLower.includes('lassi')) price = 54;
-
-          const itemRevenue = qty * price;
-
           if (!productStatsMap[name]) {
-            productStatsMap[name] = { name, quantity: 0, revenue: 0 };
+            productStatsMap[name] = { name, quantity: 0, count: 0 };
           }
           productStatsMap[name].quantity += qty;
-          productStatsMap[name].revenue += itemRevenue;
-          grandRevenue += itemRevenue;
+          productStatsMap[name].count += 1;
 
-          let category = 'Main Course';
+          let category = 'Other';
+          const nameLower = name.toLowerCase();
           if (nameLower.includes('tea') || nameLower.includes('coffee') || nameLower.includes('lassi') || nameLower.includes('beverage') || nameLower.includes('soda')) {
             category = 'Beverages';
           } else if (nameLower.includes('cake') || nameLower.includes('ice cream') || nameLower.includes('kheer') || nameLower.includes('dessert')) {
             category = 'Desserts';
           } else if (nameLower.includes('samosa') || nameLower.includes('fries') || nameLower.includes('appetizer')) {
             category = 'Appetizers';
+          } else if (nameLower.includes('rice') || nameLower.includes('biryani') || nameLower.includes('curry') || nameLower.includes('chicken') || nameLower.includes('paneer') || nameLower.includes('naan') || nameLower.includes('roti')) {
+            category = 'Main Course';
           }
 
           if (!categoryStatsMap[category]) {
             categoryStatsMap[category] = { name: category, revenue: 0, orders: 0 };
           }
-          categoryStatsMap[category].revenue += itemRevenue;
           categoryStatsMap[category].orders += 1;
         });
       }
+    });
+
+    // Allocate order amount proportionally across items for product revenue
+    Object.keys(productStatsMap).forEach(name => {
+      productStatsMap[name].revenue = orderAmount > 0
+        ? parseFloat(((productStatsMap[name].count / filtered.length) * orderAmount / filtered.length).toFixed(2))
+        : 0;
+    });
+
+    // Allocate revenue to categories proportionally
+    const totalItemCount = Object.values(productStatsMap).reduce((s, p) => s + p.count, 0);
+    Object.keys(categoryStatsMap).forEach(cat => {
+      const categoryTotalCount = filtered.reduce((sum, o) => {
+        if (!o.items) return sum;
+        return sum + o.items.split(',').filter(item => {
+          const nameLower = item.trim().toLowerCase();
+          if (cat === 'Beverages') return nameLower.includes('tea') || nameLower.includes('coffee') || nameLower.includes('lassi') || nameLower.includes('soda');
+          if (cat === 'Desserts') return nameLower.includes('cake') || nameLower.includes('ice cream') || nameLower.includes('kheer');
+          if (cat === 'Appetizers') return nameLower.includes('samosa') || nameLower.includes('fries');
+          if (cat === 'Main Course') return nameLower.includes('rice') || nameLower.includes('biryani') || nameLower.includes('curry') || nameLower.includes('chicken') || nameLower.includes('paneer') || nameLower.includes('naan');
+          return false;
+        }).length;
+      }, 0);
+      categoryStatsMap[cat].revenue = totalItemCount > 0 && orderAmount > 0
+        ? parseFloat(((categoryTotalCount / totalItemCount) * orderAmount).toFixed(2))
+        : 0;
     });
 
     const liveTopProducts = Object.values(productStatsMap)
@@ -201,17 +182,18 @@ const Reports = () => {
       .slice(0, 5)
       .map(p => ({
         ...p,
-        percent: grandRevenue > 0 ? parseFloat(((p.revenue / grandRevenue) * 100).toFixed(1)) : 0
+        percent: orderAmount > 0 ? parseFloat(((p.revenue / orderAmount) * 100).toFixed(1)) : 0
       }));
-    setTopProducts(liveTopProducts.length > 0 ? liveTopProducts : MOCK_TOP_PRODUCTS);
+    setTopProducts(liveTopProducts);
 
     const liveTopCategories = Object.values(categoryStatsMap)
       .sort((a, b) => b.revenue - a.revenue)
       .map(c => ({
         ...c,
-        percent: grandRevenue > 0 ? parseFloat(((c.revenue / grandRevenue) * 100).toFixed(1)) : 0
+        percent: orderAmount > 0 ? parseFloat(((c.revenue / orderAmount) * 100).toFixed(1)) : 0
       }));
-    setTopCategories(liveTopCategories.length > 0 ? liveTopCategories : MOCK_TOP_CATEGORIES);
+    setTopCategories(liveTopCategories);
+    setChartData(filtered);
   };
 
   // XLS Exporter
@@ -612,11 +594,6 @@ const Reports = () => {
                 }}
               >
                 <option value="All">All Products</option>
-                <option value="Masala Tea">Masala Tea</option>
-                <option value="Butter Chicken">Butter Chicken</option>
-                <option value="Biryani">Biryani</option>
-                <option value="Coffee">Coffee</option>
-                <option value="Lassi">Lassi</option>
               </select>
             </div>
           </div>          {/* Stats Cards Row */}
@@ -646,16 +623,10 @@ const Reports = () => {
                 <Receipt size={18} />
               </div>
               
-              <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: '800', color: '#10b981' }}>
-                <ArrowUpRight size={14} />
-                <span>~ 12.5%</span>
-              </div>
-
               <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Orders</span>
               <h3 style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', margin: '8px 0 4px 0' }}>
                 {liveStats.totalOrders.toLocaleString()}
               </h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>vs last period: +12.5%</span>
             </div>
 
             {/* Total Revenue Card */}
@@ -681,17 +652,11 @@ const Reports = () => {
               }}>
                 <TrendingUp size={18} />
               </div>
-              
-              <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: '800', color: '#10b981' }}>
-                <ArrowUpRight size={14} />
-                <span>~ 18.2%</span>
-              </div>
 
               <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Revenue</span>
               <h3 style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', margin: '8px 0 4px 0' }}>
                 ₹{liveStats.totalRevenue.toLocaleString()}
               </h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>vs last period: +18.2%</span>
             </div>
 
             {/* Avg Order Value Card */}
@@ -717,17 +682,11 @@ const Reports = () => {
               }}>
                 <ShoppingBag size={18} />
               </div>
-              
-              <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: '800', color: '#10b981' }}>
-                <ArrowUpRight size={14} />
-                <span>~ 5.3%</span>
-              </div>
 
               <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Avg Order Value</span>
               <h3 style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', margin: '8px 0 4px 0' }}>
                 ₹{liveStats.avgOrderValue.toLocaleString()}
               </h3>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>vs last period: +5.3%</span>
             </div>
 
           </div>
@@ -749,53 +708,66 @@ const Reports = () => {
                 <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Sales Trend</span>
               </div>
               
-              <div style={{ position: 'relative', height: '220px', width: '100%' }}>
-                {/* SVG Area chart */}
-                <svg viewBox="0 0 500 200" width="100%" height="100%" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--border-focus)" stopOpacity="0.45" />
-                      <stop offset="100%" stopColor="var(--border-focus)" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-                  
-                  {/* Grid Lines */}
-                  <line x1="0" y1="50" x2="500" y2="50" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                  <line x1="0" y1="100" x2="500" y2="100" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                  <line x1="0" y1="150" x2="500" y2="150" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                  
-                  {/* Area path */}
-                  <path 
-                    d="M 0 160 Q 75 140 100 110 T 200 130 T 300 90 T 400 60 T 500 40 L 500 200 L 0 200 Z" 
-                    fill="url(#chartGrad)" 
-                  />
+              {(() => {
+                const dataPoints = chartData.length > 0 ? chartData.slice(0, 10) : [];
+                const maxAmount = Math.max(...dataPoints.map(o => o.amount || 0), 1);
+                const chartW = 500;
+                const chartH = 200;
+                const points = dataPoints.map((o, i) => ({
+                  x: ((i + 1) / (dataPoints.length + 1)) * chartW,
+                  y: chartH - ((o.amount || 0) / maxAmount) * (chartH - 20) - 20,
+                  label: o.dateTime ? new Date(o.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+                }));
+                const areaD = points.length > 0
+                  ? `M ${points.map((p, i) => `${i === 0 ? '' : ''}${p.x} ${p.y}`).join(' L ')} L ${points[points.length - 1].x} ${chartH} L ${points[0].x} ${chartH} Z`
+                  : '';
+                const lineD = points.length > 0
+                  ? `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`
+                  : '';
+                return (
+                <div style={{ position: 'relative', height: '220px', width: '100%' }}>
+                  {dataPoints.length === 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                      No sales data yet
+                    </div>
+                  ) : (
+                  <>
+                  <svg viewBox={`0 0 ${chartW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--border-focus)" stopOpacity="0.45" />
+                        <stop offset="100%" stopColor="var(--border-focus)" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    
+                    {/* Grid Lines */}
+                    <line x1="0" y1="50" x2={chartW} y2="50" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
+                    <line x1="0" y1="100" x2={chartW} y2="100" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
+                    <line x1="0" y1="150" x2={chartW} y2="150" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
+                    
+                    {/* Area path */}
+                    {areaD && <path d={areaD} fill="url(#chartGrad)" />}
 
-                  {/* Line stroke */}
-                  <path 
-                    d="M 0 160 Q 75 140 100 110 T 200 130 T 300 90 T 400 60 T 500 40" 
-                    fill="none" 
-                    stroke="var(--border-focus)" 
-                    strokeWidth="3.5" 
-                    strokeLinecap="round"
-                  />
-                  
-                  {/* Data points */}
-                  <circle cx="100" cy="110" r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                  <circle cx="200" cy="130" r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                  <circle cx="300" cy="90" r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                  <circle cx="400" cy="60" r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                  <circle cx="500" cy="40" r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                </svg>
+                    {/* Line stroke */}
+                    {lineD && <path d={lineD} fill="none" stroke="var(--border-focus)" strokeWidth="3.5" strokeLinecap="round" />}
+                    
+                    {/* Data points */}
+                    {points.map((p, i) => (
+                      <circle key={i} cx={p.x} cy={p.y} r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
+                    ))}
+                  </svg>
 
-                {/* X Axis Labels */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  <span>09:00 AM</span>
-                  <span>12:00 PM</span>
-                  <span>03:00 PM</span>
-                  <span>06:00 PM</span>
-                  <span>09:00 PM</span>
+                  {/* X Axis Labels */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    {points.map((p, i) => (
+                      <span key={i}>{p.label}</span>
+                    ))}
+                  </div>
+                  </>
+                  )}
                 </div>
-              </div>
+                );
+              })()}
             </div>
 
             {/* Top Categories Distribution (Donut Chart) */}
@@ -812,42 +784,52 @@ const Reports = () => {
                 <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Top Categories Distribution</span>
               </div>
               
+              {topCategories.length === 0 ? (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', width: '100%' }}>
+                  No data yet
+                </div>
+              ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', height: '220px' }}>
                 {/* SVG Donut Chart */}
                 <svg width="150" height="150" viewBox="0 0 40 40" style={{ transform: 'rotate(-90deg)' }}>
-                  {/* Beverages - 52.9% */}
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#dfc2a5" strokeWidth="5.5" strokeDasharray="52.9 47.1" strokeDashoffset="0" />
-                  {/* Main Course - 33.2% */}
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#bfae9e" strokeWidth="5.5" strokeDasharray="33.2 66.8" strokeDashoffset="-52.9" />
-                  {/* Desserts - 10.8% */}
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#8c7662" strokeWidth="5.5" strokeDasharray="10.8 89.2" strokeDashoffset="-86.1" />
-                  {/* Appetizers - 3.2% */}
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#5c4d40" strokeWidth="5.5" strokeDasharray="3.2 96.8" strokeDashoffset="-96.9" />
-                  
+                  {(() => {
+                    const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
+                    let offset = 0;
+                    return topCategories.slice(0, 5).map((c, i) => {
+                      const dash = c.percent;
+                      const gap = 100 - dash;
+                      const circle = (
+                        <circle key={c.name}
+                          cx="20" cy="20" r="15.915"
+                          fill="transparent"
+                          stroke={colors[i % colors.length]}
+                          strokeWidth="5.5"
+                          strokeDasharray={`${dash} ${gap}`}
+                          strokeDashoffset={-offset}
+                        />
+                      );
+                      offset += dash;
+                      return circle;
+                    });
+                  })()}
                   {/* Center cutout */}
                   <circle cx="20" cy="20" r="12" fill="var(--bg-card)" />
                 </svg>
 
                 {/* Legends */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dfc2a5' }} />
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Beverages (52.9%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#bfae9e' }} />
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Main Course (33.2%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#8c7662' }} />
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Desserts (10.8%)</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#5c4d40' }} />
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>Appetizers (3.2%)</span>
-                  </div>
+                  {(() => {
+                    const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
+                    return topCategories.slice(0, 5).map((c, i) => (
+                      <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors[i % colors.length] }} />
+                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{c.name} ({c.percent}%)</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
+              )}
             </div>
 
           </div>

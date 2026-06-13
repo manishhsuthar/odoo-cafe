@@ -3,7 +3,7 @@ import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
 import { Trash2, CheckCircle, Search, Filter, RefreshCw, X, CircleDollarSign } from 'lucide-react';
-import { getOrders, saveOrders } from '../../utils/db';
+import { getOrders, updateOrderStatus, deleteOrder } from '../../utils/db';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -18,30 +18,41 @@ const Orders = () => {
     loadOrders();
   }, []);
 
-  const loadOrders = () => {
-    setOrders(getOrders());
+  const loadOrders = async () => {
+    const data = await getOrders();
+    setOrders(data);
   };
 
-  const handleStatusChange = (orderId, newStatus, payMethod = '-') => {
-    const updated = orders.map(order => {
-      if (order.id === orderId) {
-        return {
-          ...order,
-          status: newStatus,
-          paymentMethod: payMethod
-        };
-      }
-      return order;
-    });
-    saveOrders(updated);
-    setOrders(updated);
-  };
-
-  const handleDeleteOrder = (orderId) => {
-    if (window.confirm('Are you sure you want to delete this order record?')) {
-      const updated = orders.filter(o => o.id !== orderId);
-      saveOrders(updated);
+  const handleStatusChange = async (orderId, newStatus, payMethod = '-') => {
+    try {
+      await updateOrderStatus(orderId, newStatus, payMethod);
+      const updated = orders.map(order => {
+        if (order.id === orderId) {
+          return {
+            ...order,
+            status: newStatus,
+            paymentMethod: payMethod
+          };
+        }
+        return order;
+      });
       setOrders(updated);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update order status');
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.confirm('Are you sure you want to delete this order record?')) {
+      try {
+        await deleteOrder(orderId);
+        const updated = orders.filter(o => o.id !== orderId);
+        setOrders(updated);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete order');
+      }
     }
   };
 

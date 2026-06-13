@@ -57,8 +57,7 @@ const AppRoutes = () => {
             <Categories />
           </PrivateRoute>
         }
-      />
-      <Route
+      />      <Route
         path="/employees"
         element={
           <PrivateRoute adminOnly>
@@ -66,6 +65,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/tables"
         element={
@@ -169,8 +169,7 @@ const AppRoutes = () => {
             <POS view="reports" />
           </PrivateRoute>
         }
-      />
-      <Route
+      />      <Route
         path="/pos-sessions"
         element={
           <PrivateRoute adminOnly>
@@ -178,6 +177,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/kds"
         element={

@@ -3,6 +3,7 @@ import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
 import { Trash2, Search, Clock, LogIn, LogOut, ShieldAlert } from 'lucide-react';
+import { getEmployees, getEmployeeLogs, saveEmployeeLogs } from '../../utils/db';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
@@ -14,24 +15,29 @@ const Employees = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const emps = JSON.parse(localStorage.getItem('employees') || '[]');
-    const shiftLogs = JSON.parse(localStorage.getItem('employee_logs') || '[]');
-    setEmployees(emps);
+  const loadData = async () => {
+    try {
+      const emps = await getEmployees();
+      setEmployees(Array.isArray(emps) ? emps : []);
+    } catch (err) {
+      console.error(err);
+      setEmployees([]);
+    }
+    const shiftLogs = getEmployeeLogs();
     setLogs(shiftLogs);
   };
 
   const handleDeleteLog = (logId) => {
     if (window.confirm(`Are you sure you want to delete this shift record?`)) {
-      const shiftLogs = JSON.parse(localStorage.getItem('employee_logs') || '[]');
+      const shiftLogs = getEmployeeLogs();
       const updated = shiftLogs.filter(log => log.id !== logId);
-      localStorage.setItem('employee_logs', JSON.stringify(updated));
+      saveEmployeeLogs(updated);
       setLogs(updated);
     }
   };
 
   const handleEndShift = (logId) => {
-    const shiftLogs = JSON.parse(localStorage.getItem('employee_logs') || '[]');
+    const shiftLogs = getEmployeeLogs();
     const updated = shiftLogs.map(log => {
       if (log.id === logId) {
         return {
@@ -41,7 +47,7 @@ const Employees = () => {
       }
       return log;
     });
-    localStorage.setItem('employee_logs', JSON.stringify(updated));
+    saveEmployeeLogs(updated);
     setLogs(updated);
     alert('Shift ended successfully.');
   };
@@ -68,7 +74,7 @@ const Employees = () => {
     const matchesSearch = 
       log.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.employeeEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      empId.toLowerCase().includes(searchQuery.toLowerCase());
+      String(empId).toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesRole = roleFilter === 'All' || log.role.toLowerCase() === roleFilter.toLowerCase();
     return matchesSearch && matchesRole;

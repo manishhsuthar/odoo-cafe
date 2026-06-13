@@ -4,7 +4,7 @@ import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
 import { PlusCircle, X, Check, FolderPlus, Tag, Trash2, ArrowRight } from 'lucide-react';
-import { getProducts, getCategories, addProduct, addCategory, saveProducts } from '../../utils/db';
+import { getProducts, getCategories, addProduct, addCategory, deleteProduct } from '../../utils/db';
 
 const Products = () => {
   const location = useLocation();
@@ -48,9 +48,10 @@ const Products = () => {
     }
   }, [location]);
 
-  const loadData = () => {
-    setProducts(getProducts());
-    setCategories(getCategories());
+  const loadData = async () => {
+    const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
+    setProducts(prods);
+    setCategories(cats);
   };
 
   const handleProductInputChange = (e) => {
@@ -139,11 +140,12 @@ const Products = () => {
     loadData();
   };
 
-  const handleDeleteProduct = (prodId) => {
+  const handleDeleteProduct = async (prodId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      const updated = products.filter(p => p.id !== prodId);
-      saveProducts(updated);
-      loadData();
+      try {
+        await deleteProduct(prodId);
+        loadData();
+      } catch { }
     }
   };
 
