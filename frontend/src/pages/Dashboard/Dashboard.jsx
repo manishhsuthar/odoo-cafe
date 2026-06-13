@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, DollarSign, Grid3X3, Users, Plus, CalendarClock, Ticket } from 'lucide-react';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
@@ -9,6 +10,7 @@ import useAuth from '../../hooks/useAuth';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
+  const navigate = useNavigate();
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -317,7 +319,7 @@ const Dashboard = () => {
               {/* Quick Action 1: Add Product */}
               <button
                 style={quickActionCardStyle}
-                onClick={() => setIsProductModalOpen(true)}
+                onClick={() => navigate('/products?add=true')}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#b09677';
                   e.currentTarget.style.transform = 'translateY(-2px)';

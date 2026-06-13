@@ -108,7 +108,7 @@ const Sidebar = () => {
           </li>
         ))}
       </ul>
-      <div style={{ padding: '16px 12px', borderTop: '1px solid #28211b' }}>
+      <div style={{ padding: '16px 12px', borderTop: '1px solid var(--border-color)' }}>
         <button
           onClick={handleLogout}
           style={{

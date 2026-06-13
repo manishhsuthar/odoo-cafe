@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -18,42 +18,29 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
+import { getCategories, getProducts } from '../../utils/db';
 
 const POS = () => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Categories & Products Data
-  const categories = ['Beverages', 'Chaat', 'Desert', 'Meal'];
-  
-  const productsData = {
-    Beverages: [
-      { id: 'b1', name: 'Masala Tea', price: 40, inStock: true },
-      { id: 'b2', name: 'Coffee', price: 60, inStock: true },
-      { id: 'b3', name: 'Lassi', price: 50, inStock: true },
-      { id: 'b4', name: 'Espresso', price: 70, inStock: true },
-      { id: 'b5', name: 'Cold Brew', price: 90, inStock: false },
-    ],
-    Chaat: [
-      { id: 'c1', name: 'Samosa Chaat', price: 120, inStock: true },
-      { id: 'c2', name: 'Papdi Chaat', price: 110, inStock: true },
-      { id: 'c3', name: 'Bhel Puri', price: 90, inStock: true },
-    ],
-    Desert: [
-      { id: 'd1', name: 'Chocolate Brownie', price: 180, inStock: true },
-      { id: 'd2', name: 'Ice Cream Cup', price: 100, inStock: true },
-      { id: 'd3', name: 'Gulab Jamun', price: 80, inStock: false },
-    ],
-    Meal: [
-      { id: 'm1', name: 'Cheese Burger', price: 150, inStock: true },
-      { id: 'm2', name: 'Veg Sandwich', price: 120, inStock: true },
-      { id: 'm3', name: 'Paneer Wrap', price: 160, inStock: true },
-    ],
-  };
+  // Load from localStorage
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  useEffect(() => {
+    const cats = getCategories();
+    const prods = getProducts();
+    setCategoriesList(cats.map(c => c.name));
+    setProductsList(prods);
+    if (cats.length > 0) {
+      setSelectedCategory(cats[0].name);
+    }
+  }, []);
 
   // State Management
-  const [selectedCategory, setSelectedCategory] = useState('Beverages');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([
     { id: 'm1', name: 'Cheese Burger', price: 150, quantity: 2 }
@@ -123,7 +110,8 @@ const POS = () => {
   };
 
   // Search filter
-  const filteredProducts = productsData[selectedCategory].filter((p) =>
+  const filteredProducts = productsList.filter((p) =>
+    p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase() &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -498,7 +486,7 @@ const POS = () => {
           
           {/* Categories Sidebar */}
           <div style={categorySidebarStyle}>
-            {categories.map((cat) => (
+            {categoriesList.map((cat) => (
               <button
                 key={cat}
                 style={catBtnStyle(selectedCategory === cat)}
