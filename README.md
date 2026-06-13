@@ -1,4 +1,4 @@
-# Byte&Brew - Smart Restaurant POS & Kitchen Management System
+# Byte & Brew - Smart Restaurant POS & Kitchen Management System
 
 ## Project Overview
 
@@ -197,6 +197,6 @@ Parul University
 
 # Conclusion
 
-BrewSync creates a smart restaurant ecosystem by connecting order
+Byte & Brew creates a smart restaurant ecosystem by connecting order
 management, kitchen operations, payments, and analytics into a single
 digital platform.
