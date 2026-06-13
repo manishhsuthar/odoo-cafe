@@ -14,7 +14,7 @@
 
   /* Fonts */
   --font-standard: "Outfit", sans-serif;
-  --font-handwritten: "Architects Daughter", cursive, sans-serif;
+  --font-handwritten: "Outfit", sans-serif;
 
   /* Premium Box styling */
   --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
