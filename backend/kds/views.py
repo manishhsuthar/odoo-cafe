@@ -5,6 +5,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from orders.models import Order, OrderItem
 from .serializers import KDSOrderSerializer, KDSOrderItemSerializer
+from inventory.utils import deduct_inventory
 
 
 class IsKitchen(permissions.BasePermission):
@@ -21,25 +22,21 @@ class KDSOrderListView(generics.ListAPIView):
             status__in=["pending", "in_progress"]
         ).prefetch_related("items__product", "table__floor")
 
-        # Filter by status tab
         tab = self.request.query_params.get("tab")
         if tab == "to_cook":
             queryset = queryset.filter(status="pending")
         elif tab == "preparing":
             queryset = queryset.filter(status="in_progress")
 
-        # Search by order id or table number
         search = self.request.query_params.get("search")
         if search:
             queryset = queryset.filter(table__number__icontains=search) | \
                        queryset.filter(id__icontains=search)
 
-        # Filter by category
         category_id = self.request.query_params.get("category")
         if category_id:
             queryset = queryset.filter(items__product__category_id=category_id).distinct()
 
-        # Filter by product
         product_id = self.request.query_params.get("product")
         if product_id:
             queryset = queryset.filter(items__product_id=product_id).distinct()
@@ -92,12 +89,16 @@ class KDSUpdateItemView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Auto deduct inventory when chef starts preparing
+        if new_status == "preparing":
+            deduct_inventory(item, performed_by=request.user)
+
+        # These lines are OUTSIDE the if block — always run
         item.status = new_status
         item.save()
 
         order = item.order
         all_items = order.items.all()
-
         channel_layer = get_channel_layer()
 
         # Update order status based on items

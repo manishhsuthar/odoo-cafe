@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'kds',
     'pos',
     'reports',
+    'inventory',
     'content',
     'floors',
     'customers',
