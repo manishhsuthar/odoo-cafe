@@ -104,10 +104,129 @@ const POS = () => {
     );
   };
 
-  // Calculations
+  // Calculations and Coupon System
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+
   const subTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const tax = Math.round(subTotal * 0.05); // 5% GST
-  const total = subTotal + tax;
+
+  // Recalculate discount whenever cart, subTotal, or appliedCoupon changes
+  useEffect(() => {
+    if (!appliedCoupon) {
+      setDiscountAmount(0);
+      return;
+    }
+
+    // Min subtotal total check
+    if (subTotal < appliedCoupon.minAmount) {
+      setDiscountAmount(0);
+      setAppliedCoupon(null);
+      return;
+    }
+
+    let discountableSum = 0;
+    if (appliedCoupon.targetType === 'All' || !appliedCoupon.targetType) {
+      discountableSum = subTotal;
+    } else if (appliedCoupon.targetType === 'Category') {
+      const cat = appliedCoupon.targetValue.toLowerCase();
+      discountableSum = cart.reduce((acc, item) => {
+        if (item.category && item.category.toLowerCase() === cat) {
+          return acc + (item.price * item.quantity);
+        }
+        return acc;
+      }, 0);
+    } else if (appliedCoupon.targetType === 'Product') {
+      const prodName = appliedCoupon.targetValue.toLowerCase();
+      discountableSum = cart.reduce((acc, item) => {
+        if (item.name && item.name.toLowerCase() === prodName) {
+          return acc + (item.price * item.quantity);
+        }
+        return acc;
+      }, 0);
+    }
+
+    let calculatedDisc = 0;
+    if (appliedCoupon.discountType === 'Percentage') {
+      calculatedDisc = Math.round(discountableSum * (appliedCoupon.value / 100));
+    } else {
+      calculatedDisc = Math.min(appliedCoupon.value, discountableSum);
+    }
+    setDiscountAmount(calculatedDisc);
+  }, [cart, appliedCoupon, subTotal]);
+
+  // Automatic Promo engine
+  useEffect(() => {
+    // If a coupon code is manually applied, that has precedence
+    if (appliedCoupon && appliedCoupon.type === 'Coupon') {
+      return;
+    }
+
+    const stored = localStorage.getItem('coupons_list');
+    if (!stored) return;
+
+    try {
+      const list = JSON.parse(stored);
+      // Find active Automated Promos where subtotal fits
+      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= c.minAmount);
+      if (autoPromos.length > 0) {
+        // Find the one with maximum benefit
+        const bestPromo = autoPromos.sort((a, b) => b.value - a.value)[0];
+        setAppliedCoupon(bestPromo);
+      } else {
+        // Clear if conditions no longer match
+        if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
+          setAppliedCoupon(null);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [subTotal, cart]);
+
+  const totalBeforeTax = Math.max(0, subTotal - discountAmount);
+  const tax = Math.round(totalBeforeTax * 0.05); // 5% GST
+  const total = totalBeforeTax + tax;
+
+  const handleApplyCouponCode = (codeStr) => {
+    if (!codeStr.trim()) {
+      alert('Please enter a coupon code.');
+      return;
+    }
+    const stored = localStorage.getItem('coupons_list');
+    let couponsList = [];
+    if (stored) {
+      couponsList = JSON.parse(stored);
+    } else {
+      couponsList = [
+        { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
+        { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
+        { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
+      ];
+      localStorage.setItem('coupons_list', JSON.stringify(couponsList));
+    }
+
+    const found = couponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
+    if (!found) {
+      alert('Coupon code invalid or expired.');
+      return;
+    }
+
+    if (subTotal < found.minAmount) {
+      alert(`Coupon code "${found.code}" requires a minimum subtotal of ₹${found.minAmount}. Current subtotal is ₹${subTotal}.`);
+      return;
+    }
+
+    setAppliedCoupon(found);
+    setIsDiscountModalOpen(false);
+    setCouponInput('');
+  };
+
+  const handleClearCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+  };
 
   // Numpad input handler
   const handleNumpadClick = (value) => {
@@ -133,11 +252,15 @@ const POS = () => {
       amount: total,
       status: 'Unpaid',
       paymentMethod: '-',
-      items: orderItemsString
+      items: orderItemsString,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
+      discountAmount: discountAmount
     });
     alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
     setCart([]);
     setPaidAmount('0');
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
   };
 
   // Collect Payment (Paid)
@@ -152,11 +275,15 @@ const POS = () => {
       amount: total,
       status: 'Paid',
       paymentMethod: selectedPayment,
-      items: orderItemsString
+      items: orderItemsString,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
+      discountAmount: discountAmount
     });
     alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
     setCart([]);
     setPaidAmount('0');
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
   };
 
   // Search filter
@@ -717,7 +844,7 @@ const POS = () => {
                   Customer
                 </button>
                 <button 
-                  onClick={() => alert('Discount applied.')}
+                  onClick={() => setIsDiscountModalOpen(true)}
                   style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                 >
                   Discount
@@ -736,6 +863,21 @@ const POS = () => {
                   <span>Sub total</span>
                   <span>₹{subTotal}</span>
                 </div>
+                {appliedCoupon && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: '700' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>Discount ({appliedCoupon.code || 'Auto Promo'})</span>
+                      <button 
+                        onClick={handleClearCoupon}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', padding: '0 2px', fontWeight: '700' }}
+                        title="Remove coupon"
+                      >
+                        [Clear]
+                      </button>
+                    </div>
+                    <span>-₹{discountAmount}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Tax(GST 5%)</span>
                   <span>₹{tax}</span>
@@ -847,7 +989,7 @@ const POS = () => {
                 Prices
               </button>
               <button 
-                onClick={() => alert(`Applied numerical discount.`)}
+                onClick={() => setIsDiscountModalOpen(true)}
                 style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
               >
                 Disc.
@@ -863,6 +1005,171 @@ const POS = () => {
 
         </div>
       </div>
+
+      {/* Discount / Coupon Modal Overlay */}
+      {isDiscountModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: '400px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '20px',
+            padding: '24px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-standard)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              <span style={{ fontSize: '18px', fontWeight: '800' }}>Apply Coupon / Discount</span>
+              <button 
+                onClick={() => {
+                  setIsDiscountModalOpen(false);
+                  setCouponInput('');
+                }}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
+              >
+                X
+              </button>
+            </div>
+
+            {/* Input fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Enter Coupon Code</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. NEW20"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    textTransform: 'uppercase',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    outline: 'none'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleApplyCouponCode(couponInput);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => handleApplyCouponCode(couponInput)}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontSize: '13.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            {/* Available Coupons list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Available Store Coupons:</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+                {(JSON.parse(localStorage.getItem('coupons_list')) || [
+                  { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
+                  { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
+                ]).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
+                  <button
+                    key={coupon.id}
+                    onClick={() => {
+                      if (subTotal < coupon.minAmount) {
+                        alert(`Minimum order amount of ₹${coupon.minAmount} required.`);
+                        return;
+                      }
+                      setAppliedCoupon(coupon);
+                      setIsDiscountModalOpen(false);
+                      setCouponInput('');
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s',
+                      opacity: subTotal < coupon.minAmount ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (subTotal >= coupon.minAmount) {
+                        e.currentTarget.style.borderColor = 'var(--border-focus)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-button)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                      e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontWeight: '750' }}>
+                      <span style={{ color: '#10b981' }}>{coupon.code}</span>
+                      <span>{coupon.discountType === 'Percentage' ? `${coupon.value}% Off` : `₹${coupon.value} Off`}</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {coupon.name} • Min Order: ₹{coupon.minAmount}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {appliedCoupon && (
+              <button
+                onClick={() => {
+                  handleClearCoupon();
+                  setIsDiscountModalOpen(false);
+                }}
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  fontSize: '13.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  marginTop: '4px'
+                }}
+              >
+                Clear Current Coupon
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
