@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'floors',
     'customers',
     'promotions',
+    'orders',
 ]
 
 MIDDLEWARE = [
