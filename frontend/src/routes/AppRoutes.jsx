@@ -102,7 +102,15 @@ const AppRoutes = () => {
         path="/pos"
         element={
           <PrivateRoute>
-            <POS />
+            <POS view="pos" />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-orders"
+        element={
+          <PrivateRoute>
+            <POS view="orders" />
           </PrivateRoute>
         }
       />

@@ -18,9 +18,9 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, addProduct } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct, getOrders } from '../../utils/db';
 
-const POS = () => {
+const POS = ({ view = 'pos' }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -35,6 +35,27 @@ const POS = () => {
   // Session Logs states
   const [logs, setLogs] = useState([]);
   const [activeRightTab, setActiveRightTab] = useState('checkout');
+
+  // POS Orders History states
+  const [ordersList, setOrdersList] = useState([]);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [searchOrdersQuery, setSearchOrdersQuery] = useState('');
+
+  useEffect(() => {
+    const loadOrders = () => {
+      const stored = localStorage.getItem('orders');
+      if (stored) {
+        try {
+          setOrdersList(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    loadOrders();
+    window.addEventListener('storage', loadOrders);
+    return () => window.removeEventListener('storage', loadOrders);
+  }, []);
 
   const addLogEntry = (message, type = 'info') => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -471,6 +492,37 @@ const POS = () => {
     transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
+  const bodyOrdersStyle = {
+    padding: '30px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+    height: 'calc(100vh - 70px)',
+    overflowY: 'auto',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
+  };
+
+  const thStyle = {
+    padding: '16px 20px',
+    textAlign: 'left',
+    color: 'var(--text-secondary)',
+    fontWeight: '700',
+    borderBottom: '2px solid var(--border-color)',
+    fontSize: '13px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  };
+
+  const tdStyle = {
+    padding: '16px 20px',
+    borderBottom: '1.5px solid var(--border-color)',
+    color: 'var(--text-primary)',
+    fontSize: '14.5px',
+    verticalAlign: 'middle',
+    textAlign: 'left'
+  };
+
   const bodyGridStyle = {
     flex: 1,
     display: 'grid',
@@ -659,7 +711,7 @@ const POS = () => {
               <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/employees')}>User/Employee</button>
             </>
           )}
-          <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/orders')}>Orders</button>
+          <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/pos-orders')}>Orders</button>
           <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/kds')}>KDS</button>
           {user?.role === 'admin' && (
             <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/reports')}>Reports</button>
@@ -677,15 +729,19 @@ const POS = () => {
         {/* Top Header */}
         <header style={headerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{
-              backgroundColor: 'var(--border-focus)',
-              color: 'var(--bg-primary)',
-              padding: '10px 20px',
-              borderRadius: '10px',
-              fontWeight: '800',
-              fontSize: '18px',
-              letterSpacing: '0.5px'
-            }}>
+            <div 
+              onClick={() => navigate('/pos')}
+              style={{
+                backgroundColor: 'var(--border-focus)',
+                color: 'var(--bg-primary)',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontWeight: '800',
+                fontSize: '18px',
+                letterSpacing: '0.5px',
+                cursor: 'pointer'
+              }}
+            >
               Café POS
             </div>
             
@@ -739,9 +795,13 @@ const POS = () => {
 
             {/* Customer Navigation Button */}
             <button 
-              style={iconBtnStyle} 
-              onClick={() => navigate('/orders')}
-              title="Go to Orders Tracking"
+              style={{
+                ...iconBtnStyle,
+                backgroundColor: view === 'orders' ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: view === 'orders' ? 'var(--bg-primary)' : 'var(--text-primary)'
+              }} 
+              onClick={() => navigate('/pos-orders')}
+              title="Go to POS Orders"
             >
               <User size={18} />
             </button>
@@ -785,10 +845,150 @@ const POS = () => {
           </div>
         </header>
 
-        {/* Main Grid */}
-        <div style={bodyGridStyle}>
-          
-          {!activeTable ? (
+        {/* Main Body Content */}
+        {view === 'orders' ? (
+          <div style={bodyOrdersStyle}>
+            {/* Search and Title row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Orders History</h2>
+              
+              {/* Search input for orders */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                backgroundColor: 'var(--input-bg)', 
+                border: '1.5px solid var(--border-color)', 
+                borderRadius: '20px', 
+                padding: '10px 18px', 
+                width: '450px', 
+                transition: 'border-color 0.2s',
+                position: 'relative'
+              }}>
+                <input 
+                  type="text"
+                  placeholder="Search by Customer Name, Order ID, or Date..."
+                  value={searchOrdersQuery}
+                  onChange={(e) => setSearchOrdersQuery(e.target.value)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontSize: '15px',
+                    width: '100%',
+                    fontWeight: '600'
+                  }}
+                />
+                <Search size={18} color="var(--text-secondary)" style={{ cursor: 'pointer' }} />
+              </div>
+            </div>
+
+            {/* Orders Log Table container */}
+            <div style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1.5px solid var(--border-color)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: 'var(--card-shadow)'
+            }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                color: 'var(--text-primary)',
+                fontSize: '14.5px'
+              }}>
+                <thead>
+                  <tr style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    borderBottom: '2px solid var(--border-color)'
+                  }}>
+                    <th style={thStyle}>Date & Time</th>
+                    <th style={thStyle}>Order ID</th>
+                    <th style={thStyle}>Table</th>
+                    <th style={thStyle}>Customer</th>
+                    <th style={thStyle}>Amount</th>
+                    <th style={thStyle}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const filtered = ordersList.filter((ord) => {
+                      const q = searchOrdersQuery.toLowerCase();
+                      const customer = (ord.customerName || 'Walk-in Customer').toLowerCase();
+                      const orderId = (ord.id || '').toLowerCase();
+                      const table = (ord.table || 'Takeaway').toLowerCase();
+                      
+                      const dateObj = new Date(ord.dateTime);
+                      const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
+                      const dateFull = dateObj.toLocaleDateString().toLowerCase();
+
+                      return (
+                        customer.includes(q) ||
+                        orderId.includes(q) ||
+                        table.includes(q) ||
+                        dateStr.includes(q) ||
+                        dateFull.includes(q)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            No orders found matching search criteria.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map((ord) => {
+                      const dateObj = new Date(ord.dateTime);
+                      const dateFormatted = `${dateObj.getDate()}/${dateObj.getMonth() + 1} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                      const isPaid = ord.status === 'Paid';
+                      
+                      return (
+                        <tr 
+                          key={ord.id}
+                          onClick={() => setSelectedOrderDetails(ord)}
+                          style={{
+                            borderBottom: '1.5px solid var(--border-color)',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.15s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <td style={tdStyle}>{dateFormatted}</td>
+                          <td style={{ ...tdStyle, color: '#3b82f6', fontWeight: '800' }}>{ord.id}</td>
+                          <td style={tdStyle}>{ord.table || 'Takeaway'}</td>
+                          <td style={tdStyle}>{ord.customerName || 'Walk-in Customer'}</td>
+                          <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{ord.amount}</td>
+                          <td style={tdStyle}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              textTransform: 'uppercase',
+                              padding: '4px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: isPaid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: isPaid ? '#10b981' : '#ef4444'
+                            }}>
+                              {ord.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div style={bodyGridStyle}>
+            
+            {!activeTable ? (
             <div style={{
               gridColumn: 'span 2',
               display: 'flex',
@@ -1055,7 +1255,7 @@ const POS = () => {
               {/* Utility buttons row */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
-                  onClick={() => navigate('/orders')}
+                  onClick={() => navigate('/pos-orders')}
                   style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                 >
                   Customer
@@ -1311,6 +1511,7 @@ const POS = () => {
           </div>
 
         </div>
+        )}
       </div>
 
       {/* Discount / Coupon Modal Overlay */}
@@ -1833,6 +2034,200 @@ const POS = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Order Details Modal Overlay */}
+      {selectedOrderDetails && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: '450px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '24px',
+            padding: '30px',
+            boxShadow: 'var(--card-shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-standard)'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '14px' }}>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Order Details: {selectedOrderDetails.id}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {new Date(selectedOrderDetails.dateTime).toLocaleString()}
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedOrderDetails(null)}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Dining Table:</span>
+                <span style={{ fontWeight: '750' }}>{selectedOrderDetails.table || 'Takeaway'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Customer Profile:</span>
+                <span style={{ fontWeight: '750' }}>{selectedOrderDetails.customerName || 'Walk-in Customer'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Payment Method:</span>
+                <span style={{ fontWeight: '750' }}>{selectedOrderDetails.paymentMethod || 'None (Unpaid)'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Transaction Status:</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  textTransform: 'uppercase',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: selectedOrderDetails.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: selectedOrderDetails.status === 'Paid' ? '#10b981' : '#ef4444'
+                }}>
+                  {selectedOrderDetails.status}
+                </span>
+              </div>
+
+              {/* Items Summary list */}
+              <div style={{ 
+                borderTop: '1px dashed var(--border-color)', 
+                borderBottom: '1px dashed var(--border-color)', 
+                padding: '12px 0', 
+                margin: '6px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>ITEMS ORDERED</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                  {selectedOrderDetails.items.split(', ').map((itemStr, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span>{itemStr}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                <span>Grand Total:</span>
+                <span>₹{selectedOrderDetails.amount}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => alert(`Receipt printed for order ${selectedOrderDetails.id}`)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-primary)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Print Receipt
+              </button>
+              
+              {selectedOrderDetails.status === 'Unpaid' ? (
+                <button
+                  onClick={() => {
+                    const stored = localStorage.getItem('orders');
+                    if (stored) {
+                      try {
+                        const list = JSON.parse(stored);
+                        const updated = list.map(o => {
+                          if (o.id === selectedOrderDetails.id) {
+                            return { ...o, status: 'Paid', paymentMethod: 'Cash' };
+                          }
+                          return o;
+                        });
+                        localStorage.setItem('orders', JSON.stringify(updated));
+                        addLogEntry(`Order ${selectedOrderDetails.id} marked as Paid (Settled)`, 'success');
+                        alert(`Order ${selectedOrderDetails.id} settled successfully!`);
+                        
+                        if (selectedOrderDetails.customerName && selectedOrderDetails.customerName !== 'Walk-in Customer') {
+                          const custStored = localStorage.getItem('customers');
+                          if (custStored) {
+                            const custs = JSON.parse(custStored);
+                            const updatedCusts = custs.map(c => {
+                              if (c.name === selectedOrderDetails.customerName) {
+                                return { 
+                                  ...c, 
+                                  spend: (c.spend || 0) + selectedOrderDetails.amount,
+                                  ordersCount: (c.ordersCount || 0) + 1
+                                };
+                              }
+                              return c;
+                            });
+                            localStorage.setItem('customers', JSON.stringify(updatedCusts));
+                          }
+                        }
+
+                        setSelectedOrderDetails({ ...selectedOrderDetails, status: 'Paid', paymentMethod: 'Cash' });
+                        setOrdersList(updated);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Mark as Paid
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedOrderDetails(null)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Close View
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
