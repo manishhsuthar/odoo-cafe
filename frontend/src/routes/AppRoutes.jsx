@@ -18,6 +18,7 @@ import PaymentMethods from '../pages/PaymentMethods/PaymentMethods';
 import Coupons from '../pages/Coupons/Coupons';
 import KitchenInventory from '../pages/KitchenInventory/KitchenInventory';
 import TableBooking from '../pages/TableBooking/TableBooking';
+import POSSessions from '../pages/POSSessions/POSSessions';
 
 const AppRoutes = () => {
   return (
@@ -102,6 +103,14 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <POS />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pos-sessions"
+        element={
+          <PrivateRoute adminOnly>
+            <POSSessions />
           </PrivateRoute>
         }
       />

@@ -86,10 +86,9 @@ const Sidebar = () => {
     { name: 'Payment Methods', path: '/payment-methods', icon: DollarSign },
     { name: 'Coupon Generation', path: '/coupons', icon: Ticket },
     { name: 'Revenue Reports', path: '/reports', icon: BarChart3 },
-    { name: 'POS Sessions', path: '/pos', icon: Zap },
+    { name: 'POS Sessions', path: '/pos-sessions', icon: Zap },
     { name: 'Customers', path: '/customers', icon: ChefHat },
     { name: 'Kitchen Inventory', path: '/kitchen-inventory', icon: ClipboardList },
-    { name: 'Table Booking', path: '/table-booking', icon: CalendarClock },
   ];
 
   return (

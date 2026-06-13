@@ -31,6 +31,20 @@ const POS = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState('');
+  
+  // Session Logs states
+  const [logs, setLogs] = useState([]);
+  const [activeRightTab, setActiveRightTab] = useState('checkout');
+
+  const addLogEntry = (message, type = 'info') => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const newLog = { id: `log_${Date.now()}_${Math.random()}`, time, message, type };
+    setLogs(prev => {
+      const updated = [newLog, ...prev].slice(0, 100);
+      localStorage.setItem('pos_session_logs', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   useEffect(() => {
     const cats = getCategories();
@@ -62,6 +76,38 @@ const POS = () => {
     if (active.length > 0) {
       setSelectedPayment(active[0].name);
     }
+
+    // Load session logs
+    const storedLogs = localStorage.getItem('pos_session_logs');
+    if (storedLogs) {
+      setLogs(JSON.parse(storedLogs));
+    } else {
+      const initialLogs = [
+        { id: 'l1', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: 'System initialization check: Passed', type: 'success' },
+        { id: 'l2', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: `POS Session started by: ${user ? user.name : 'Staff'}`, type: 'info' }
+      ];
+      setLogs(initialLogs);
+      localStorage.setItem('pos_session_logs', JSON.stringify(initialLogs));
+    }
+  }, []);
+
+  // Watch for active user logging in
+  useEffect(() => {
+    if (user) {
+      addLogEntry(`User logged in: ${user.name} (${user.role.toUpperCase()})`, 'success');
+    }
+  }, [user]);
+
+  // Keep a live sync hook to pull logs periodically (e.g. from table reservation changes)
+  useEffect(() => {
+    const handleSync = () => {
+      const storedLogs = localStorage.getItem('pos_session_logs');
+      if (storedLogs) {
+        setLogs(JSON.parse(storedLogs));
+      }
+    };
+    const interval = setInterval(handleSync, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   // State Management
@@ -88,9 +134,19 @@ const POS = () => {
       }
       return [...prevCart, { ...product, quantity: 1 }];
     });
+    addLogEntry(`Added item to active order: ${product.name} (₹${product.price})`, 'info');
   };
 
   const updateQuantity = (id, delta) => {
+    const item = cart.find(x => x.id === id);
+    if (item) {
+      const newQty = item.quantity + delta;
+      if (newQty > 0) {
+        addLogEntry(`Updated quantity of ${item.name} to ${newQty}`, 'info');
+      } else {
+        addLogEntry(`Removed ${item.name} from active order`, 'warning');
+      }
+    }
     setCart((prevCart) =>
       prevCart
         .map((item) => {
@@ -219,6 +275,7 @@ const POS = () => {
     }
 
     setAppliedCoupon(found);
+    addLogEntry(`Applied coupon code: ${found.code} (Discount: ${found.value}${found.discountType === 'Percentage' ? '%' : ' Fixed'})`, 'success');
     setIsDiscountModalOpen(false);
     setCouponInput('');
   };
@@ -226,6 +283,7 @@ const POS = () => {
   const handleClearCoupon = () => {
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    addLogEntry(`Cleared coupon code`, 'warning');
   };
 
   // Numpad input handler
@@ -247,7 +305,7 @@ const POS = () => {
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    addOrder({
+    const newOrder = addOrder({
       table: activeTable,
       amount: total,
       status: 'Unpaid',
@@ -256,6 +314,7 @@ const POS = () => {
       couponCode: appliedCoupon ? appliedCoupon.code : null,
       discountAmount: discountAmount
     });
+    addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
     alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
     setCart([]);
     setPaidAmount('0');
@@ -270,7 +329,7 @@ const POS = () => {
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    addOrder({
+    const newOrder = addOrder({
       table: activeTable,
       amount: total,
       status: 'Paid',
@@ -279,6 +338,7 @@ const POS = () => {
       couponCode: appliedCoupon ? appliedCoupon.code : null,
       discountAmount: discountAmount
     });
+    addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
     alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
     setCart([]);
     setPaidAmount('0');
@@ -550,7 +610,6 @@ const POS = () => {
               <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/categories')}>Category</button>
               <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/payment-methods')}>Payment method</button>
               <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/coupons')}>Coupon & Promotion</button>
-              <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/table-booking')}>Booking</button>
               <button style={menuLinkStyle} onClick={() => handleSidebarNavigation('/employees')}>User/Employee</button>
             </>
           )}
@@ -892,115 +951,205 @@ const POS = () => {
 
           {/* Payment Panel */}
           <div style={paymentPanelStyle}>
-            {/* Quick Payment Selection */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {paymentMethods.length === 0 ? (
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active payment methods.</span>
-                ) : (
-                  paymentMethods.map((method) => (
-                    <button
-                      key={method.id}
-                      style={{
-                        ...payMethodBtnStyle(selectedPayment === method.name),
-                        flex: '1 1 calc(50% - 4px)',
-                        minWidth: '95px'
-                      }}
-                      onClick={() => setSelectedPayment(method.name)}
-                    >
-                      {method.type === 'Cash' && <DollarSign size={15} />}
-                      {method.type === 'Card' && <Percent size={15} />}
-                      {method.type === 'UPI' && <UserPlus size={15} />}
-                      {method.name}
-                    </button>
-                  ))
-                )}
-              </div>
+            {/* Header Tabs inside Payment Panel */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
+              <button 
+                onClick={() => setActiveRightTab('checkout')}
+                style={{
+                  flex: 1,
+                  padding: '12px 6px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderBottom: activeRightTab === 'checkout' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
+                  color: activeRightTab === 'checkout' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Checkout
+              </button>
+              <button 
+                onClick={() => setActiveRightTab('logs')}
+                style={{
+                  flex: 1,
+                  padding: '12px 6px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderBottom: activeRightTab === 'logs' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
+                  color: activeRightTab === 'logs' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Session Logs
+              </button>
             </div>
 
-            {/* Paid Amount indicator */}
-            <div style={{ margin: '14px 0', textAlign: 'left' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Amount</span>
-              <div style={{
-                fontSize: '32px',
-                fontWeight: '800',
-                color: 'var(--text-primary)',
-                borderBottom: '2px solid var(--border-color)',
-                paddingBottom: '8px',
-                marginTop: '6px',
-                transition: 'color var(--transition-speed), border-color var(--transition-speed)',
-              }}>
-                ₹{paidAmount}
+            {activeRightTab === 'checkout' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                {/* Quick Payment Selection */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {paymentMethods.length === 0 ? (
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active payment methods.</span>
+                    ) : (
+                      paymentMethods.map((method) => (
+                        <button
+                          key={method.id}
+                          style={{
+                            ...payMethodBtnStyle(selectedPayment === method.name),
+                            flex: '1 1 calc(50% - 4px)',
+                            minWidth: '95px'
+                          }}
+                          onClick={() => setSelectedPayment(method.name)}
+                        >
+                          {method.type === 'Cash' && <DollarSign size={15} />}
+                          {method.type === 'Card' && <Percent size={15} />}
+                          {method.type === 'UPI' && <UserPlus size={15} />}
+                          {method.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Paid Amount indicator */}
+                <div style={{ margin: '14px 0', textAlign: 'left' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Amount</span>
+                  <div style={{
+                    fontSize: '32px',
+                    fontWeight: '800',
+                    color: 'var(--text-primary)',
+                    borderBottom: '2px solid var(--border-color)',
+                    paddingBottom: '8px',
+                    marginTop: '6px',
+                    transition: 'color var(--transition-speed), border-color var(--transition-speed)',
+                  }}>
+                    ₹{paidAmount}
+                  </div>
+                </div>
+
+                {/* Numeric Numpad */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '8px',
+                }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <button
+                      key={num}
+                      style={numpadButtonStyle}
+                      onClick={() => handleNumpadClick(num)}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  
+                  <button
+                    style={numpadButtonStyle}
+                    onClick={() => handleNumpadClick('0')}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                  >
+                    0
+                  </button>
+
+                  <button
+                    style={numpadButtonStyle}
+                    onClick={() => handleNumpadClick('+/-')}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                  >
+                    +/-
+                  </button>
+
+                  <button
+                    style={{ ...numpadButtonStyle, backgroundColor: '#d9534f', color: '#ffffff' }}
+                    onClick={() => handleNumpadClick('x')}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#c9302c'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#d9534f'}
+                  >
+                    &larr;
+                  </button>
+                </div>
+
+                {/* Quick Action Payment options */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '10px' }}>
+                  <button 
+                    onClick={() => alert(`Prices set to base.`)}
+                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Prices
+                  </button>
+                  <button 
+                    onClick={() => setIsDiscountModalOpen(true)}
+                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Disc.
+                  </button>
+                  <button 
+                    onClick={() => alert(`Quantity multiplier ready.`)}
+                    style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
+                  >
+                    Qty
+                  </button>
+                </div>
               </div>
-            </div>
- 
-            {/* Numeric Numpad */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '8px',
-            }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
-                  key={num}
-                  style={numpadButtonStyle}
-                  onClick={() => handleNumpadClick(num)}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
-                >
-                  {num}
-                </button>
-              ))}
-              
-              <button
-                style={numpadButtonStyle}
-                onClick={() => handleNumpadClick('0')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
-              >
-                0
-              </button>
- 
-              <button
-                style={numpadButtonStyle}
-                onClick={() => handleNumpadClick('+/-')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
-              >
-                +/-
-              </button>
- 
-              <button
-                style={{ ...numpadButtonStyle, backgroundColor: '#d9534f', color: '#ffffff' }}
-                onClick={() => handleNumpadClick('x')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#c9302c'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#d9534f'}
-              >
-                &larr;
-              </button>
-            </div>
- 
-            {/* Quick Action Payment options */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '10px' }}>
-              <button 
-                onClick={() => alert(`Prices set to base.`)}
-                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-              >
-                Prices
-              </button>
-              <button 
-                onClick={() => setIsDiscountModalOpen(true)}
-                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-              >
-                Disc.
-              </button>
-              <button 
-                onClick={() => alert(`Quantity multiplier ready.`)}
-                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
-              >
-                Qty
-              </button>
-            </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                height: '100%',
+                maxHeight: '440px',
+                overflowY: 'auto',
+                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: '12px',
+                padding: '12px',
+                border: '1.5px solid var(--border-color)',
+                textAlign: 'left',
+                fontFamily: 'monospace',
+                fontSize: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
+                  <span style={{ fontWeight: '800', color: 'var(--text-secondary)' }}>Log Feed</span>
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem('pos_session_logs');
+                      setLogs([]);
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    Clear Logs
+                  </button>
+                </div>
+                {logs.length === 0 ? (
+                  <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                    No logs recorded in this session.
+                  </div>
+                ) : (
+                  logs.map((log) => {
+                    let typeColor = 'var(--text-secondary)';
+                    if (log.type === 'success') typeColor = '#10b981';
+                    if (log.type === 'warning') typeColor = '#f97316';
+                    if (log.type === 'danger') typeColor = '#ef4444';
+
+                    return (
+                      <div key={log.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '6px', lineHeight: '1.4' }}>
+                        <span style={{ color: 'var(--text-link)', marginRight: '6px' }}>[{log.time}]</span>
+                        <span style={{ color: typeColor }}>{log.message}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
 
         </div>

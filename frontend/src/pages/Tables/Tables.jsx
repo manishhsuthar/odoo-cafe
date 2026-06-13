@@ -69,6 +69,19 @@ const Tables = () => {
     setCustomerInput(table.customerName || '');
   };
 
+  const addSessionLog = (message, type = 'info') => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const newLog = { id: `log_${Date.now()}_${Math.random()}`, time, message, type };
+    try {
+      const stored = localStorage.getItem('pos_session_logs');
+      const list = stored ? JSON.parse(stored) : [];
+      const updated = [newLog, ...list].slice(0, 100);
+      localStorage.setItem('pos_session_logs', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleReserve = (e) => {
     e.preventDefault();
     if (!customerInput.trim()) {
@@ -87,6 +100,7 @@ const Tables = () => {
       return t;
     });
 
+    addSessionLog(`Table ${selectedTable.name.toUpperCase()} reserved for ${customerInput.trim()}`, 'warning');
     saveTablesState(updated);
     setSelectedTable(null);
     setCustomerInput('');
@@ -104,6 +118,7 @@ const Tables = () => {
       return t;
     });
 
+    addSessionLog(`Table ${selectedTable.name.toUpperCase()} occupied`, 'danger');
     saveTablesState(updated);
     setSelectedTable(null);
   };
@@ -120,6 +135,7 @@ const Tables = () => {
       return t;
     });
 
+    addSessionLog(`Table ${selectedTable.name.toUpperCase()} cleared (free)`, 'success');
     saveTablesState(updated);
     setSelectedTable(null);
   };
@@ -128,6 +144,7 @@ const Tables = () => {
     if (window.confirm('Reset all table statuses back to defaults?')) {
       localStorage.setItem('floor_plan_tables', JSON.stringify(DEFAULT_TABLES));
       setTables(DEFAULT_TABLES);
+      addSessionLog('All floor plan table statuses reset to default', 'info');
     }
   };
 
