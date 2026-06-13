@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Trash2 } from 'lucide-react';
-import { addProduct, getProducts, getCategories } from '../../../utils/db';
+import { Search, Trash2, Edit2, Save, X } from 'lucide-react';
+import { addProduct, getProducts, getCategories, updateProduct } from '../../../utils/db';
 import { bodyOrdersStyle, thStyle, tdStyle } from './POSSharedStyles';
 
 const POSProductsManagement = ({
@@ -17,6 +17,36 @@ const POSProductsManagement = ({
   newProdCategory, setNewProdCategory,
   newProdDesc, setNewProdDesc
 }) => {
+  const [editProductId, setEditProductId] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: '', price: '', category: '' });
+
+  const handleEditClick = (prod) => {
+    setEditProductId(prod.id);
+    setEditFormData({ name: prod.name, price: prod.price, category: prod.category });
+  };
+
+  const handleCancelEdit = () => {
+    setEditProductId(null);
+  };
+
+  const handleSaveEdit = async (prodId) => {
+    try {
+      await updateProduct(prodId, {
+        name: editFormData.name,
+        price: parseFloat(editFormData.price),
+        category: editFormData.category
+      });
+      setProductsList(productsList.map(p => 
+        p.id === prodId ? { ...p, name: editFormData.name, price: parseFloat(editFormData.price), category: editFormData.category } : p
+      ));
+      addLogEntry(`Updated product: ${editFormData.name}`, 'success');
+      setEditProductId(null);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update product');
+    }
+  };
+
   return (
     <div style={bodyOrdersStyle}>
       {/* Products Page Header / Title */}
@@ -274,9 +304,42 @@ const POSProductsManagement = ({
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <td style={{ ...tdStyle, fontWeight: '700' }}>{prod.name}</td>
-                      <td style={tdStyle}>{prod.category}</td>
-                      <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{prod.price}</td>
+                      {editProductId === prod.id ? (
+                        <>
+                          <td style={tdStyle}>
+                            <input
+                              type="text"
+                              value={editFormData.name}
+                              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                              style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+                            />
+                          </td>
+                          <td style={tdStyle}>
+                            <select
+                              value={editFormData.category}
+                              onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                              style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+                            >
+                              <option value="">Select Category</option>
+                              {categoriesList.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
+                          </td>
+                          <td style={tdStyle}>
+                            <input
+                              type="number"
+                              value={editFormData.price}
+                              onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
+                              style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+                            />
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{prod.name}</td>
+                          <td style={tdStyle}>{prod.category}</td>
+                          <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{prod.price}</td>
+                        </>
+                      )}
                       <td style={tdStyle}>
                         <span style={{
                           fontSize: '11px',
@@ -292,40 +355,68 @@ const POSProductsManagement = ({
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                          <button
-                            onClick={() => handleToggleStock(prod.id)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-color)',
-                              backgroundColor: prod.inStock ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                              color: prod.inStock ? '#ef4444' : '#10b981',
-                              fontSize: '12px',
-                              fontWeight: '800',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            {prod.inStock ? 'Set Out of Stock' : 'Set In Stock'}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(prod.id)}
-                            style={{
-                              padding: '6px',
-                              borderRadius: '6px',
-                              border: 'none',
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s'
-                            }}
-                            title="Delete Product"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {editProductId === prod.id ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveEdit(prod.id)}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Save"
+                              >
+                                <Save size={14} />
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Cancel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditClick(prod)}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                title="Edit Product"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleToggleStock(prod.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: prod.inStock ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                  color: prod.inStock ? '#ef4444' : '#10b981',
+                                  fontSize: '12px',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                {prod.inStock ? 'Set Out of Stock' : 'Set In Stock'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(prod.id)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s'
+                                }}
+                                title="Delete Product"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
