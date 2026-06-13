@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { authAPI } from '../utils/db';
+import authAPI from '../services/authService';
 
 export const AuthContext = createContext(null);
 
@@ -81,22 +81,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const registerEmployee = (name, email, password, role = 'cashier') => {
-    if (employees.some(emp => emp.email === email)) {
-      return { success: false, error: 'Email already exists' };
+  const registerEmployee = async (name, email, password, role = 'cashier') => {
+    try {
+      const created = await authAPI.register(name, email, password, role);
+      return { success: true, employee: created };
+    } catch (err) {
+      const message = err.response?.data?.detail || err.response?.data?.message || 'Failed to register employee';
+      return { success: false, error: message };
     }
-
-    const newEmp = { 
-      id: `emp_${Math.floor(1000 + Math.random() * 9000)}`,
-      name, 
-      email, 
-      password, 
-      role 
-    };
-    const updatedEmployees = [...employees, newEmp];
-    setEmployees(updatedEmployees);
-    localStorage.setItem('employees', JSON.stringify(updatedEmployees));
-    return { success: true, employee: newEmp };
   };
 
   const logout = () => {

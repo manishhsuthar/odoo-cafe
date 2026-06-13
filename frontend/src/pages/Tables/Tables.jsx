@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { Layers, CalendarClock, User, Check, X, LogIn, RefreshCcw } from 'lucide-react';
-import { getTables, updateTable, getFloorPlanTables, saveFloorPlanTables } from '../../utils/db';
+import { getTables, updateTable } from '../../utils/db';
 
 const Tables = () => {
   const [tables, setTables] = useState([]);
@@ -17,14 +17,9 @@ const Tables = () => {
   }, []);
 
   const loadTables = async () => {
-    const local = getFloorPlanTables();
-    if (Array.isArray(local) && local.length > 0) {
-      setTables(local);
-      return;
-    }
     try {
       const data = await getTables();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         const mapped = data.map(t => ({
           id: t.id,
           name: t.name,
@@ -33,16 +28,10 @@ const Tables = () => {
           customerName: t.customerName || '',
         }));
         setTables(mapped);
-        saveFloorPlanTables(mapped);
       }
     } catch {
       setTables([]);
     }
-  };
-
-  const saveTablesState = (updatedTables) => {
-    saveFloorPlanTables(updatedTables);
-    setTables(updatedTables);
   };
 
   const handleTableClick = (table) => {
@@ -63,69 +52,81 @@ const Tables = () => {
     }
   };
 
-  const handleReserve = (e) => {
+  const handleReserve = async (e) => {
     e.preventDefault();
     if (!customerInput.trim()) {
       alert('Please enter customer name to reserve.');
       return;
     }
 
-    const updated = tables.map(t => {
-      if (t.id === selectedTable.id) {
-        return {
-          ...t,
-          status: 'reserved',
-          customerName: customerInput.trim()
-        };
-      }
-      return t;
-    });
-
-    addSessionLog(`Table ${selectedTable.name.toUpperCase()} reserved for ${customerInput.trim()}`, 'warning');
-    saveTablesState(updated);
-    setSelectedTable(null);
-    setCustomerInput('');
+    try {
+      await updateTable(selectedTable.id, {
+        floor: selectedTable.floor,
+        name: selectedTable.name,
+        status: 'reserved',
+        customer_name: customerInput.trim()
+      });
+      addSessionLog(`Table ${selectedTable.name.toUpperCase()} reserved for ${customerInput.trim()}`, 'warning');
+      await loadTables();
+      setSelectedTable(null);
+      setCustomerInput('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to reserve table');
+    }
   };
 
-  const handleMarkOccupied = () => {
-    const updated = tables.map(t => {
-      if (t.id === selectedTable.id) {
-        return {
-          ...t,
-          status: 'occupied',
-          customerName: ''
-        };
-      }
-      return t;
-    });
-
-    addSessionLog(`Table ${selectedTable.name.toUpperCase()} occupied`, 'danger');
-    saveTablesState(updated);
-    setSelectedTable(null);
+  const handleMarkOccupied = async () => {
+    try {
+      await updateTable(selectedTable.id, {
+        floor: selectedTable.floor,
+        name: selectedTable.name,
+        status: 'occupied',
+        customer_name: ''
+      });
+      addSessionLog(`Table ${selectedTable.name.toUpperCase()} occupied`, 'danger');
+      await loadTables();
+      setSelectedTable(null);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to mark table occupied');
+    }
   };
 
-  const handleClearTable = () => {
-    const updated = tables.map(t => {
-      if (t.id === selectedTable.id) {
-        return {
-          ...t,
-          status: 'free',
-          customerName: ''
-        };
-      }
-      return t;
-    });
-
-    addSessionLog(`Table ${selectedTable.name.toUpperCase()} cleared (free)`, 'success');
-    saveTablesState(updated);
-    setSelectedTable(null);
+  const handleClearTable = async () => {
+    try {
+      await updateTable(selectedTable.id, {
+        floor: selectedTable.floor,
+        name: selectedTable.name,
+        status: 'free',
+        customer_name: ''
+      });
+      addSessionLog(`Table ${selectedTable.name.toUpperCase()} cleared (free)`, 'success');
+      await loadTables();
+      setSelectedTable(null);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to clear table');
+    }
   };
 
   const resetAllTables = async () => {
     if (window.confirm('Reset all table statuses to free?')) {
-      const reset = tables.map(t => ({ ...t, status: 'free', customerName: '' }));
-      saveTablesState(reset);
-      addSessionLog('All table statuses reset to free', 'info');
+      try {
+        await Promise.all(tables.map(t => 
+          updateTable(t.id, {
+            floor: t.floor,
+            name: t.name,
+            status: 'free',
+            customer_name: ''
+          })
+        ));
+        addSessionLog('All table statuses reset to free', 'info');
+        await loadTables();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to reset all tables');
+      }
     }
   };
 

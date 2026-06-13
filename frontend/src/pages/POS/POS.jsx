@@ -18,7 +18,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder } from '../../utils/db';
+import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders } from '../../utils/db';
 
 const POS = ({ view = 'pos' }) => {
   const { logout, user } = useAuth();
@@ -42,20 +42,20 @@ const POS = ({ view = 'pos' }) => {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [searchOrdersQuery, setSearchOrdersQuery] = useState('');
 
+  const loadOrders = async () => {
+    try {
+      const data = await getOrders();
+      setOrdersList(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setOrdersList([]);
+    }
+  };
+
   useEffect(() => {
-    const loadOrders = () => {
-      const stored = localStorage.getItem('orders');
-      if (stored) {
-        try {
-          setOrdersList(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    };
     loadOrders();
-    window.addEventListener('storage', loadOrders);
-    return () => window.removeEventListener('storage', loadOrders);
+    const interval = setInterval(loadOrders, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // POS Products states and handlers
@@ -101,60 +101,47 @@ const POS = ({ view = 'pos' }) => {
   const [searchEmployeesQuery, setSearchEmployeesQuery] = useState('');
 
   // Combined management loader
-  const reloadManagementData = () => {
+  const reloadManagementData = async () => {
     // Payment methods
-    const pmStored = localStorage.getItem('payment_methods');
-    if (pmStored) {
-      setAllPaymentMethods(JSON.parse(pmStored));
-    } else {
-      const defaultPM = [
-        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
-        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
-        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
-      ];
-      localStorage.setItem('payment_methods', JSON.stringify(defaultPM));
-      setAllPaymentMethods(defaultPM);
+    try {
+      const pmData = await getPaymentMethods();
+      setAllPaymentMethods(pmData);
+    } catch (e) {
+      setAllPaymentMethods([]);
     }
     // Coupons list
-    const cpStored = localStorage.getItem('coupons_list');
-    if (cpStored) {
-      setAllCouponsList(JSON.parse(cpStored));
-    } else {
-      const defaultCoupons = [
-        { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
-        { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
-      setAllCouponsList(defaultCoupons);
+    try {
+      const cpData = await getCoupons();
+      setAllCouponsList(cpData);
+    } catch (e) {
+      setAllCouponsList([]);
     }
     // Bookings
     const bkStored = localStorage.getItem('pos_bookings');
     if (bkStored) {
-      setBookingsList(JSON.parse(bkStored));
+      try {
+        setBookingsList(JSON.parse(bkStored));
+      } catch (e) {
+        setBookingsList([]);
+      }
     } else {
-      const defaultBookings = [
-        { id: 'b_1', customerName: 'Manish Suthar', phone: '9876543210', dateTime: '2026-06-13T19:00', guests: 4, table: 'Table 4', status: 'Confirmed' },
-        { id: 'b_2', customerName: 'Aditya Raj', phone: '9988776655', dateTime: '2026-06-14T20:30', guests: 2, table: 'Table 12', status: 'Pending' }
-      ];
-      localStorage.setItem('pos_bookings', JSON.stringify(defaultBookings));
-      setBookingsList(defaultBookings);
+      setBookingsList([]);
     }
     // Employees
-    const empStored = localStorage.getItem('employees');
-    if (empStored) {
-      setAllEmployeesList(JSON.parse(empStored));
-    } else {
-      const defaultEmployees = [
-        { id: 'emp_1', name: 'Ramesh Chef', email: 'ramesh@cafe.com', role: 'Chef' },
-        { id: 'emp_2', name: 'Suresh Manager', email: 'suresh@cafe.com', role: 'Manager' }
-      ];
-      localStorage.setItem('employees', JSON.stringify(defaultEmployees));
-      setAllEmployeesList(defaultEmployees);
+    try {
+      const empData = await getEmployees();
+      setAllEmployeesList(empData);
+    } catch (e) {
+      setAllEmployeesList([]);
     }
     // Shift Attendance Logs
     const shStored = localStorage.getItem('employee_logs');
     if (shStored) {
-      setAttendanceLogsList(JSON.parse(shStored));
+      try {
+        setAttendanceLogsList(JSON.parse(shStored));
+      } catch (e) {
+        setAttendanceLogsList([]);
+      }
     }
   };
 
@@ -261,49 +248,63 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Coupons Handlers
-  const handleAddCoupon = (e) => {
+  const handleAddCoupon = async (e) => {
     e.preventDefault();
     if (!newCouponName || !newCouponCode || !newCouponValue) return;
-    const newCP = {
-      id: `cp_${Date.now()}`,
-      name: newCouponName,
-      code: newCouponCode.toUpperCase(),
-      value: parseFloat(newCouponValue),
-      discountType: newCouponDiscountType,
-      minAmount: parseFloat(newCouponMinAmount || 0),
-      activated: true
-    };
-    const updated = [...allCouponsList, newCP];
-    localStorage.setItem('coupons_list', JSON.stringify(updated));
-    setAllCouponsList(updated);
-    setNewCouponName('');
-    setNewCouponCode('');
-    setNewCouponValue('');
-    setNewCouponMinAmount('');
-    addLogEntry(`Added coupon code: ${newCP.code}`, 'success');
-    alert('Coupon added successfully!');
+    try {
+      const created = await addCoupon({
+        name: newCouponName,
+        code: newCouponCode.toUpperCase(),
+        value: parseFloat(newCouponValue),
+        discount_type: newCouponDiscountType,
+        min_amount: parseFloat(newCouponMinAmount || 0),
+        activated: true
+      });
+      const list = await getCoupons();
+      setAllCouponsList(list);
+      setCouponList(list);
+      setNewCouponName('');
+      setNewCouponCode('');
+      setNewCouponValue('');
+      setNewCouponMinAmount('');
+      addLogEntry(`Added coupon code: ${created.code}`, 'success');
+      alert('Coupon added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add coupon');
+    }
   };
 
-  const handleToggleCoupon = (cpId) => {
-    const updated = allCouponsList.map(cp => {
-      if (cp.id === cpId) {
-        const newAct = !cp.activated;
-        addLogEntry(`Coupon ${cp.code} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
-        return { ...cp, activated: newAct };
-      }
-      return cp;
-    });
-    localStorage.setItem('coupons_list', JSON.stringify(updated));
-    setAllCouponsList(updated);
+  const handleToggleCoupon = async (cpId) => {
+    const cp = allCouponsList.find(c => c.id === cpId);
+    if (!cp) return;
+    try {
+      const updated = await updateCoupon(cpId, {
+        activated: !cp.activated
+      });
+      const list = await getCoupons();
+      setAllCouponsList(list);
+      setCouponList(list);
+      addLogEntry(`Coupon ${updated.code} marked as ${updated.activated ? 'Active' : 'Inactive'}`, 'info');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update coupon status');
+    }
   };
 
-  const handleDeleteCoupon = (cpId) => {
+  const handleDeleteCoupon = async (cpId) => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
-      const cp = allCouponsList.find(c => c.id === cpId);
-      const updated = allCouponsList.filter(c => c.id !== cpId);
-      localStorage.setItem('coupons_list', JSON.stringify(updated));
-      setAllCouponsList(updated);
-      if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
+      try {
+        const cp = allCouponsList.find(c => c.id === cpId);
+        await deleteCoupon(cpId);
+        const list = await getCoupons();
+        setAllCouponsList(list);
+        setCouponList(list);
+        if (cp) addLogEntry(`Deleted coupon ${cp.code}`, 'danger');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete coupon');
+      }
     }
   };
 
@@ -354,33 +355,41 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Employees Handlers
-  const handleAddEmployee = (e) => {
+  const handleAddEmployee = async (e) => {
     e.preventDefault();
     if (!newEmpName || !newEmpEmail || !newEmpPassword) return;
-    const newEmp = {
-      id: `emp_${Date.now()}`,
-      name: newEmpName,
-      email: newEmpEmail,
-      role: newEmpRole,
-      password: newEmpPassword
-    };
-    const updated = [...allEmployeesList, newEmp];
-    localStorage.setItem('employees', JSON.stringify(updated));
-    setAllEmployeesList(updated);
-    setNewEmpName('');
-    setNewEmpEmail('');
-    setNewEmpPassword('');
-    addLogEntry(`Added employee: ${newEmp.name} (${newEmp.role})`, 'success');
-    alert('Employee registered successfully!');
+    try {
+      const created = await addEmployee({
+        name: newEmpName,
+        email: newEmpEmail,
+        role: newEmpRole,
+        password: newEmpPassword
+      });
+      const list = await getEmployees();
+      setAllEmployeesList(list);
+      setNewEmpName('');
+      setNewEmpEmail('');
+      setNewEmpPassword('');
+      addLogEntry(`Added employee: ${created.fullName || created.email} (${created.role})`, 'success');
+      alert('Employee registered successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to register employee');
+    }
   };
 
-  const handleDeleteEmployee = (empId) => {
+  const handleDeleteEmployee = async (empId) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
-      const emp = allEmployeesList.find(e => e.id === empId);
-      const updated = allEmployeesList.filter(e => e.id !== empId);
-      localStorage.setItem('employees', JSON.stringify(updated));
-      setAllEmployeesList(updated);
-      if (emp) addLogEntry(`Deleted employee ${emp.name}`, 'danger');
+      try {
+        const emp = allEmployeesList.find(e => e.id === empId);
+        await deleteEmployee(empId);
+        const list = await getEmployees();
+        setAllEmployeesList(list);
+        if (emp) addLogEntry(`Deleted employee ${emp.fullName || emp.email}`, 'danger');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete employee');
+      }
     }
   };
 
@@ -701,6 +710,7 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    await loadOrders();
   };
 
   // Collect Payment (Paid)
@@ -725,6 +735,7 @@ const POS = ({ view = 'pos' }) => {
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    await loadOrders();
   };
 
   // Search filter

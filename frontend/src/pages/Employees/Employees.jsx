@@ -3,7 +3,7 @@ import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
 import { Trash2, Search, Clock, LogIn, LogOut, ShieldAlert } from 'lucide-react';
-import { getEmployees, saveEmployees, getEmployeeLogs, saveEmployeeLogs } from '../../utils/db';
+import { getEmployees, getEmployeeLogs, saveEmployeeLogs } from '../../utils/db';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
@@ -15,10 +15,15 @@ const Employees = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const emps = getEmployees();
+  const loadData = async () => {
+    try {
+      const emps = await getEmployees();
+      setEmployees(Array.isArray(emps) ? emps : []);
+    } catch (err) {
+      console.error(err);
+      setEmployees([]);
+    }
     const shiftLogs = getEmployeeLogs();
-    setEmployees(emps);
     setLogs(shiftLogs);
   };
 
@@ -69,7 +74,7 @@ const Employees = () => {
     const matchesSearch = 
       log.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.employeeEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      empId.toLowerCase().includes(searchQuery.toLowerCase());
+      String(empId).toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesRole = roleFilter === 'All' || log.role.toLowerCase() === roleFilter.toLowerCase();
     return matchesSearch && matchesRole;

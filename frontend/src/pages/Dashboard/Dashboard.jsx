@@ -65,11 +65,11 @@ const Dashboard = () => {
   const [employeePassword, setEmployeePassword] = useState('');
   const [employeeRole, setEmployeeRole] = useState('chef');
 
-  const handleAddEmployeeSubmit = (e) => {
+  const handleAddEmployeeSubmit = async (e) => {
     e.preventDefault();
-    const result = registerEmployee(employeeName, employeeEmail, employeePassword, employeeRole);
+    const result = await registerEmployee(employeeName, employeeEmail, employeePassword, employeeRole);
     if (result.success) {
-      alert(`Employee registered!\nEmail: ${employeeEmail}\nPassword: ${employeePassword}\nRole: ${employeeRole}`);
+      alert(`Employee registered successfully!\nEmail: ${employeeEmail}\nRole: ${employeeRole}`);
       setEmployeeName('');
       setEmployeeEmail('');
       setEmployeePassword('');

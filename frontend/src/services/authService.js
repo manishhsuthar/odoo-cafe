@@ -6,8 +6,13 @@ const authService = {
     return response.data;
   },
 
-  register: async (name, email, password) => {
-    const response = await axiosInstance.post('/auth/register/', { full_name: name, email, password });
+  register: async (name, email, password, role = 'cashier') => {
+    const response = await axiosInstance.post('/auth/register/', {
+      full_name: name,
+      email,
+      password,
+      role: role.toLowerCase()
+    });
     return response.data;
   },
 
