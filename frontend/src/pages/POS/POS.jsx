@@ -11,14 +11,14 @@ import {
   Send, 
   ChevronRight, 
   Trash2, 
-  DollarSign, 
+  IndianRupee, 
   UserPlus, 
   Percent 
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct } from '../../utils/db';
 
 const POS = () => {
   const { logout, user } = useAuth();
@@ -112,12 +112,21 @@ const POS = () => {
 
   // State Management
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState([
-    { id: 'm1', name: 'Cheese Burger', price: 150, quantity: 2 }
-  ]);
-  const [paidAmount, setPaidAmount] = useState('300');
-  const [activeTable, setActiveTable] = useState('Table 12');
+  const [cart, setCart] = useState([]);
+  const [paidAmount, setPaidAmount] = useState('0');
+  const [activeTable, setActiveTable] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Table Floor Plan modal
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [activeFloor, setActiveFloor] = useState(1);
+
+  // Add product modal states
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdCategory, setNewProdCategory] = useState('');
+  const [newProdDesc, setNewProdDesc] = useState('');
 
   // Cart operations
   const addToCart = (product) => {
@@ -284,6 +293,39 @@ const POS = () => {
     setAppliedCoupon(null);
     setDiscountAmount(0);
     addLogEntry(`Cleared coupon code`, 'warning');
+  };
+
+  const handleAddNewProduct = (e) => {
+    e.preventDefault();
+    if (!newProdName || !newProdPrice || !newProdCategory) {
+      alert('Please fill out Name, Price and Category.');
+      return;
+    }
+    const newProd = {
+      name: newProdName,
+      price: parseFloat(newProdPrice),
+      category: newProdCategory,
+      description: newProdDesc || 'Custom POS Product',
+      tax: 5
+    };
+    const saved = addProduct(newProd);
+    addLogEntry(`Created and added new product: ${saved.name} to ${saved.category}`, 'success');
+    
+    // Refresh product lists
+    const prods = getProducts();
+    setProductsList(prods);
+
+    // Refresh categories in case it is new
+    const cats = getCategories();
+    setCategoriesList(cats.map(c => c.name));
+
+    // Clear form & close modal
+    setNewProdName('');
+    setNewProdPrice('');
+    setNewProdCategory('');
+    setNewProdDesc('');
+    setIsAddProductModalOpen(false);
+    alert('Product added successfully!');
   };
 
   // Numpad input handler
@@ -631,8 +673,8 @@ const POS = () => {
         <header style={headerStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <div style={{
-              backgroundColor: 'var(--bg-button)',
-              color: '#110f0d',
+              backgroundColor: 'var(--border-focus)',
+              color: 'var(--bg-primary)',
               padding: '10px 20px',
               borderRadius: '10px',
               fontWeight: '800',
@@ -651,13 +693,14 @@ const POS = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  backgroundColor: '#2b211a',
-                  border: 'none',
+                  backgroundColor: 'var(--input-bg)',
+                  border: '1.5px solid var(--border-color)',
                   borderRadius: '10px',
                   padding: '10px 14px 10px 40px',
-                  color: '#ffffff',
+                  color: 'var(--text-primary)',
                   fontSize: '14px',
                   outline: 'none',
+                  transition: 'border-color 0.2s'
                 }}
               />
               <Search size={16} style={{ position: 'absolute', left: '14px', top: '12px', color: '#a0958a' }} />
@@ -665,18 +708,29 @@ const POS = () => {
           </div>
 
           <div style={headerButtonsStyle}>
-            {/* Table Dropdown selection */}
-            <select
-              value={activeTable}
-              onChange={(e) => setActiveTable(e.target.value)}
-              style={tableSelectStyle}
+            {/* Table Selection Button */}
+            <button 
+              onClick={() => setIsTableModalOpen(true)}
+              style={{
+                backgroundColor: activeTable ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: activeTable ? 'var(--bg-primary)' : 'var(--text-primary)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
             >
-              <option value="Table 1">Table 1</option>
-              <option value="Table 4">Table 4</option>
-              <option value="Table 6">Table 6</option>
-              <option value="Table 12">Table 12</option>
-              <option value="Takeaway">Takeaway</option>
-            </select>
+              <Grid size={16} />
+              {activeTable ? `Table: ${activeTable}` : 'Select Table'}
+            </button>
 
             <button style={iconBtnStyle} onClick={() => alert('Cash register drawer is open.')}>
               <Monitor size={18} />
@@ -720,59 +774,149 @@ const POS = () => {
         {/* Main Grid */}
         <div style={bodyGridStyle}>
           
-          {/* Categories Sidebar */}
-          <div style={categorySidebarStyle}>
-            {categoriesList.map((cat) => (
+          {!activeTable ? (
+            <div style={{
+              gridColumn: 'span 2',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '40px',
+              backgroundColor: 'rgba(0, 0, 0, 0.15)',
+              borderRadius: '16px',
+              margin: '20px',
+              border: '2px dashed var(--border-color)',
+              color: 'var(--text-secondary)',
+              gap: '20px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--border-focus)',
+                marginBottom: '10px'
+              }}>
+                <Grid size={40} />
+              </div>
+              <h2 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '800' }}>Select Table First</h2>
+              <p style={{ maxWidth: '440px', fontSize: '15px', lineHeight: '1.6' }}>
+                Please choose a dining table from the floor plan layout first to display menu products and start building the active order.
+              </p>
               <button
-                key={cat}
-                style={catBtnStyle(selectedCategory === cat)}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => setIsTableModalOpen(true)}
+                style={{
+                  backgroundColor: 'var(--border-focus)',
+                  color: 'var(--bg-primary)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '14px 28px',
+                  fontSize: '15px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
               >
-                {cat}
+                Choose Table / Floor Plan
               </button>
-            ))}
-          </div>
-
-          {/* Product Items Grid */}
-          <div style={productsContainerStyle}>
-            {filteredProducts.map((p) => (
-              <button
-                key={p.id}
-                style={productCardStyle(p.inStock)}
-                onClick={() => addToCart(p)}
-                onMouseEnter={(e) => {
-                  if (p.inStock) {
-                    e.currentTarget.style.borderColor = 'var(--border-focus)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (p.inStock) {
-                    e.currentTarget.style.borderColor = 'transparent';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }
-                }}
-              >
-                {/* Stock status indicator dot */}
-                <div style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: p.inStock ? '#10b981' : '#ef4444',
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                }} />
+            </div>
+          ) : (
+            <>
+              {/* Categories Sidebar */}
+              <div style={categorySidebarStyle}>
+                {categoriesList.map((cat) => (
+                  <button
+                    key={cat}
+                    style={catBtnStyle(selectedCategory === cat)}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
                 
-                <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                  {p.name}
-                </span>
-                <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-link)' }}>
-                  ₹{p.price}
-                </span>
-              </button>
-            ))}
-          </div>
+                {user?.role === 'admin' && (
+                  <button
+                    onClick={() => setIsAddProductModalOpen(true)}
+                    style={{
+                      marginTop: 'auto',
+                      backgroundColor: 'transparent',
+                      border: '1.5px dashed var(--border-color)',
+                      color: 'var(--text-secondary)',
+                      padding: '10px 8px',
+                      borderRadius: '10px',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                      e.currentTarget.style.borderColor = 'var(--border-focus)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                    }}
+                  >
+                    <PlusCircle size={14} />
+                    Add Product
+                  </button>
+                )}
+              </div>
+
+              {/* Product Items Grid */}
+              <div style={productsContainerStyle}>
+                {filteredProducts.map((p) => (
+                  <button
+                    key={p.id}
+                    style={productCardStyle(p.inStock)}
+                    onClick={() => addToCart(p)}
+                    onMouseEnter={(e) => {
+                      if (p.inStock) {
+                        e.currentTarget.style.borderColor = 'var(--border-focus)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (p.inStock) {
+                        e.currentTarget.style.borderColor = 'transparent';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }
+                    }}
+                  >
+                    {/* Stock status indicator dot */}
+                    <div style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: p.inStock ? '#10b981' : '#ef4444',
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                    }} />
+                    
+                    <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                      {p.name}
+                    </span>
+                    <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-link)' }}>
+                      ₹{p.price}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Shopping Cart List */}
           <div style={cartPanelStyle}>
@@ -889,7 +1033,7 @@ const POS = () => {
                   onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
                   onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                 >
-                  <DollarSign size={16} />
+                  <IndianRupee size={16} />
                   Collect Payment (Paid)
                 </button>
               </div>
@@ -1007,7 +1151,7 @@ const POS = () => {
                           }}
                           onClick={() => setSelectedPayment(method.name)}
                         >
-                          {method.type === 'Cash' && <DollarSign size={15} />}
+                          {method.type === 'Cash' && <IndianRupee size={15} />}
                           {method.type === 'Card' && <Percent size={15} />}
                           {method.type === 'UPI' && <UserPlus size={15} />}
                           {method.name}
@@ -1317,6 +1461,364 @@ const POS = () => {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Table & Floor Selector Modal Overlay */}
+      {isTableModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: '600px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '24px',
+            padding: '30px',
+            boxShadow: 'var(--card-shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-standard)'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Select Table & Floor Plan</h3>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Choose an active table session to start ordering</span>
+              </div>
+              <button 
+                onClick={() => setIsTableModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Floor selection tabs */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <button
+                onClick={() => setActiveFloor(1)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: activeFloor === 1 ? 'var(--border-focus)' : 'var(--bg-primary)',
+                  color: activeFloor === 1 ? 'var(--bg-primary)' : 'var(--text-primary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Ground Floor (Floor 1)
+              </button>
+              <button
+                onClick={() => setActiveFloor(2)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: activeFloor === 2 ? 'var(--border-focus)' : 'var(--bg-primary)',
+                  color: activeFloor === 2 ? 'var(--bg-primary)' : 'var(--text-primary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Rooftop (Floor 2)
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTable('Takeaway');
+                  addLogEntry(`Selected Takeaway Session`, 'info');
+                  setIsTableModalOpen(false);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--border-focus)'}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+              >
+                Takeaway
+              </button>
+            </div>
+
+            {/* Tables Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: '12px',
+              padding: '10px 0'
+            }}>
+              {(() => {
+                const storedTables = localStorage.getItem('floor_plan_tables');
+                let currentTables = [];
+                if (storedTables) {
+                  currentTables = JSON.parse(storedTables);
+                } else {
+                  // Generate default tables list F1-F10 and S1-S10
+                  for (let i = 1; i <= 10; i++) {
+                    currentTables.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
+                    currentTables.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
+                  }
+                }
+                const floorTables = currentTables.filter(t => t.floor === activeFloor);
+
+                return floorTables.map((t) => {
+                  // Determine styling based on table status
+                  let statusColor = '#10b981'; // free
+                  let statusBg = 'rgba(16, 185, 129, 0.1)';
+                  if (t.status === 'occupied') {
+                    statusColor = '#ef4444';
+                    statusBg = 'rgba(239, 68, 68, 0.1)';
+                  } else if (t.status === 'reserved') {
+                    statusColor = '#f97316';
+                    statusBg = 'rgba(249, 115, 22, 0.1)';
+                  }
+
+                  const isSelected = activeTable === t.name;
+
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setActiveTable(t.name);
+                        addLogEntry(`Selected Table: ${t.name} (Floor ${activeFloor})`, 'info');
+                        setIsTableModalOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px 10px',
+                        borderRadius: '14px',
+                        border: isSelected ? '2px solid var(--border-focus)' : '1.5px solid var(--border-color)',
+                        backgroundColor: isSelected ? 'var(--bg-button)' : 'var(--bg-primary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'var(--border-focus)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = isSelected ? 'var(--border-focus)' : 'var(--border-color)';
+                      }}
+                    >
+                      <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                        Table {t.name.toUpperCase()}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: statusBg,
+                        color: statusColor
+                      }}>
+                        {t.status}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Product Modal Overlay */}
+      {isAddProductModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <form 
+            onSubmit={handleAddNewProduct}
+            style={{
+              width: '450px',
+              backgroundColor: 'var(--bg-card)',
+              border: '2px solid var(--border-color)',
+              borderRadius: '24px',
+              padding: '30px',
+              boxShadow: 'var(--card-shadow)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-standard)',
+              textAlign: 'left'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Add New POS Product</h3>
+              <button 
+                type="button"
+                onClick={() => setIsAddProductModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Product Name */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Product Name *</label>
+              <input
+                type="text"
+                placeholder="e.g. Masala Dosa"
+                required
+                value={newProdName}
+                onChange={(e) => setNewProdName(e.target.value)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {/* Product Price */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Price (₹) *</label>
+              <input
+                type="number"
+                placeholder="e.g. 120"
+                required
+                min="0"
+                step="0.01"
+                value={newProdPrice}
+                onChange={(e) => setNewProdPrice(e.target.value)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {/* Category Select */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Category *</label>
+              <select
+                required
+                value={newProdCategory}
+                onChange={(e) => setNewProdCategory(e.target.value)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">Select Category</option>
+                {categoriesList.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Description */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Description</label>
+              <textarea
+                placeholder="Brief description of product details..."
+                rows="3"
+                value={newProdDesc}
+                onChange={(e) => setNewProdDesc(e.target.value)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  outline: 'none',
+                  resize: 'none'
+                }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsAddProductModalOpen(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: 'var(--border-focus)',
+                  color: 'var(--bg-primary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Add Product
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
