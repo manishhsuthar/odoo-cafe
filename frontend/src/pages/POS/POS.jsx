@@ -13,7 +13,13 @@ import {
   Trash2,
   IndianRupee,
   UserPlus,
-  Percent
+  Percent,
+  ChefHat,
+  BarChart2,
+  CreditCard,
+  Calendar,
+  LogOut,
+  Tag
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
@@ -511,7 +517,7 @@ const POS = ({ view = 'pos' }) => {
       try {
         const cats = await getCategories();
         const prods = await getProducts();
-        
+
         const finalCats = cats && cats.length > 0 ? cats : MOCK_CATEGORIES;
         const finalProds = prods && prods.length > 0 ? prods : MOCK_PRODUCTS;
 
@@ -1190,19 +1196,20 @@ const POS = ({ view = 'pos' }) => {
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, overflowY: 'auto' }}>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'products' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'products' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-products')}>Products</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'categories' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'categories' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-categories')}>Categories</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'payment-methods' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'payment-methods' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-payment-methods')}>Payment Methods</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'coupons' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'coupons' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-coupons')}>Coupons & Promos</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'bookings' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'bookings' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-bookings')}>Bookings & Tables</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}>Staff / Employees</button>
-          <button style={{ ...menuLinkStyle, backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}>Sales Reports</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'products' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'products' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-products')}><Layers size={18} /> Products</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'categories' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'categories' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-categories')}><Grid size={18} /> Categories</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'payment-methods' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'payment-methods' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-payment-methods')}><CreditCard size={18} /> Payment Methods</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'coupons' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'coupons' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-coupons')}><Tag size={18} /> Coupons & Promos</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'bookings' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'bookings' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-bookings')}><Calendar size={18} /> Bookings & Tables</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}><User size={18} /> Staff / Employees</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}><BarChart2 size={18} /> Sales Reports</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'transparent', color: 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/kds')}><ChefHat size={18} /> Kitchen Display (KDS)</button>
         </div>
         <button
           onClick={handleLogout}
-          style={{ ...menuLinkStyle, color: '#d9534f', borderTop: '1px solid #28211b', borderRadius: 0, marginTop: 'auto' }}
+          style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', color: '#d9534f', borderTop: '1px solid #28211b', borderRadius: 0, marginTop: 'auto' }}
         >
-          Log-Out
+          <LogOut size={18} /> Log-Out
         </button>
       </div>
 
@@ -3619,43 +3626,23 @@ const POS = ({ view = 'pos' }) => {
               {/* Header Tabs inside Payment Panel */}
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '14px' }}>
                 <button
-                  onClick={() => setActiveRightTab('checkout')}
                   style={{
                     flex: 1,
                     padding: '12px 6px',
                     backgroundColor: 'transparent',
                     border: 'none',
-                    borderBottom: activeRightTab === 'checkout' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
-                    color: activeRightTab === 'checkout' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    borderBottom: '2.5px solid var(--border-focus)',
+                    color: 'var(--text-primary)',
                     fontWeight: '800',
-                    cursor: 'pointer',
+                    cursor: 'default',
                     fontSize: '13.5px',
-                    transition: 'all 0.2s'
                   }}
                 >
                   Checkout
                 </button>
-                <button
-                  onClick={() => setActiveRightTab('logs')}
-                  style={{
-                    flex: 1,
-                    padding: '12px 6px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderBottom: activeRightTab === 'logs' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
-                    color: activeRightTab === 'logs' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    fontSize: '13.5px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  Session Logs
-                </button>
               </div>
 
-              {activeRightTab === 'checkout' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                   {/* Quick Payment Selection */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -3767,55 +3754,6 @@ const POS = ({ view = 'pos' }) => {
                     </button>
                   </div>
                 </div>
-              ) : (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  height: '100%',
-                  maxHeight: '440px',
-                  overflowY: 'auto',
-                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                  borderRadius: '12px',
-                  padding: '12px',
-                  border: '1.5px solid var(--border-color)',
-                  textAlign: 'left',
-                  fontFamily: 'monospace',
-                  fontSize: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ fontWeight: '800', color: 'var(--text-secondary)' }}>Log Feed</span>
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem('pos_session_logs');
-                        setLogs([]);
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
-                    >
-                      Clear Logs
-                    </button>
-                  </div>
-                  {logs.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
-                      No logs recorded in this session.
-                    </div>
-                  ) : (
-                    logs.map((log) => {
-                      let typeColor = 'var(--text-secondary)';
-                      if (log.type === 'success') typeColor = '#10b981';
-                      if (log.type === 'warning') typeColor = '#f97316';
-                      if (log.type === 'danger') typeColor = '#ef4444';
-
-                      return (
-                        <div key={log.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '6px', lineHeight: '1.4' }}>
-                          <span style={{ color: 'var(--text-link)', marginRight: '6px' }}>[{log.time}]</span>
-                          <span style={{ color: typeColor }}>{log.message}</span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
             </div>
 
           </div>
