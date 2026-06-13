@@ -36,20 +36,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      if (email === 'chef@cafe.com' && password === 'cafe123') {
-        const userInfo = {
-          id: 'chef_temp',
-          email: 'chef@cafe.com',
-          name: 'Chef',
-          role: 'chef',
-        };
-        setUser(userInfo);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        localStorage.setItem('token', 'temp_chef_token');
-        setToken('temp_chef_token');
-        return { success: true, role: 'chef' };
-      }
-
       localStorage.removeItem('token');
       setToken(null);
       const data = await authAPI.login(email, password);

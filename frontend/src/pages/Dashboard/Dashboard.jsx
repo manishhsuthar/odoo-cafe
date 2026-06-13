@@ -34,7 +34,7 @@ const Dashboard = () => {
       const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
 
       const activeLogs = Array.isArray(logs) ? logs.filter(l => l.clockOut === null || l.clockOut === undefined) : [];
-      
+
       setStats({
         ordersCount: totalOrders,
         revenue: totalRev,
@@ -53,7 +53,7 @@ const Dashboard = () => {
         meta: o.status === 'Paid' ? `₹${o.amount}` : o.items ? `${o.items.split(',').length} items` : ''
       }));
       setRecentActivities(activities);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Modal states
@@ -95,7 +95,7 @@ const Dashboard = () => {
     display: 'flex',
     flexDirection: 'column',
   };
-  
+
   const mainContentStyle = {
     padding: '40px',
     display: 'flex',
@@ -216,7 +216,7 @@ const Dashboard = () => {
       <Sidebar />
       <div style={contentAreaStyle}>
         <Header title="Dashboard" />
-        
+
         <main style={mainContentStyle}>
           {/* Dashboard Welcome Header */}
           <div style={welcomeSectionStyle}>
@@ -354,48 +354,48 @@ const Dashboard = () => {
                   No recent activity yet
                 </div>
               ) : (
-              recentActivities.map((act, idx) => (
-                <div 
-                  key={act.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    paddingBottom: idx !== recentActivities.length - 1 ? '16px' : '0',
-                    borderBottom: idx !== recentActivities.length - 1 ? '1px solid var(--border-color)' : 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                recentActivities.map((act, idx) => (
+                  <div
+                    key={act.id}
+                    style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      color: act.iconColor,
+                      justifyContent: 'space-between',
+                      paddingBottom: idx !== recentActivities.length - 1 ? '16px' : '0',
+                      borderBottom: idx !== recentActivities.length - 1 ? '1px solid var(--border-color)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: act.iconColor,
+                      }}>
+                        <act.icon size={18} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                        <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                          {act.title}
+                        </span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {act.time}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      color: act.type === 'payment' ? '#10b981' : 'var(--text-secondary)',
                     }}>
-                      <act.icon size={18} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                        {act.title}
-                      </span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {act.time}
-                      </span>
-                    </div>
+                      {act.meta}
+                    </span>
                   </div>
-                  <span style={{
-                    fontSize: '15px',
-                    fontWeight: '700',
-                    color: act.type === 'payment' ? '#10b981' : 'var(--text-secondary)',
-                  }}>
-                    {act.meta}
-                  </span>
-                </div>
-              ))
+                ))
               )}
             </div>
           </div>

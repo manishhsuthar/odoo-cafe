@@ -59,96 +59,26 @@ const KDS = () => {
     localStorage.setItem('kds_ticket_states', JSON.stringify(kdsStates));
   }, [kdsStates]);
 
-  // Seeding initial mock orders to match screenshot and look alive
-  const initialMockOrders = useMemo(() => [
-    {
-      id: "2205",
-      table: "Table 4",
-      amount: 450,
-      status: "Unpaid",
-      items: "3 x Masala Tea, 3 x Lassi, 3 x Coffee, 3 x Water",
-      dateTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "2205-B", // clone to match the repeating #2205 cards in the screenshot
-      table: "Table 1",
-      amount: 450,
-      status: "Unpaid",
-      items: "3 x Masala Tea, 3 x Lassi, 3 x Coffee, 3 x Water",
-      dateTime: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-      displayId: "2205" // Show same ID to align with image
-    },
-    {
-      id: "2205-C", // clone to match the repeating #2205 cards in the screenshot
-      table: "Table 6",
-      amount: 450,
-      status: "Unpaid",
-      items: "3 x Masala Tea, 3 x Lassi, 3 x Coffee, 3 x Water",
-      dateTime: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-      displayId: "2205" // Show same ID to align with image
-    },
-    {
-      id: "2206",
-      table: "Table 2",
-      amount: 320,
-      status: "Paid",
-      items: "2 x Burger, 1 x Pizza, 2 x coffee",
-      dateTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "2207",
-      table: "Table 3",
-      amount: 180,
-      status: "Unpaid",
-      items: "1 x Pizza, 2 x water",
-      dateTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "2208",
-      table: "Takeaway",
-      amount: 550,
-      status: "Paid",
-      items: "3 x Burger, 1 x Lassi, 1 x coffee",
-      dateTime: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "2209",
-      table: "Table 12",
-      amount: 850,
-      status: "Unpaid",
-      items: "2 x Pizza, 4 x Masala Tea, 1 x Desert",
-      dateTime: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    }
-  ], []);
-
   // Fetch orders from db
   const loadKDSData = async () => {
     try {
       setLoading(true);
       const dbOrders = await getOrders().catch(() => []);
 
-      // Combine db orders and mock orders
-      // Ensure our mock orders (specifically #2205) are present for demonstration
       let combined = [...dbOrders];
-
-      initialMockOrders.forEach(mock => {
-        if (!combined.some(o => o.id === mock.id)) {
-          combined.push(mock);
-        }
-      });
 
       // Sort by date (newest first)
       combined.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
       setOrders(combined);
 
-      // Seed default prepared state for water in #2205 to match screenshot
+      // Initialize status for each order if not already in kdsStates
       setKdsStates(prev => {
         const next = { ...prev };
-        initialMockOrders.forEach(mock => {
-          if (!next[mock.id]) {
-            next[mock.id] = {
+        combined.forEach(order => {
+          if (!next[order.id]) {
+            next[order.id] = {
               stage: 'To Cook',
-              preparedItems: mock.id.startsWith('2205') ? { 'Water': true } : {}
+              preparedItems: {}
             };
           }
         });
@@ -165,9 +95,9 @@ const KDS = () => {
   useEffect(() => {
     loadKDSData();
     // Auto refresh every 5 seconds to get new orders
-    const interval = setInterval(loadKDSData, 60000); // 60 seconds
+    const interval = setInterval(loadKDSData, 5000);
     return () => clearInterval(interval);
-  }, [initialMockOrders]);
+  }, []);
 
   // Helper: map items to sidebar products/categories for filtering
   const getProductFilterKey = (itemName) => {
@@ -904,24 +834,7 @@ const KDS = () => {
                     className={`kds-card ${ticket.stage === 'Preparing' ? 'preparing' : ''} ${ticket.stage === 'Completed' ? 'completed' : ''}`}
                     onClick={() => handleBumpCard(ticket.id)}
                   >
-                    {/* Collaborative cursor placeholder indicator matching "whoiam" from screenshot */}
-                    {ticket.id === '2205-C' && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '-10px',
-                        right: '40px',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        fontSize: '10px',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                        zIndex: 5
-                      }}>
-                        whoiam
-                      </span>
-                    )}
+
 
                     {/* Card Header */}
                     <div style={{
