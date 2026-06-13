@@ -37,7 +37,7 @@ const Login = () => {
     if (result.success) {
       if (result.role === 'admin') {
         navigate('/dashboard');
-      } else if (result.role === 'chef') {
+      } else if (result.role === 'chef' || result.role === 'kitchen') {
         navigate('/kds');
       } else {
         navigate('/pos');

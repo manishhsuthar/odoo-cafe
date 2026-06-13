@@ -10,7 +10,8 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
   }
 
   if (adminOnly && user?.role !== 'admin') {
-    return <Navigate to="/pos" replace />;
+    const redirectPath = (user?.role === 'chef' || user?.role === 'kitchen') ? '/kds' : '/pos';
+    return <Navigate to={redirectPath} replace />;
   }
 
   return children;

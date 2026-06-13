@@ -18,7 +18,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders } from '../../utils/db';
+import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders, updateProduct, deleteProduct, addCategory, deleteCategory } from '../../utils/db';
 
 const getSafeCategoryString = (category) => {
   if (category === null || category === undefined) {
@@ -172,58 +172,76 @@ const POS = ({ view = 'pos' }) => {
     reloadManagementData();
   }, []);
 
-  const handleToggleStock = (prodId) => {
-    const updated = productsList.map(p => {
-      if (p.id === prodId) {
-        const newStock = !p.inStock;
-        addLogEntry(`Product "${p.name}" marked as ${newStock ? 'In Stock' : 'Out of Stock'}`, 'info');
-        return { ...p, inStock: newStock };
-      }
-      return p;
-    });
-    saveProducts(updated);
-    setProductsList(updated);
+  const handleToggleStock = async (prodId) => {
+    const prod = productsList.find(p => p.id === prodId);
+    if (!prod) return;
+    try {
+      const newStock = !prod.inStock;
+      await updateProduct(prodId, {
+        ...prod,
+        in_stock: newStock
+      });
+      addLogEntry(`Product "${prod.name}" marked as ${newStock ? 'In Stock' : 'Out of Stock'}`, 'info');
+      const prods = await getProducts();
+      setProductsList(prods);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update product stock');
+    }
   };
 
-  const handleDeleteProduct = (prodId) => {
+  const handleDeleteProduct = async (prodId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      const prod = productsList.find(p => p.id === prodId);
-      const updated = productsList.filter(p => p.id !== prodId);
-      saveProducts(updated);
-      setProductsList(updated);
-      if (prod) {
-        addLogEntry(`Deleted product "${prod.name}"`, 'danger');
+      try {
+        const prod = productsList.find(p => p.id === prodId);
+        await deleteProduct(prodId);
+        if (prod) {
+          addLogEntry(`Deleted product "${prod.name}"`, 'danger');
+        }
+        const prods = await getProducts();
+        setProductsList(prods);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete product');
       }
     }
   };
 
   // Categories Handlers
-  const handleAddCategory = (e) => {
+  const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName) return;
-    const newCat = {
-      id: `cat_${Date.now()}`,
-      name: newCategoryName,
-      color: newCategoryColor
-    };
-    const current = JSON.parse(localStorage.getItem('categories') || '[]');
-    current.push(newCat);
-    localStorage.setItem('categories', JSON.stringify(current));
-    setNewCategoryName('');
-    
-    // Update lists
-    setCategoriesList(current.map(c => getSafeCategoryString(c.name)).filter(Boolean));
-    addLogEntry(`Added new category: ${newCat.name}`, 'success');
-    alert('Category added successfully!');
+    try {
+      const created = await addCategory({
+        name: newCategoryName,
+        color: newCategoryColor,
+        description: 'POS Category'
+      });
+      const cats = await getCategories().catch(() => []);
+      setCategoriesList(cats);
+      setNewCategoryName('');
+      addLogEntry(`Added new category: ${created.name}`, 'success');
+      alert('Category added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add category');
+    }
   };
 
-  const handleDeleteCategory = (catName) => {
+  const handleDeleteCategory = async (cat) => {
+    const catName = getSafeCategoryString(cat);
     if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
-      const current = JSON.parse(localStorage.getItem('categories') || '[]');
-      const updated = current.filter(c => c.name !== catName);
-      localStorage.setItem('categories', JSON.stringify(updated));
-      setCategoriesList(updated.map(c => getSafeCategoryString(c.name)).filter(Boolean));
-      addLogEntry(`Deleted category: ${catName}`, 'danger');
+      try {
+        if (cat && cat.id) {
+          await deleteCategory(cat.id);
+        }
+        const cats = await getCategories().catch(() => []);
+        setCategoriesList(cats);
+        addLogEntry(`Deleted category: ${catName}`, 'danger');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete category');
+      }
     }
   };
 
@@ -452,7 +470,7 @@ const POS = ({ view = 'pos' }) => {
       ]);
       setCouponList(Array.isArray(coupData) ? coupData : []);
       const safeCatsList = (cats || []).map(c => getSafeCategoryString(c)).filter(Boolean);
-      setCategoriesList(safeCatsList);
+      setCategoriesList(cats || []);
       setProductsList(prods);
       if (safeCatsList.length > 0) {
         setSelectedCategory(safeCatsList[0]);
@@ -773,7 +791,7 @@ const POS = ({ view = 'pos' }) => {
     if (!p) return false;
     const name = (p.name || '').toLowerCase();
     const q = (searchCatalogQuery || '').toLowerCase();
-    const cat = getSafeCategoryString(p.category);
+    const cat = p.categoryName || getSafeCategoryString(p.category);
     return name.includes(q) && (selectedCategory ? cat === selectedCategory : true);
   });
 
@@ -1477,7 +1495,8 @@ const POS = ({ view = 'pos' }) => {
                       <option value="">Select Category</option>
                       {categoriesList.map(cat => {
                         const catStr = getSafeCategoryString(cat);
-                        return <option key={catStr} value={catStr}>{catStr}</option>;
+                        const catVal = cat.id || catStr;
+                        return <option key={catVal} value={catVal}>{catStr}</option>;
                       })}
                     </select>
                   </div>
@@ -1790,22 +1809,20 @@ const POS = ({ view = 'pos' }) => {
                           </tr>
                         );
                       }
-                      // Find colors from all categories loaded
-                      const catsDetails = JSON.parse(localStorage.getItem('categories') || '[]');
-                      return filtered.map(catName => {
-                        const detail = catsDetails.find(d => d.name === catName) || { color: '#888' };
+                      return filtered.map(cat => {
+                        const catName = getSafeCategoryString(cat);
                         return (
                           <tr key={catName} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
                             <td style={{ ...tdStyle, fontWeight: '700' }}>{catName}</td>
                             <td style={tdStyle}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: detail.color }} />
-                                <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{detail.color}</span>
+                                <span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: cat.color }} />
+                                <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{cat.color}</span>
                               </div>
                             </td>
                             <td style={{ ...tdStyle, textAlign: 'center' }}>
                               <button
-                                onClick={() => handleDeleteCategory(catName)}
+                                onClick={() => handleDeleteCategory(cat)}
                                 style={{
                                   padding: '6px',
                                   borderRadius: '6px',
@@ -4097,7 +4114,8 @@ const POS = ({ view = 'pos' }) => {
                 <option value="">Select Category</option>
                 {categoriesList.map(cat => {
                   const catStr = getSafeCategoryString(cat);
-                  return <option key={catStr} value={catStr}>{catStr}</option>;
+                  const catVal = cat.id || catStr;
+                  return <option key={catVal} value={catVal}>{catStr}</option>;
                 })}
               </select>
             </div>

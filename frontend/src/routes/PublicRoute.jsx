@@ -6,9 +6,13 @@ const PublicRoute = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
 
   if (isAuthenticated) {
-    return user?.role === 'admin' 
-      ? <Navigate to="/dashboard" replace /> 
-      : <Navigate to="/pos" replace />;
+    if (user?.role === 'admin') {
+      return <Navigate to="/dashboard" replace />;
+    } else if (user?.role === 'chef' || user?.role === 'kitchen') {
+      return <Navigate to="/kds" replace />;
+    } else {
+      return <Navigate to="/pos" replace />;
+    }
   }
 
   return children;

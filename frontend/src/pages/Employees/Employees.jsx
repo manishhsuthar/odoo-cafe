@@ -84,7 +84,10 @@ const Employees = () => {
       log.employeeEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(empId).toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = roleFilter === 'All' || log.role.toLowerCase() === roleFilter.toLowerCase();
+    const matchesRole = roleFilter === 'All' || 
+      log.role.toLowerCase() === roleFilter.toLowerCase() ||
+      (roleFilter.toLowerCase() === 'chef' && log.role.toLowerCase() === 'kitchen') ||
+      (roleFilter.toLowerCase() === 'manager' && log.role.toLowerCase() === 'admin');
     return matchesSearch && matchesRole;
   });
 
@@ -285,11 +288,11 @@ const Employees = () => {
                           fontWeight: '800',
                           textTransform: 'uppercase',
                           backgroundColor:
-                            log.role === 'manager' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 88, 12, 0.15)',
+                            log.role === 'manager' || log.role === 'admin' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 88, 12, 0.15)',
                           color:
-                            log.role === 'manager' ? '#ef4444' : '#ea580c',
+                            log.role === 'manager' || log.role === 'admin' ? '#ef4444' : '#ea580c',
                         }}>
-                          {log.role}
+                          {log.role === 'kitchen' ? 'chef' : log.role}
                         </span>
                       </td>
                       <td style={{ padding: '16px 12px' }}>
