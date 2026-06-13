@@ -5,8 +5,11 @@ import Header from '../../components/layout/Header';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import useAuth from '../../hooks/useAuth';
 
 const Dashboard = () => {
+  const { registerEmployee } = useAuth();
+
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
@@ -16,6 +19,8 @@ const Dashboard = () => {
   const [productName, setProductName] = useState('');
   const [productPrice, setProductPrice] = useState('');
   const [employeeName, setEmployeeName] = useState('');
+  const [employeeEmail, setEmployeeEmail] = useState('');
+  const [employeePassword, setEmployeePassword] = useState('');
   const [employeeRole, setEmployeeRole] = useState('waiter');
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState('');
@@ -30,10 +35,17 @@ const Dashboard = () => {
 
   const handleAddEmployeeSubmit = (e) => {
     e.preventDefault();
-    alert(`Employee Added: ${employeeName} as ${employeeRole}`);
-    setEmployeeName('');
-    setEmployeeRole('waiter');
-    setIsEmployeeModalOpen(false);
+    const result = registerEmployee(employeeName, employeeEmail, employeePassword, employeeRole);
+    if (result.success) {
+      alert(`Employee registered!\nEmail: ${employeeEmail}\nPassword: ${employeePassword}\nRole: ${employeeRole}`);
+      setEmployeeName('');
+      setEmployeeEmail('');
+      setEmployeePassword('');
+      setEmployeeRole('waiter');
+      setIsEmployeeModalOpen(false);
+    } else {
+      alert(result.error);
+    }
   };
 
   const handleCreateCouponSubmit = (e) => {
@@ -171,7 +183,7 @@ const Dashboard = () => {
   });
 
   const cardLabelStyle = {
-    fontSize: '13px',
+    fontSize: '20px',
     color: '#8a7e72',
     fontWeight: '600',
   };
@@ -463,6 +475,22 @@ const Dashboard = () => {
             placeholder="e.g. Jane Doe"
             value={employeeName}
             onChange={(e) => setEmployeeName(e.target.value)}
+            required
+          />
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="e.g. jane@cafe.com"
+            value={employeeEmail}
+            onChange={(e) => setEmployeeEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Password"
+            type="password"
+            placeholder="e.g. securePass123"
+            value={employeePassword}
+            onChange={(e) => setEmployeePassword(e.target.value)}
             required
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>

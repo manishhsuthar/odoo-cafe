@@ -3,9 +3,15 @@ import { Navigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
-  return !isAuthenticated ? children : <Navigate to="/dashboard" replace />;
+  if (isAuthenticated) {
+    return user?.role === 'admin' 
+      ? <Navigate to="/dashboard" replace /> 
+      : <Navigate to="/pos" replace />;
+  }
+
+  return children;
 };
 
 export default PublicRoute;

@@ -41,7 +41,11 @@ const Login = () => {
     const result = login(loginEmail, loginPassword);
     
     if (result.success) {
-      navigate('/dashboard');
+      if (result.role === 'admin') {
+        navigate('/dashboard');
+      } else {
+        navigate('/pos');
+      }
     } else {
       setLoginGeneralError(result.error);
     }

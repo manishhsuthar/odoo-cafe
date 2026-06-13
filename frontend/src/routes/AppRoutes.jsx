@@ -36,7 +36,7 @@ const AppRoutes = () => {
       <Route
         path="/dashboard"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Dashboard />
           </PrivateRoute>
         }
@@ -44,7 +44,7 @@ const AppRoutes = () => {
       <Route
         path="/products"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Products />
           </PrivateRoute>
         }
@@ -52,7 +52,7 @@ const AppRoutes = () => {
       <Route
         path="/categories"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Categories />
           </PrivateRoute>
         }
@@ -60,7 +60,7 @@ const AppRoutes = () => {
       <Route
         path="/employees"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Employees />
           </PrivateRoute>
         }
@@ -68,7 +68,7 @@ const AppRoutes = () => {
       <Route
         path="/tables"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Tables />
           </PrivateRoute>
         }
@@ -76,7 +76,7 @@ const AppRoutes = () => {
       <Route
         path="/orders"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Orders />
           </PrivateRoute>
         }
@@ -84,7 +84,7 @@ const AppRoutes = () => {
       <Route
         path="/customers"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Customers />
           </PrivateRoute>
         }
@@ -92,7 +92,7 @@ const AppRoutes = () => {
       <Route
         path="/reports"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Reports />
           </PrivateRoute>
         }
@@ -116,7 +116,7 @@ const AppRoutes = () => {
       <Route
         path="/payment-methods"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <PaymentMethods />
           </PrivateRoute>
         }
@@ -124,7 +124,7 @@ const AppRoutes = () => {
       <Route
         path="/coupons"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <Coupons />
           </PrivateRoute>
         }
@@ -132,7 +132,7 @@ const AppRoutes = () => {
       <Route
         path="/kitchen-inventory"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <KitchenInventory />
           </PrivateRoute>
         }
@@ -140,7 +140,7 @@ const AppRoutes = () => {
       <Route
         path="/table-booking"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <TableBooking />
           </PrivateRoute>
         }
