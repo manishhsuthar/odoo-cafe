@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'pos',
     'reports',
     'inventory',
+    'reservations',
     'content',
     'floors',
     'customers',

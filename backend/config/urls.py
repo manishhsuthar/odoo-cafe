@@ -21,4 +21,5 @@ urlpatterns = [
     path("api/kds/", include("kds.urls")),
     path("api/reports/", include("reports.urls")),
     path("api/inventory/", include("inventory.urls")),
+    path("api/reservations/", include("reservations.urls")),
 ]
