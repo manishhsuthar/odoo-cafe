@@ -6,6 +6,12 @@ import { getPaymentMethods, savePaymentMethods } from '../../utils/db';
 
 const PaymentMethods = () => {
   const [methods, setMethods] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    methodId: null,
+    newChecked: false,
+    displayName: ''
+  });
 
   useEffect(() => {
     loadMethods();
@@ -69,41 +75,15 @@ const PaymentMethods = () => {
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
         <Header title="Payment Configuration" />
-        
+
         <main style={{ padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          
+
           {/* Header text */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 className="handwritten" style={{ fontSize: '28px', color: 'var(--text-primary)', margin: 0 }}>Configure Payment Gateways</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Edit POS checkout payment categories, types, terminal credentials, and activation states.</p>
             </div>
-            
-            <button
-              onClick={() => {
-                handleSave();
-                alert('Payment configuration saved successfully!');
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#10b981',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontSize: '13.5px',
-                fontWeight: '750',
-                cursor: 'pointer',
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-            >
-              <Save size={15} />
-              Save Configuration
-            </button>
           </div>
 
           {/* Action Tools: [+ New] button */}
@@ -161,24 +141,29 @@ const PaymentMethods = () => {
               </thead>
               <tbody>
                 {methods.map((method) => (
-                  <tr 
-                    key={method.id} 
+                  <tr
+                    key={method.id}
                     style={{
-                      borderBottom: '1px solid var(--border-color)',
-                      transition: 'background-color var(--transition-speed)'
+                      borderBottom: '1px solid var(--border-color)'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     {/* Drag handle and Payment Type Select */}
                     <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'grab' }}>
                           <GripVertical size={16} />
                         </span>
+
                         <select
-                          value={method.type}
-                          onChange={(e) => handleFieldChange(method.id, 'type', e.target.value)}
+                          value={["Cash", "Card", "UPI"].includes(method.type) ? method.type : "Custom"}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "Custom") {
+                              handleFieldChange(method.id, 'type', 'Custom Method');
+                            } else {
+                              handleFieldChange(method.id, 'type', val);
+                            }
+                          }}
                           style={{
                             backgroundColor: 'transparent',
                             border: 'none',
@@ -195,7 +180,32 @@ const PaymentMethods = () => {
                           <option value="Cash" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Cash</option>
                           <option value="Card" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Card</option>
                           <option value="UPI" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>UPI</option>
+                          <option value="Custom" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Custom...</option>
                         </select>
+
+                        {!["Cash", "Card", "UPI"].includes(method.type) && (
+                          <input
+                            type="text"
+                            value={method.type === 'Custom Method' ? '' : method.type}
+                            onChange={(e) => handleFieldChange(method.id, 'type', e.target.value || 'Custom Method')}
+                            placeholder="Enter custom name"
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border: '1.5px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-primary)',
+                              color: 'var(--text-primary)',
+                              fontFamily: 'var(--font-standard)',
+                              fontSize: '14px',
+                              fontWeight: '700',
+                              outline: 'none',
+                              width: '160px',
+                              transition: 'all 0.2s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'var(--border-focus)'}
+                            onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                          />
+                        )}
                       </div>
                     </td>
 
@@ -203,7 +213,7 @@ const PaymentMethods = () => {
                     <td style={{ padding: '12px 20px' }}>
                       <input
                         type="text"
-                        placeholder="N/A"
+                        placeholder="Enter ID / Value (e.g. gateway_id)"
                         value={method.value}
                         onChange={(e) => handleFieldChange(method.id, 'value', e.target.value)}
                         style={{
@@ -224,11 +234,20 @@ const PaymentMethods = () => {
 
                     {/* Activate Checkbox */}
                     <td style={{ padding: '12px 20px', textAlign: 'center' }}>
-                      <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                      <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
                         <input
                           type="checkbox"
-                          checked={method.activated}
-                          onChange={(e) => handleFieldChange(method.id, 'activated', e.target.checked)}
+                          checked={method.activated === true || method.activated === 'true'}
+                          onChange={(e) => {
+                            const newChecked = e.target.checked;
+                            const displayName = method.type === 'Custom Method' ? 'Custom Method' : method.type;
+                            setConfirmDialog({
+                              isOpen: true,
+                              methodId: method.id,
+                              newChecked,
+                              displayName
+                            });
+                          }}
                           style={{
                             appearance: 'none',
                             WebkitAppearance: 'none',
@@ -236,7 +255,7 @@ const PaymentMethods = () => {
                             width: '18px',
                             border: '1.5px solid var(--border-color)',
                             borderRadius: '4px',
-                            backgroundColor: method.activated ? 'var(--border-focus)' : 'transparent',
+                            backgroundColor: (method.activated === true || method.activated === 'true') ? 'var(--border-focus)' : 'transparent',
                             cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -245,7 +264,7 @@ const PaymentMethods = () => {
                             transition: 'all 0.15s'
                           }}
                         />
-                        {method.activated && (
+                        {(method.activated === true || method.activated === 'true') && (
                           <span style={{ position: 'absolute', transform: 'translate(4.5px, 0.5px)', fontSize: '11px', color: 'var(--bg-primary)', pointerEvents: 'none', fontWeight: 'bold' }}>✓</span>
                         )}
                       </label>
@@ -287,6 +306,72 @@ const PaymentMethods = () => {
 
         </main>
       </div>
+
+      {/* --- CONFIRMATION MODAL --- */}
+      {confirmDialog.isOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1050
+        }}>
+          <div style={{
+            width: '400px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '20px',
+            padding: '24px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Confirm Action</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14.5px', lineHeight: '1.5', margin: 0 }}>
+              Are you sure you want to {confirmDialog.newChecked ? 'ACTIVATE' : 'DEACTIVATE'} the payment method "{confirmDialog.displayName}"?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+              <button
+                onClick={() => setConfirmDialog({ isOpen: false, methodId: null, newChecked: false, displayName: '' })}
+                style={{
+                  backgroundColor: 'var(--bg-button)',
+                  color: 'var(--text-primary)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '13.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleFieldChange(confirmDialog.methodId, 'activated', confirmDialog.newChecked);
+                  setConfirmDialog({ isOpen: false, methodId: null, newChecked: false, displayName: '' });
+                }}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '13.5px',
+                  fontWeight: '750',
+                  cursor: 'pointer'
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

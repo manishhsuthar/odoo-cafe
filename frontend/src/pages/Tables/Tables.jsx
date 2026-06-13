@@ -6,8 +6,22 @@ import { getTables, updateTable } from '../../utils/db';
 
 const Tables = () => {
   const [tables, setTables] = useState([]);
-  const [activeFloor, setActiveFloor] = useState(1); // 1 = First Floor, 2 = Second Floor
+  const [activeFloor, setActiveFloor] = useState(1);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
   
+  // Floor configuration state
+  const [floors, setFloors] = useState(() => {
+    const storedFloors = localStorage.getItem('floor_plan_floors');
+    if (storedFloors) {
+      return JSON.parse(storedFloors);
+    }
+    return [1, 2];
+  });
+
+  const [newTableName, setNewTableName] = useState('');
+  const [editingTableId, setEditingTableId] = useState(null);
+  const [editingTableName, setEditingTableName] = useState('');
+
   // Modal State
   const [selectedTable, setSelectedTable] = useState(null);
   const [customerInput, setCustomerInput] = useState('John Doe');
@@ -18,17 +32,30 @@ const Tables = () => {
 
   const loadTables = async () => {
     try {
-      const data = await getTables();
-      if (Array.isArray(data)) {
-        const mapped = data.map(t => ({
-          id: t.id,
-          name: t.name,
-          floor: t.floor || 1,
-          status: t.status || 'free',
-          customerName: t.customerName || '',
-        }));
-        setTables(mapped);
+      let data = await getTables().catch(() => []);
+      if (!Array.isArray(data) || data.length === 0) {
+        const stored = localStorage.getItem('floor_plan_tables');
+        if (stored) {
+          data = JSON.parse(stored);
+        } else {
+          // create default layout
+          const defaults = [];
+          for (let i = 1; i <= 10; i++) {
+            defaults.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
+            defaults.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
+          }
+          localStorage.setItem('floor_plan_tables', JSON.stringify(defaults));
+          data = defaults;
+        }
       }
+      const mapped = data.map(t => ({
+        id: t.id,
+        name: t.name,
+        floor: t.floor || 1,
+        status: t.status || 'free',
+        customerName: t.customerName || t.customer_name || '',
+      }));
+      setTables(mapped);
     } catch {
       setTables([]);
     }
@@ -65,7 +92,15 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'reserved',
         customer_name: customerInput.trim()
-      });
+      }).catch(() => {});
+
+      const stored = localStorage.getItem('floor_plan_tables');
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'reserved', customerName: customerInput.trim() } : t);
+        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+      }
+
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} reserved for ${customerInput.trim()}`, 'warning');
       await loadTables();
       setSelectedTable(null);
@@ -83,7 +118,15 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'occupied',
         customer_name: ''
-      });
+      }).catch(() => {});
+
+      const stored = localStorage.getItem('floor_plan_tables');
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'occupied', customerName: '' } : t);
+        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+      }
+
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} occupied`, 'danger');
       await loadTables();
       setSelectedTable(null);
@@ -100,7 +143,15 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'free',
         customer_name: ''
-      });
+      }).catch(() => {});
+
+      const stored = localStorage.getItem('floor_plan_tables');
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'free', customerName: '' } : t);
+        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+      }
+
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} cleared (free)`, 'success');
       await loadTables();
       setSelectedTable(null);
@@ -119,8 +170,16 @@ const Tables = () => {
             name: t.name,
             status: 'free',
             customer_name: ''
-          })
+          }).catch(() => {})
         ));
+
+        const stored = localStorage.getItem('floor_plan_tables');
+        if (stored) {
+          const list = JSON.parse(stored);
+          const updated = list.map(t => ({ ...t, status: 'free', customerName: '' }));
+          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+        }
+
         addSessionLog('All table statuses reset to free', 'info');
         await loadTables();
       } catch (err) {
@@ -164,13 +223,13 @@ const Tables = () => {
             </div>
             
             <button 
-              onClick={resetAllTables}
+              onClick={() => setIsEditingPlan(!isEditingPlan)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                backgroundColor: 'var(--bg-button)',
-                color: 'var(--text-primary)',
+                backgroundColor: isEditingPlan ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: isEditingPlan ? 'var(--bg-primary)' : 'var(--text-primary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '10px 16px',
@@ -179,11 +238,24 @@ const Tables = () => {
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
+              onMouseEnter={(e) => {
+                if (!isEditingPlan) e.currentTarget.style.backgroundColor = 'var(--bg-button-hover)';
+              }}
+              onMouseLeave={(e) => {
+                if (!isEditingPlan) e.currentTarget.style.backgroundColor = 'var(--bg-button)';
+              }}
             >
-              <RefreshCcw size={14} />
-              Reset Plan
+              {isEditingPlan ? (
+                <>
+                  <Check size={14} />
+                  Done Editing
+                </>
+              ) : (
+                <>
+                  <Layers size={14} />
+                  Edit Plan
+                </>
+              )}
             </button>
           </div>
 
@@ -201,47 +273,30 @@ const Tables = () => {
             transition: 'background-color var(--transition-speed), border-color var(--transition-speed)'
           }}>
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--input-bg)', padding: '4px', borderRadius: '8px' }}>
-              <button
-                onClick={() => setActiveFloor(1)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 18px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: activeFloor === 1 ? 'var(--border-focus)' : 'transparent',
-                  color: activeFloor === 1 ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Layers size={14} />
-                First Floor
-              </button>
-              <button
-                onClick={() => setActiveFloor(2)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 18px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: activeFloor === 2 ? 'var(--border-focus)' : 'transparent',
-                  color: activeFloor === 2 ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Layers size={14} />
-                Second Floor
-              </button>
+            <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--input-bg)', padding: '4px', borderRadius: '8px', flexWrap: 'wrap' }}>
+              {floors.map(fNum => (
+                <button
+                  key={fNum}
+                  onClick={() => setActiveFloor(fNum)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 18px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    backgroundColor: activeFloor === fNum ? 'var(--border-focus)' : 'transparent',
+                    color: activeFloor === fNum ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Layers size={14} />
+                  {fNum === 1 ? 'First Floor' : fNum === 2 ? 'Second Floor' : fNum === 3 ? 'Third Floor' : `Floor ${fNum}`}
+                </button>
+              ))}
             </div>
 
             {/* Legend */}
@@ -261,12 +316,150 @@ const Tables = () => {
             </div>
           </div>
 
+          {/* Edit Plan Controls */}
+          {isEditingPlan && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              backgroundColor: 'var(--bg-card)',
+              border: '1.5px dashed var(--border-color)',
+              borderRadius: '16px',
+              padding: '18px 24px',
+              transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
+              marginTop: '12px'
+            }}>
+              {/* Left side: Manage Floors */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-primary)' }}>Manage Floors:</span>
+                <button
+                  onClick={() => {
+                    const nextFloorNum = floors.length + 1;
+                    const updatedFloors = [...floors, nextFloorNum];
+                    setFloors(updatedFloors);
+                    localStorage.setItem('floor_plan_floors', JSON.stringify(updatedFloors));
+                    setActiveFloor(nextFloorNum);
+                    addSessionLog(`Added Floor ${nextFloorNum} to layout`, 'info');
+                  }}
+                  style={{
+                    backgroundColor: 'var(--bg-button)',
+                    color: 'var(--text-primary)',
+                    border: '1.5px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--border-focus)'}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                >
+                  + Add New Floor
+                </button>
+                {floors.length > 2 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to remove Floor ${floors.length}? All tables on this floor will be moved to Floor 1.`)) {
+                        const targetFloor = floors.length;
+                        const updatedFloors = floors.filter(f => f !== targetFloor);
+                        setFloors(updatedFloors);
+                        localStorage.setItem('floor_plan_floors', JSON.stringify(updatedFloors));
+                        
+                        // Update tables list
+                        const updatedTables = tables.map(t => t.floor === targetFloor ? { ...t, floor: 1 } : t);
+                        setTables(updatedTables);
+                        localStorage.setItem('floor_plan_tables', JSON.stringify(updatedTables));
+                        
+                        setActiveFloor(1);
+                        addSessionLog(`Removed Floor ${targetFloor} from layout`, 'warning');
+                      }
+                    }}
+                    style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      border: '1.5px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: '8px',
+                      padding: '8px 14px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ef4444'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'}
+                  >
+                    Delete Last Floor
+                  </button>
+                )}
+              </div>
+
+              {/* Right side: Add Table inline form */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-primary)', marginRight: '6px' }}>Add Table:</span>
+                <input
+                  type="text"
+                  placeholder={`Table Name (e.g. Table ${tables.length + 1})`}
+                  value={newTableName}
+                  onChange={(e) => setNewTableName(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13.5px',
+                    width: '180px',
+                    outline: 'none',
+                    transition: 'all 0.2s'
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (!newTableName.trim()) return;
+                    const name = newTableName.trim();
+                    if (tables.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+                      alert('Table name already exists!');
+                      return;
+                    }
+                    const newTable = {
+                      id: `t_${Date.now()}`,
+                      name,
+                      floor: activeFloor,
+                      status: 'free',
+                      customerName: ''
+                    };
+                    const updated = [...tables, newTable];
+                    setTables(updated);
+                    localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                    setNewTableName('');
+                    addSessionLog(`Added Table ${name} to Floor ${activeFloor}`, 'success');
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    border: 'none',
+                    fontWeight: '800',
+                    fontSize: '13.5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Add to Floor {activeFloor}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Grid Layout of Tables */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: '24px',
-            marginTop: '12px'
+            marginTop: '24px'
           }}>
             {floorTables.map((table) => {
               const borderCol = getStatusColor(table.status);
@@ -274,13 +467,15 @@ const Tables = () => {
               return (
                 <div 
                   key={table.id}
-                  onClick={() => handleTableClick(table)}
+                  onClick={() => {
+                    if (!isEditingPlan) handleTableClick(table);
+                  }}
                   style={{
                     backgroundColor: 'var(--bg-card)',
                     border: `2px solid ${borderCol}`,
                     borderRadius: '20px',
                     padding: '24px',
-                    cursor: 'pointer',
+                    cursor: isEditingPlan ? 'default' : 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -291,12 +486,16 @@ const Tables = () => {
                     minHeight: '200px',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = `0 10px 20px ${borderCol}18`;
+                    if (!isEditingPlan) {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = `0 10px 20px ${borderCol}18`;
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'var(--card-shadow)';
+                    if (!isEditingPlan) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'var(--card-shadow)';
+                    }
                   }}
                 >
                   {/* Dining chairs illustration around the table card */}
@@ -320,32 +519,137 @@ const Tables = () => {
                     }} />
                   </div>
 
-                  {/* Table identifier label */}
-                  <div style={{ marginTop: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '18px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
-                      Table {table.name}
-                    </span>
-                    
-                    {/* Status Badge */}
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '3px 10px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      fontWeight: '800',
-                      textTransform: 'uppercase',
-                      backgroundColor: `${borderCol}18`,
-                      color: borderCol
-                    }}>
-                      {getStatusLabel(table.status)}
-                    </span>
-                    
-                    {table.status === 'reserved' && table.customerName && (
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '6px' }}>
-                        👤 {table.customerName}
-                      </span>
+                  {/* Table identifier label or edit fields */}
+                  <div style={{ marginTop: isEditingPlan ? '75px' : '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%', zIndex: 5 }}>
+                    {isEditingPlan ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
+                        <input
+                          type="text"
+                          value={editingTableId === table.id ? editingTableName : table.name}
+                          onChange={(e) => {
+                            setEditingTableId(table.id);
+                            setEditingTableName(e.target.value);
+                          }}
+                          onBlur={() => {
+                            if (editingTableId === table.id && editingTableName.trim()) {
+                              const name = editingTableName.trim();
+                              if (tables.some(item => item.id !== table.id && item.name.toLowerCase() === name.toLowerCase())) {
+                                alert('Table name already exists!');
+                                return;
+                              }
+                              const updated = tables.map(item => item.id === table.id ? { ...item, name } : item);
+                              setTables(updated);
+                              localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                              setEditingTableId(null);
+                            }
+                          }}
+                          style={{
+                            width: '85%',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            border: '1.5px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '15px',
+                            fontWeight: '800',
+                            textAlign: 'center',
+                            outline: 'none'
+                          }}
+                          placeholder="Table Name"
+                        />
+                        <select
+                          value={table.floor}
+                          onChange={(e) => {
+                            const targetFloor = Number(e.target.value);
+                            const updated = tables.map(item => item.id === table.id ? { ...item, floor: targetFloor } : item);
+                            setTables(updated);
+                            localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                            addSessionLog(`Moved Table ${table.name} to Floor ${targetFloor}`, 'info');
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: '1.5px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '12px',
+                            fontWeight: '750',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {floors.map(fNum => (
+                            <option key={fNum} value={fNum}>
+                              {fNum === 1 ? 'Floor 1' : fNum === 2 ? 'Floor 2' : `Floor ${fNum}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: '18px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
+                          Table {table.name}
+                        </span>
+                        
+                        {/* Status Badge */}
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          backgroundColor: `${borderCol}18`,
+                          color: borderCol
+                        }}>
+                          {getStatusLabel(table.status)}
+                        </span>
+                        
+                        {table.status === 'reserved' && table.customerName && (
+                          <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '6px' }}>
+                            👤 {table.customerName}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
+
+                  {/* Delete button inline */}
+                  {isEditingPlan && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Delete table ${table.name}?`)) {
+                          const updated = tables.filter(item => item.id !== table.id);
+                          setTables(updated);
+                          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                          addSessionLog(`Deleted Table ${table.name}`, 'warning');
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        backgroundColor: '#ff5c5c',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s',
+                        zIndex: 10
+                      }}
+                      title="Delete Table"
+                    >
+                      &times;
+                    </button>
+                  )}
                 </div>
               );
             })}

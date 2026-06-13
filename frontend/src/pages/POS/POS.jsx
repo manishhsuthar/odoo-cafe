@@ -595,6 +595,26 @@ const POS = ({ view = 'pos' }) => {
   // Table Floor Plan modal
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [activeFloor, setActiveFloor] = useState(1);
+  const [tablesList, setTablesList] = useState(() => {
+    const storedTables = localStorage.getItem('floor_plan_tables');
+    if (storedTables) {
+      return JSON.parse(storedTables);
+    }
+    const defaults = [];
+    for (let i = 1; i <= 10; i++) {
+      defaults.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
+      defaults.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
+    }
+    localStorage.setItem('floor_plan_tables', JSON.stringify(defaults));
+    return defaults;
+  });
+  const [activeBookingsTab, setActiveBookingsTab] = useState('reservations'); // 'reservations' or 'tables'
+  const [isEditingLayout, setIsEditingLayout] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
+  const [adminActiveFloor, setAdminActiveFloor] = useState(1);
+  const [editingTableId, setEditingTableId] = useState(null);
+  const [editingTableName, setEditingTableName] = useState('');
+  const [editingTableFloor, setEditingTableFloor] = useState(1);
 
   // Add product modal states
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
@@ -2594,8 +2614,8 @@ const POS = ({ view = 'pos' }) => {
                         }}
                       >
                         <option value="">Unassigned</option>
-                        {Array.from({ length: 15 }, (_, i) => `Table ${i + 1}`).map(tName => (
-                          <option key={tName} value={tName}>{tName}</option>
+                        {tablesList.map(t => (
+                          <option key={t.id} value={t.name}>{t.name} (Floor {t.floor})</option>
                         ))}
                       </select>
                     </div>
@@ -2622,118 +2642,142 @@ const POS = ({ view = 'pos' }) => {
 
               {/* Right Column: Bookings List */}
               <div style={{
+                flex: 2,
                 backgroundColor: 'var(--bg-card)',
                 border: '1.5px solid var(--border-color)',
                 borderRadius: '20px',
-                overflow: 'hidden',
+                padding: '24px',
                 boxShadow: 'var(--card-shadow)',
-                color: 'var(--text-primary)'
+                color: 'var(--text-primary)',
+                transition: 'background-color var(--transition-speed), border-color var(--transition-speed)'
               }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
-                      <th style={thStyle}>Customer</th>
-                      <th style={thStyle}>Contact</th>
-                      <th style={thStyle}>Booking Date & Time</th>
-                      <th style={thStyle}>Seating</th>
-                      <th style={thStyle}>Status</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const filtered = bookingsList.filter(bk =>
-                        (bk.customerName || '').toLowerCase().includes(searchBookingsQuery.toLowerCase())
-                      );
-                      if (filtered.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                              No table reservations booked.
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Active Reservations</h3>
+                  <input
+                    type="text"
+                    placeholder="Search by customer name..."
+                    value={searchBookingsQuery}
+                    onChange={(e) => setSearchBookingsQuery(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                      outline: 'none',
+                      width: '200px'
+                    }}
+                  />
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={thStyle}>Customer</th>
+                        <th style={thStyle}>Contact</th>
+                        <th style={thStyle}>Date & Time</th>
+                        <th style={thStyle}>Table (Guests)</th>
+                        <th style={thStyle}>Status</th>
+                        <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const filtered = bookingsList.filter(bk =>
+                          (bk.customerName || '').toLowerCase().includes(searchBookingsQuery.toLowerCase())
+                        );
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                No reservations booked.
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return filtered.map(bk => (
+                          <tr key={bk.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
+                            <td style={{ ...tdStyle, fontWeight: '700' }}>{bk.customerName}</td>
+                            <td style={tdStyle}>{bk.phone}</td>
+                            <td style={tdStyle}>{new Date(bk.dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                            <td style={{ ...tdStyle, fontWeight: '650' }}>{bk.table} ({bk.guests} Guests)</td>
+                            <td style={tdStyle}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                backgroundColor:
+                                  bk.status === 'Confirmed' ? 'rgba(16, 185, 129, 0.1)' :
+                                    bk.status === 'Pending' ? 'rgba(234, 88, 12, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                color:
+                                  bk.status === 'Confirmed' ? '#10b981' :
+                                    bk.status === 'Pending' ? '#ea580c' : '#ef4444'
+                              }}>
+                                {bk.status}
+                              </span>
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                                {bk.status !== 'Confirmed' && (
+                                  <button
+                                    onClick={() => handleUpdateBookingStatus(bk.id, 'Confirmed')}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      border: 'none',
+                                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10b981',
+                                      fontSize: '11px',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Accept
+                                  </button>
+                                )}
+                                {bk.status !== 'Cancelled' && (
+                                  <button
+                                    onClick={() => handleUpdateBookingStatus(bk.id, 'Cancelled')}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      border: 'none',
+                                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                      color: '#ef4444',
+                                      fontSize: '11px',
+                                      fontWeight: '800',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteBooking(bk.id)}
+                                  style={{
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
-                        );
-                      }
-                      return filtered.map(bk => (
-                        <tr key={bk.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
-                          <td style={{ ...tdStyle, fontWeight: '700' }}>{bk.customerName}</td>
-                          <td style={tdStyle}>{bk.phone}</td>
-                          <td style={tdStyle}>{new Date(bk.dateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
-                          <td style={{ ...tdStyle, fontWeight: '650' }}>{bk.table} ({bk.guests} Guests)</td>
-                          <td style={tdStyle}>
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: '800',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              backgroundColor:
-                                bk.status === 'Confirmed' ? 'rgba(16, 185, 129, 0.1)' :
-                                  bk.status === 'Pending' ? 'rgba(234, 88, 12, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                              color:
-                                bk.status === 'Confirmed' ? '#10b981' :
-                                  bk.status === 'Pending' ? '#ea580c' : '#ef4444'
-                            }}>
-                              {bk.status}
-                            </span>
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                              {bk.status !== 'Confirmed' && (
-                                <button
-                                  onClick={() => handleUpdateBookingStatus(bk.id, 'Confirmed')}
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    border: 'none',
-                                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                    color: '#10b981',
-                                    fontSize: '11px',
-                                    fontWeight: '800',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Accept
-                                </button>
-                              )}
-                              {bk.status !== 'Cancelled' && (
-                                <button
-                                  onClick={() => handleUpdateBookingStatus(bk.id, 'Cancelled')}
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    border: 'none',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                                    color: '#ef4444',
-                                    fontSize: '11px',
-                                    fontWeight: '800',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteBooking(bk.id)}
-                                style={{
-                                  padding: '4px',
-                                  borderRadius: '4px',
-                                  border: 'none',
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                  color: 'var(--text-secondary)',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -3630,6 +3674,7 @@ const POS = ({ view = 'pos' }) => {
                             {method.type === 'Cash' && <IndianRupee size={15} />}
                             {method.type === 'Card' && <Percent size={15} />}
                             {method.type === 'UPI' && <UserPlus size={15} />}
+                            {!['Cash', 'Card', 'UPI'].includes(method.type) && <PlusCircle size={15} />}
                             {method.name}
                           </button>
                         ))
@@ -3972,12 +4017,32 @@ const POS = ({ view = 'pos' }) => {
                 <h3 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Select Table & Floor Plan</h3>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Choose an active table session to start ordering</span>
               </div>
-              <button
-                onClick={() => setIsTableModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
-              >
-                &times;
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {user?.role === 'admin' && (
+                  <button
+                    onClick={() => setIsEditingLayout(!isEditingLayout)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-color)',
+                      backgroundColor: isEditingLayout ? 'var(--border-focus)' : 'var(--bg-button)',
+                      color: isEditingLayout ? 'var(--bg-primary)' : 'var(--text-primary)',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {isEditingLayout ? 'Done Editing' : 'Edit Layout'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsTableModalOpen(false)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+                >
+                  &times;
+                </button>
+              </div>
             </div>
 
             {/* Floor selection tabs */}
@@ -4040,6 +4105,59 @@ const POS = ({ view = 'pos' }) => {
               </button>
             </div>
 
+            {/* Add Table inline form for layout editing */}
+            {isEditingLayout && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1.5px dashed var(--border-color)' }}>
+                <input
+                  type="text"
+                  placeholder="New Table Name (e.g. Table 11)"
+                  value={newTableName}
+                  onChange={(e) => setNewTableName(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (!newTableName.trim()) return;
+                    const name = newTableName.trim();
+                    if (tablesList.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+                      alert('Table name already exists!');
+                      return;
+                    }
+                    const newTable = {
+                      id: `t_${Date.now()}`,
+                      name,
+                      floor: activeFloor,
+                      status: 'free'
+                    };
+                    const updated = [...tablesList, newTable];
+                    setTablesList(updated);
+                    localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                    setNewTableName('');
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    border: 'none',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add to Floor {activeFloor}
+                </button>
+              </div>
+            )}
+
             {/* Tables Grid */}
             <div style={{
               display: 'grid',
@@ -4048,18 +4166,7 @@ const POS = ({ view = 'pos' }) => {
               padding: '10px 0'
             }}>
               {(() => {
-                const storedTables = localStorage.getItem('floor_plan_tables');
-                let currentTables = [];
-                if (storedTables) {
-                  currentTables = JSON.parse(storedTables);
-                } else {
-                  // Generate default tables list F1-F10 and S1-S10
-                  for (let i = 1; i <= 10; i++) {
-                    currentTables.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
-                    currentTables.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
-                  }
-                }
-                const floorTables = currentTables.filter(t => t.floor === activeFloor);
+                const floorTables = tablesList.filter(t => t.floor === activeFloor);
 
                 return floorTables.map((t) => {
                   // Determine styling based on table status
@@ -4076,50 +4183,89 @@ const POS = ({ view = 'pos' }) => {
                   const isSelected = activeTable === t.name;
 
                   return (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setActiveTable(t.name);
-                        addLogEntry(`Selected Table: ${t.name} (Floor ${activeFloor})`, 'info');
-                        setIsTableModalOpen(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '16px 10px',
-                        borderRadius: '14px',
-                        border: isSelected ? '2px solid var(--border-focus)' : '1.5px solid var(--border-color)',
-                        backgroundColor: isSelected ? 'var(--bg-button)' : 'var(--bg-primary)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        gap: '6px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = 'var(--border-focus)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = isSelected ? 'var(--border-focus)' : 'var(--border-color)';
-                      }}
-                    >
-                      <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                        Table {t.name.toUpperCase()}
-                      </span>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        backgroundColor: statusBg,
-                        color: statusColor
-                      }}>
-                        {t.status}
-                      </span>
-                    </button>
+                    <div key={t.id} style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => {
+                          if (isEditingLayout) return;
+                          setActiveTable(t.name);
+                          addLogEntry(`Selected Table: ${t.name} (Floor ${activeFloor})`, 'info');
+                          setIsTableModalOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          padding: '16px 10px',
+                          borderRadius: '14px',
+                          border: isSelected ? '2px solid var(--border-focus)' : '1.5px solid var(--border-color)',
+                          backgroundColor: isSelected ? 'var(--bg-button)' : 'var(--bg-primary)',
+                          cursor: isEditingLayout ? 'default' : 'pointer',
+                          transition: 'all 0.2s',
+                          gap: '6px'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isEditingLayout) {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.borderColor = 'var(--border-focus)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isEditingLayout) {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.borderColor = isSelected ? 'var(--border-focus)' : 'var(--border-color)';
+                          }
+                        }}
+                      >
+                        <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                          {t.name}
+                        </span>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: statusBg,
+                          color: statusColor
+                        }}>
+                          {t.status}
+                        </span>
+                      </button>
+                      {isEditingLayout && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete table ${t.name}?`)) {
+                              const updated = tablesList.filter(item => item.id !== t.id);
+                              setTablesList(updated);
+                              localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            backgroundColor: '#ff5c5c',
+                            color: '#fff',
+                            border: 'none',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10
+                          }}
+                          title="Delete Table"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
                   );
                 });
               })()}
