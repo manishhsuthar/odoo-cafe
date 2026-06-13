@@ -401,6 +401,29 @@ const POS = ({ view = 'pos' }) => {
   const [cart, setCart] = useState([]);
   const [paidAmount, setPaidAmount] = useState('0');
   const [activeTable, setActiveTable] = useState('');
+  const [tableCarts, setTableCarts] = useState({});
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  const handleTableSelect = (tableName) => {
+    if (activeTable) {
+      setTableCarts(prev => ({
+        ...prev,
+        [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
+      }));
+    }
+    
+    setActiveTable(tableName);
+    setIsTableModalOpen(false);
+    
+    setTableCarts(prev => {
+      const existingData = prev[tableName] || { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' };
+      setCart(existingData.cart);
+      setAppliedCoupon(existingData.appliedCoupon);
+      setDiscountAmount(existingData.discountAmount);
+      setPaidAmount(existingData.paidAmount);
+      return prev;
+    });
+  };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Table Floor Plan modal
@@ -674,10 +697,10 @@ const POS = ({ view = 'pos' }) => {
       });
       addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
       alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
-      setCart([]);
-      setPaidAmount('0');
-      setAppliedCoupon(null);
-      setDiscountAmount(0);
+      setTableCarts(prev => ({
+        ...prev,
+        [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
+      }));
     } catch (err) {
       console.error(err);
       alert('Failed to send order to kitchen');
@@ -1947,7 +1970,7 @@ const POS = ({ view = 'pos' }) => {
               </button>
               <button
                 onClick={() => {
-                  setActiveTable('Takeaway');
+                  handleTableSelect('Takeaway');
                   addLogEntry(`Selected Takeaway Session`, 'info');
                   setIsTableModalOpen(false);
                 }}
@@ -2051,7 +2074,7 @@ const POS = ({ view = 'pos' }) => {
                       <button
                         onClick={() => {
                           if (isEditingLayout) return;
-                          setActiveTable(t.name);
+                          handleTableSelect(t.name);
                           addLogEntry(`Selected Table: ${t.name} (Floor ${activeFloor})`, 'info');
                           setIsTableModalOpen(false);
                         }}
