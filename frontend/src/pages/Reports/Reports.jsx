@@ -5,6 +5,8 @@ import { getOrders } from '../../utils/db';
 import { Calendar, User, Clock, ShoppingBag, ArrowUpRight, TrendingUp, BarChart3, Receipt, Award, Download, ChevronDown, Search } from 'lucide-react';
 
 const Reports = () => {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+
   // Filter states
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -30,6 +32,40 @@ const Reports = () => {
   useEffect(() => {
     computeLiveMetrics();
   }, [fromDate, toDate, customerSearch, session, product]);
+
+  const handleFromDateChange = (val) => {
+    if (val > todayStr) {
+      alert("From Date cannot be in the future!");
+      return;
+    }
+    if (toDate && val > toDate) {
+      alert("From Date cannot be after To Date!");
+      return;
+    }
+    setFromDate(val);
+  };
+
+  const handleToDateChange = (val) => {
+    if (val > todayStr) {
+      alert("To Date cannot be in the future!");
+      return;
+    }
+    if (fromDate && val < fromDate) {
+      alert("To Date cannot be before From Date!");
+      return;
+    }
+    setToDate(val);
+  };
+
+  const handleCustomerSearchChange = (val) => {
+    if (val.length > 50) {
+      alert("Customer name search cannot exceed 50 characters!");
+      return;
+    }
+    // Only allow letters, spaces, periods, and hyphens
+    const filtered = val.replace(/[^a-zA-Z\s\.\-]/g, '');
+    setCustomerSearch(filtered);
+  };
 
   const computeLiveMetrics = async () => {
     const dbOrders = (await getOrders()) || [];
@@ -509,7 +545,8 @@ const Reports = () => {
               <input
                 type="date"
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                max={todayStr}
+                onChange={(e) => handleFromDateChange(e.target.value)}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '8px',
@@ -533,7 +570,8 @@ const Reports = () => {
               <input
                 type="date"
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                max={todayStr}
+                onChange={(e) => handleToDateChange(e.target.value)}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '8px',
@@ -558,7 +596,7 @@ const Reports = () => {
                 type="text"
                 placeholder="e.g. Rajesh Kumar"
                 value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
+                onChange={(e) => handleCustomerSearchChange(e.target.value)}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '8px',
