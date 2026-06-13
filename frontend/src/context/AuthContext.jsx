@@ -15,13 +15,6 @@ export const AuthProvider = ({ children }) => {
     const storedEmployees = localStorage.getItem('employees');
     const storedLogs = localStorage.getItem('employee_logs');
 
-    const defaultEmployees = [
-      { id: 'emp_001', name: 'Manager Clara', email: 'clara@cafe.com', password: 'clara123', role: 'manager' },
-      { id: 'emp_002', name: 'Chef Mario', email: 'mario@cafe.com', password: 'mario123', role: 'chef' },
-      { id: 'emp_003', name: 'Chef John', email: 'john@cafe.com', password: 'john@123', role: 'chef' },
-      { id: 'emp_004', name: 'Chef Sarah', email: 'sarah@cafe.com', password: 'sarah123', role: 'chef' }
-    ];
-
     if (storedToken && storedUser) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
@@ -30,18 +23,12 @@ export const AuthProvider = ({ children }) => {
     if (storedEmployees) {
       setEmployees(JSON.parse(storedEmployees));
     } else {
-      setEmployees(defaultEmployees);
-      localStorage.setItem('employees', JSON.stringify(defaultEmployees));
+      setEmployees([]);
+      localStorage.setItem('employees', '[]');
     }
 
     if (!storedLogs) {
-      const defaultLogs = [
-        { id: 'log_1', employeeEmail: 'john@cafe.com', employeeName: 'Chef John', role: 'chef', loginTime: new Date(Date.now() - 5*3600*1000).toISOString(), logoutTime: new Date(Date.now() - 1*3600*1000).toISOString() },
-        { id: 'log_2', employeeEmail: 'mario@cafe.com', employeeName: 'Chef Mario', role: 'chef', loginTime: new Date(Date.now() - 6*3600*1000).toISOString(), logoutTime: new Date(Date.now() - 2*3600*1000).toISOString() },
-        { id: 'log_3', employeeEmail: 'clara@cafe.com', employeeName: 'Manager Clara', role: 'manager', loginTime: new Date(Date.now() - 4*3600*1000).toISOString(), logoutTime: null },
-        { id: 'log_4', employeeEmail: 'sarah@cafe.com', employeeName: 'Chef Sarah', role: 'chef', loginTime: new Date(Date.now() - 3*3600*1000).toISOString(), logoutTime: new Date(Date.now() - 1*3600*1000).toISOString() }
-      ];
-      localStorage.setItem('employee_logs', JSON.stringify(defaultLogs));
+      localStorage.setItem('employee_logs', '[]');
     }
 
     setLoading(false);

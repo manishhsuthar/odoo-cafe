@@ -42,8 +42,8 @@ export const getCategories = async () => {
   return camelizeKeys(res.data);
 };
 
-export const saveCategories = async (categories) => {
-  // For bulk save, we'd need individual PUT calls; skip for now
+export const deleteCategory = async (id) => {
+  await axiosInstance.delete(`/categories/${id}/`);
 };
 
 export const addCategory = async (category) => {
@@ -55,10 +55,6 @@ export const addCategory = async (category) => {
 export const getProducts = async () => {
   const res = await axiosInstance.get('/products/');
   return camelizeKeys(res.data);
-};
-
-export const saveProducts = async (products) => {
-  // For bulk save, we'd need individual PUT calls; skip for now
 };
 
 export const addProduct = async (product) => {
@@ -82,10 +78,6 @@ export const deleteProduct = async (id) => {
 export const getOrders = async () => {
   const res = await axiosInstance.get('/orders/');
   return camelizeKeys(res.data);
-};
-
-export const saveOrders = async (orders) => {
-  // For bulk save, skip
 };
 
 export const addOrder = async (order) => {
@@ -219,9 +211,4 @@ export const getFloorPlanTables = () => {
 
 export const saveFloorPlanTables = (tables) => {
   localStorage.setItem('floor_plan_tables', JSON.stringify(tables));
-};
-
-// Init
-export const initDb = () => {
-  // Seed localStorage defaults if needed
 };
