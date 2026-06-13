@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, Edit2, Save, X } from 'lucide-react';
 import { bodyOrdersStyle, thStyle, tdStyle } from './POSSharedStyles';
 
 const POSCategoriesManagement = ({
@@ -10,6 +10,37 @@ const POSCategoriesManagement = ({
   const [searchCategoriesQuery, setSearchCategoriesQuery] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#ea580c');
+  const [editCategoryId, setEditCategoryId] = useState(null);
+  const [editCategoryData, setEditCategoryData] = useState({ name: '', color: '' });
+
+  const handleEditClick = (detail) => {
+    setEditCategoryId(detail.id);
+    setEditCategoryData({ name: detail.name, color: detail.color });
+  };
+
+  const handleCancelEdit = () => {
+    setEditCategoryId(null);
+  };
+
+  const handleSaveEdit = (catId, oldName) => {
+    if (!editCategoryData.name) return;
+    const current = JSON.parse(localStorage.getItem('categories') || '[]');
+    const updated = current.map(c => 
+      c.id === catId ? { ...c, name: editCategoryData.name, color: editCategoryData.color } : c
+    );
+    localStorage.setItem('categories', JSON.stringify(updated));
+    setCategoriesList(updated.map(c => c.name));
+    
+    // Attempt to update products referencing this category in localStorage
+    if (oldName !== editCategoryData.name) {
+       const prods = JSON.parse(localStorage.getItem('products') || '[]');
+       const updatedProds = prods.map(p => p.category === oldName ? { ...p, category: editCategoryData.name } : p);
+       localStorage.setItem('products', JSON.stringify(updatedProds));
+    }
+
+    addLogEntry(`Updated category: ${editCategoryData.name}`, 'success');
+    setEditCategoryId(null);
+  };
 
   const handleAddCategory = (e) => {
     e.preventDefault();
@@ -189,29 +220,89 @@ const POSCategoriesManagement = ({
                 return filtered.map(catName => {
                   const detail = catsDetails.find(d => d.name === catName) || { color: '#888' };
                   return (
-                    <tr key={catName} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
-                      <td style={{ ...tdStyle, fontWeight: '700' }}>{catName}</td>
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: detail.color }} />
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{detail.color}</span>
-                        </div>
-                      </td>
+                    <tr key={catName} style={{ borderBottom: '1.5px solid var(--border-color)', transition: 'background-color 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                      {editCategoryId === detail.id ? (
+                        <>
+                          <td style={tdStyle}>
+                            <input
+                              type="text"
+                              value={editCategoryData.name}
+                              onChange={(e) => setEditCategoryData({ ...editCategoryData, name: e.target.value })}
+                              style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}
+                            />
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="color"
+                                value={editCategoryData.color}
+                                onChange={(e) => setEditCategoryData({ ...editCategoryData, color: e.target.value })}
+                                style={{ width: '30px', height: '30px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer', backgroundColor: 'transparent' }}
+                              />
+                              <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{editCategoryData.color}</span>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ ...tdStyle, fontWeight: '700' }}>{catName}</td>
+                          <td style={tdStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: detail.color }} />
+                              <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{detail.color}</span>
+                            </div>
+                          </td>
+                        </>
+                      )}
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDeleteCategory(catName)}
-                          style={{
-                            padding: '6px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                          {editCategoryId === detail.id ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveEdit(detail.id, catName)}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Save"
+                              >
+                                <Save size={14} />
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Cancel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditClick(detail)}
+                                style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                                title="Edit Category"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(catName)}
+                                style={{
+                                  padding: '6px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s'
+                                }}
+                                title="Delete Category"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

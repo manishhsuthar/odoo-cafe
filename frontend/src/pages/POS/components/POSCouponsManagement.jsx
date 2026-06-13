@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, Trash2, Edit2, Save, X } from 'lucide-react';
 import { bodyOrdersStyle, thStyle, tdStyle } from './POSSharedStyles';
 
 const POSCouponsManagement = ({
@@ -13,6 +13,29 @@ const POSCouponsManagement = ({
   const [newCouponDiscountType, setNewCouponDiscountType] = useState('Percentage');
   const [newCouponValue, setNewCouponValue] = useState('');
   const [newCouponMinAmount, setNewCouponMinAmount] = useState('');
+
+  const [editCouponId, setEditCouponId] = useState(null);
+  const [editCouponData, setEditCouponData] = useState({ name: '', code: '', discountType: 'Percentage', value: '', minAmount: '' });
+
+  const handleEditClick = (cp) => {
+    setEditCouponId(cp.id);
+    setEditCouponData({ name: cp.name, code: cp.code, discountType: cp.discountType, value: cp.value, minAmount: cp.minAmount });
+  };
+
+  const handleCancelEdit = () => {
+    setEditCouponId(null);
+  };
+
+  const handleSaveEdit = (cpId) => {
+    if (!editCouponData.name || !editCouponData.code || !editCouponData.value) return;
+    const updated = allCouponsList.map(cp => 
+      cp.id === cpId ? { ...cp, name: editCouponData.name, code: editCouponData.code.toUpperCase(), discountType: editCouponData.discountType, value: parseFloat(editCouponData.value), minAmount: parseFloat(editCouponData.minAmount || 0) } : cp
+    );
+    localStorage.setItem('coupons_list', JSON.stringify(updated));
+    setAllCouponsList(updated);
+    addLogEntry(`Updated coupon: ${editCouponData.code.toUpperCase()}`, 'success');
+    setEditCouponId(null);
+  };
 
   const handleAddCoupon = (e) => {
     e.preventDefault();
@@ -119,8 +142,7 @@ const POSCouponsManagement = ({
                 placeholder="e.g. Festival Special Offer"
                 value={newCouponName}
                 onChange={(e) => setNewCouponName(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -138,8 +160,7 @@ const POSCouponsManagement = ({
                 placeholder="e.g. DIWALI50"
                 value={newCouponCode}
                 onChange={(e) => setNewCouponCode(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -156,8 +177,7 @@ const POSCouponsManagement = ({
                 <select
                   value={newCouponDiscountType}
                   onChange={(e) => setNewCouponDiscountType(e.target.value)}
-                  style={{
-                    padding: '10px 12px',
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
                     backgroundColor: 'var(--bg-primary)',
@@ -180,8 +200,7 @@ const POSCouponsManagement = ({
                   placeholder="e.g. 20"
                   value={newCouponValue}
                   onChange={(e) => setNewCouponValue(e.target.value)}
-                  style={{
-                    padding: '10px 12px',
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
                     backgroundColor: 'var(--bg-primary)',
@@ -199,8 +218,7 @@ const POSCouponsManagement = ({
                 placeholder="e.g. 300"
                 value={newCouponMinAmount}
                 onChange={(e) => setNewCouponMinAmount(e.target.value)}
-                style={{
-                  padding: '10px 12px',
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
                   backgroundColor: 'var(--bg-primary)',
@@ -266,11 +284,36 @@ const POSCouponsManagement = ({
                   );
                 }
                 return filtered.map(cp => (
-                  <tr key={cp.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
-                    <td style={{ ...tdStyle, fontWeight: '700' }}>{cp.name}</td>
-                    <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750', fontFamily: 'var(--mono)' }}>{cp.code}</td>
-                    <td style={tdStyle}>{cp.discountType === 'Percentage' ? `${cp.value}%` : `₹${cp.value}`} Off</td>
-                    <td style={tdStyle}>₹{cp.minAmount || '0'}</td>
+                  <tr key={cp.id} style={{ borderBottom: '1.5px solid var(--border-color)', transition: 'background-color 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    {editCouponId === cp.id ? (
+                      <>
+                        <td style={tdStyle}>
+                          <input type="text" value={editCouponData.name} onChange={(e) => setEditCouponData({ ...editCouponData, name: e.target.value })} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+                        </td>
+                        <td style={tdStyle}>
+                          <input type="text" value={editCouponData.code} onChange={(e) => setEditCouponData({ ...editCouponData, code: e.target.value })} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', textTransform: 'uppercase' }} />
+                        </td>
+                        <td style={tdStyle}>
+                           <div style={{ display: 'flex', gap: '4px' }}>
+                             <select value={editCouponData.discountType} onChange={(e) => setEditCouponData({ ...editCouponData, discountType: e.target.value })} style={{ width: '60px', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }}>
+                               <option value="Percentage">%</option>
+                               <option value="Fixed">₹</option>
+                             </select>
+                             <input type="number" value={editCouponData.value} onChange={(e) => setEditCouponData({ ...editCouponData, value: e.target.value })} style={{ width: '70px', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+                           </div>
+                        </td>
+                        <td style={tdStyle}>
+                           <input type="number" value={editCouponData.minAmount} onChange={(e) => setEditCouponData({ ...editCouponData, minAmount: e.target.value })} style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1.5px solid var(--border-focus)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ ...tdStyle, fontWeight: '700' }}>{cp.name}</td>
+                        <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750', fontFamily: 'var(--mono)' }}>{cp.code}</td>
+                        <td style={tdStyle}>{cp.discountType === 'Percentage' ? `${cp.value}%` : `₹${cp.value}`} Off</td>
+                        <td style={tdStyle}>₹{cp.minAmount || '0'}</td>
+                      </>
+                    )}
                     <td style={tdStyle}>
                       <span style={{
                         fontSize: '11px',
@@ -285,34 +328,54 @@ const POSCouponsManagement = ({
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                        <button
-                          onClick={() => handleToggleCoupon(cp.id)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: cp.activated ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            color: cp.activated ? '#ef4444' : '#10b981',
-                            fontSize: '12px',
-                            fontWeight: '850',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {cp.activated ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCoupon(cp.id)}
-                          style={{
-                            padding: '6px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {editCouponId === cp.id ? (
+                          <>
+                            <button onClick={() => handleSaveEdit(cp.id)} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Save">
+                              <Save size={14} />
+                            </button>
+                            <button onClick={handleCancelEdit} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Cancel">
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => handleEditClick(cp)} style={{ padding: '6px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }} title="Edit Coupon">
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoupon(cp.id)}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: cp.activated ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                color: cp.activated ? '#ef4444' : '#10b981',
+                                fontSize: '12px',
+                                fontWeight: '850',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {cp.activated ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCoupon(cp.id)}
+                              style={{
+                                padding: '6px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Delete Coupon"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
