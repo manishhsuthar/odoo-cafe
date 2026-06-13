@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-BrewSync is a modern web-based Restaurant Point-of-Sale (POS) and
+Byte & Brew is a modern web-based Restaurant Point-of-Sale (POS) and
 Kitchen Management System designed to digitize cafe operations.
 
 The platform connects the complete restaurant workflow:
@@ -24,7 +24,7 @@ Restaurants commonly face:
 -   Difficulty tracking tables
 -   Lack of real-time business insights
 
-BrewSync provides a complete digital solution to automate restaurant
+Byte & Brew provides a complete digital solution to automate restaurant
 operations.
 
 ------------------------------------------------------------------------
