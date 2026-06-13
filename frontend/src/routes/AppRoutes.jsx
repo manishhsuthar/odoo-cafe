@@ -77,7 +77,7 @@ const AppRoutes = () => {
       <Route
         path="/orders"
         element={
-          <PrivateRoute adminOnly>
+          <PrivateRoute>
             <Orders />
           </PrivateRoute>
         }
