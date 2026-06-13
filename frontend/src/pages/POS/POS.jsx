@@ -424,6 +424,7 @@ const POS = ({ view = 'pos' }) => {
       return prev;
     });
   };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Table Floor Plan modal
@@ -696,25 +697,27 @@ const POS = ({ view = 'pos' }) => {
         discountAmount: discountAmount
       });
       addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
-      alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
+      alert(`Order sent to Kitchen successfully for ${activeTable}!\\nTotal Amount: ₹${total}`);
       setTableCarts(prev => ({
         ...prev,
         [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
       }));
+      if (activeTable !== 'Takeaway') {
+        setTablesList(prev => {
+          const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'occupied' } : t);
+          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+          return updated;
+        });
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to send order to kitchen');
     }
   };
 
-  // Collect Payment (Paid)
-  const collectPayment = async () => {
-    if (cart.length === 0) {
-      alert('Your cart is empty.');
-      return;
-    }
-    const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
+  const processPayment = async () => {
     try {
+      const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
       const newOrder = await addOrder({
         table: activeTable,
         amount: total,
@@ -725,15 +728,39 @@ const POS = ({ view = 'pos' }) => {
         discountAmount: discountAmount
       });
       addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
-      alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
+      alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\\nTable: ${activeTable}`);
       setCart([]);
       setPaidAmount('0');
       setAppliedCoupon(null);
       setDiscountAmount(0);
+      setTableCarts(prev => ({
+        ...prev,
+        [activeTable]: { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' }
+      }));
+      if (activeTable !== 'Takeaway') {
+        setTablesList(prev => {
+          const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'free' } : t);
+          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+          return updated;
+        });
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to collect payment');
     }
+  };
+
+  // Collect Payment (Paid)
+  const collectPayment = async () => {
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      return;
+    }
+    if (selectedPayment === 'UPI') {
+      setIsQrModalOpen(true);
+      return;
+    }
+    await processPayment();
   };
 
   // Search filter
@@ -1086,7 +1113,41 @@ const POS = ({ view = 'pos' }) => {
           </div>
 
           <div style={headerButtonsStyle}>
-            {/* Table Selection Button */}
+            {/* QR Code Payment Modal */}
+      {isQrModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-card)', padding: '30px', borderRadius: '20px',
+            textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', width: '350px'
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '22px', color: 'var(--text-primary)' }}>UPI Payment</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Scan the QR Code to pay ₹{total}</p>
+            <div style={{ padding: '15px', background: '#fff', display: 'inline-block', borderRadius: '15px', marginBottom: '20px' }}>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=merchant@upi&pn=Cafe&am=${total}&cu=INR`} alt="UPI QR Code" />
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => setIsQrModalOpen(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => { setIsQrModalOpen(false); processPayment(); }}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: '#10b981', border: 'none', color: '#fff', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Mark Paid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Takeaway / Table Selection Modal */}
             <button
               onClick={() => setIsTableModalOpen(true)}
               style={{
