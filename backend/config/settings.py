@@ -21,8 +21,11 @@ INSTALLED_APPS = [
     'corsheaders',
 
     'accounts',
-    'core',
+    'channels',
+    'kds',
     'pos',
+    'reports',
+    'inventory',
     'content',
     'floors',
     'customers',
@@ -105,4 +108,15 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+ASGI_APPLICATION = "config.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
 }

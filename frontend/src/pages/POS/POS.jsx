@@ -276,7 +276,7 @@ const POS = ({ view = 'pos' }) => {
   };
 
   // Categories Handlers
-  const handleAddCategory = (e) => {
+  const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName) return;
     const newCat = {
@@ -295,7 +295,8 @@ const POS = ({ view = 'pos' }) => {
     alert('Category added successfully!');
   };
 
-  const handleDeleteCategory = (catName) => {
+  const handleDeleteCategory = async (cat) => {
+    const catName = getSafeCategoryString(cat);
     if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
       const current = JSON.parse(localStorage.getItem('categories') || '[]');
       const updated = current.filter(c => c.name !== catName);

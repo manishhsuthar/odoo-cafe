@@ -20,55 +20,55 @@ const camelizeKeys = (obj) => {
 };
 
 export const getCategories = async () => {
-  const res = await axiosInstance.get('/categories/');
+  const res = await axiosInstance.get('/api/categories/');
   return camelizeKeys(res.data);
 };
 
 export const deleteCategory = async (id) => {
-  await axiosInstance.delete(`/categories/${id}/`);
+  await axiosInstance.delete(`/api/categories/${id}/`);
 };
 
 export const addCategory = async (category) => {
-  const res = await axiosInstance.post('/categories/', category);
+  const res = await axiosInstance.post('/api/categories/', category);
   return camelizeKeys(res.data);
 };
 
 // Products
 export const getProducts = async () => {
-  const res = await axiosInstance.get('/products/');
+  const res = await axiosInstance.get('/api/products/');
   return camelizeKeys(res.data);
 };
 
 export const addProduct = async (product) => {
-  const res = await axiosInstance.post('/products/', {
+  const res = await axiosInstance.post('/api/products/', {
     ...product,
-    category: product.category_id || undefined,
+    category: product.category || product.categoryId || product.category_id,
   });
   return camelizeKeys(res.data);
 };
 
 export const updateProduct = async (id, data) => {
-  const res = await axiosInstance.put(`/products/${id}/`, data);
+  const res = await axiosInstance.put(`/api/products/${id}/`, data);
   return camelizeKeys(res.data);
 };
 
 export const deleteProduct = async (id) => {
-  await axiosInstance.delete(`/products/${id}/`);
+  await axiosInstance.delete(`/api/products/${id}/`);
 };
 
 // Orders
 export const getOrders = async () => {
-  const res = await axiosInstance.get('/orders/');
+  const res = await axiosInstance.get('/api/orders/');
   return camelizeKeys(res.data);
 };
 
 export const addOrder = async (order) => {
-  const res = await axiosInstance.post('/orders/', order);
+  const res = await axiosInstance.post('/api/orders/', order);
   return camelizeKeys(res.data);
 };
 
 export const updateOrderStatus = async (id, status, paymentMethod) => {
-  const res = await axiosInstance.patch(`/orders/${id}/status/`, {
+  const res = await axiosInstance.patch(`/api/orders/${id}/status/`, {
     status,
     payment_method: paymentMethod,
   });
@@ -76,58 +76,58 @@ export const updateOrderStatus = async (id, status, paymentMethod) => {
 };
 
 export const deleteOrder = async (id) => {
-  await axiosInstance.delete(`/orders/${id}/`);
+  await axiosInstance.delete(`/api/orders/${id}/`);
 };
 
 // Customers
 export const getCustomers = async () => {
-  const res = await axiosInstance.get('/customers/');
+  const res = await axiosInstance.get('/api/customers/');
   return camelizeKeys(res.data);
 };
 
 export const addCustomer = async (data) => {
-  const res = await axiosInstance.post('/customers/', data);
+  const res = await axiosInstance.post('/api/customers/', data);
   return camelizeKeys(res.data);
 };
 
 export const updateCustomer = async (id, data) => {
-  const res = await axiosInstance.put(`/customers/${id}/`, data);
+  const res = await axiosInstance.put(`/api/customers/${id}/`, data);
   return camelizeKeys(res.data);
 };
 
 export const deleteCustomer = async (id) => {
-  await axiosInstance.delete(`/customers/${id}/`);
+  await axiosInstance.delete(`/api/customers/${id}/`);
 };
 
 // Tables
 export const getTables = async () => {
-  const res = await axiosInstance.get('/tables/');
+  const res = await axiosInstance.get('/api/tables/');
   return camelizeKeys(res.data);
 };
 
 export const updateTable = async (id, data) => {
-  const res = await axiosInstance.put(`/tables/${id}/`, data);
+  const res = await axiosInstance.put(`/api/tables/${id}/`, data);
   return camelizeKeys(res.data);
 };
 
 // Coupons
 export const getCoupons = async () => {
-  const res = await axiosInstance.get('/coupons/');
+  const res = await axiosInstance.get('/api/coupons/');
   return camelizeKeys(res.data);
 };
 
 export const addCoupon = async (data) => {
-  const res = await axiosInstance.post('/coupons/', data);
+  const res = await axiosInstance.post('/api/coupons/', data);
   return camelizeKeys(res.data);
 };
 
 export const updateCoupon = async (id, data) => {
-  const res = await axiosInstance.patch(`/coupons/${id}/`, data);
+  const res = await axiosInstance.patch(`/api/coupons/${id}/`, data);
   return camelizeKeys(res.data);
 };
 
 export const deleteCoupon = async (id) => {
-  await axiosInstance.delete(`/coupons/${id}/`);
+  await axiosInstance.delete(`/api/coupons/${id}/`);
 };
 
 // Payment Methods
@@ -144,22 +144,28 @@ export const savePaymentMethods = async (methods) => {
 
 // Employees
 export const getEmployees = async () => {
-  const res = await axiosInstance.get('/auth/users/');
+  const res = await axiosInstance.get('/api/auth/users/');
   return camelizeKeys(res.data);
 };
 
 export const addEmployee = async (employee) => {
-  const res = await axiosInstance.post('/auth/register/', {
+  let role = employee.role ? employee.role.toLowerCase() : 'cashier';
+  if (role === 'chef') {
+    role = 'kitchen';
+  } else if (role === 'manager') {
+    role = 'admin';
+  }
+  const res = await axiosInstance.post('/api/auth/register/', {
     email: employee.email,
     full_name: employee.fullName || employee.name,
-    role: employee.role ? employee.role.toLowerCase() : 'cashier',
+    role: role,
     password: employee.password
   });
   return camelizeKeys(res.data);
 };
 
 export const deleteEmployee = async (id) => {
-  await axiosInstance.delete(`/auth/users/${id}/`);
+  await axiosInstance.delete(`/api/auth/users/${id}/`);
 };
 
 export const getEmployeeLogs = () => {
