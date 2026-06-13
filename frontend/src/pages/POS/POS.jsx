@@ -20,6 +20,29 @@ import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
 import { getCategories, getProducts, addOrder, getCoupons, addCoupon, updateCoupon, deleteCoupon, getEmployees, addEmployee, deleteEmployee, getPaymentMethods, getOrders } from '../../utils/db';
 
+const getSafeCategoryString = (category) => {
+  if (category === null || category === undefined) {
+    console.warn('Invalid category value encountered: value is null or undefined.');
+    return '';
+  }
+  if (typeof category === 'string') {
+    return category;
+  }
+  if (typeof category === 'number') {
+    console.warn('Invalid category value encountered: value is a number.', category);
+    return String(category);
+  }
+  if (typeof category === 'object') {
+    if (category.name !== undefined && category.name !== null) {
+      return String(category.name);
+    }
+    console.warn('Invalid category value encountered: value is an object without a valid name property.', category);
+    return '';
+  }
+  console.warn('Invalid category value encountered: value is of type ' + typeof category, category);
+  return String(category);
+};
+
 const POS = ({ view = 'pos' }) => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -189,7 +212,7 @@ const POS = ({ view = 'pos' }) => {
     setNewCategoryName('');
     
     // Update lists
-    setCategoriesList(current.map(c => c.name));
+    setCategoriesList(current.map(c => getSafeCategoryString(c.name)).filter(Boolean));
     addLogEntry(`Added new category: ${newCat.name}`, 'success');
     alert('Category added successfully!');
   };
@@ -199,7 +222,7 @@ const POS = ({ view = 'pos' }) => {
       const current = JSON.parse(localStorage.getItem('categories') || '[]');
       const updated = current.filter(c => c.name !== catName);
       localStorage.setItem('categories', JSON.stringify(updated));
-      setCategoriesList(updated.map(c => c.name));
+      setCategoriesList(updated.map(c => getSafeCategoryString(c.name)).filter(Boolean));
       addLogEntry(`Deleted category: ${catName}`, 'danger');
     }
   };
@@ -428,10 +451,11 @@ const POS = ({ view = 'pos' }) => {
         getCoupons().catch(() => []),
       ]);
       setCouponList(Array.isArray(coupData) ? coupData : []);
-      setCategoriesList(cats.map(c => c.name));
+      const safeCatsList = (cats || []).map(c => getSafeCategoryString(c)).filter(Boolean);
+      setCategoriesList(safeCatsList);
       setProductsList(prods);
-      if (cats.length > 0) {
-        setSelectedCategory(cats[0].name);
+      if (safeCatsList.length > 0) {
+        setSelectedCategory(safeCatsList[0]);
       }
       const list = Array.isArray(pmData) ? pmData : [];
       const active = list.filter(m => m.activated).map(m => ({
@@ -559,9 +583,9 @@ const POS = ({ view = 'pos' }) => {
     if (appliedCoupon.targetType === 'All' || !appliedCoupon.targetType) {
       discountableSum = subTotal;
     } else if (appliedCoupon.targetType === 'Category') {
-      const cat = appliedCoupon.targetValue.toLowerCase();
+      const cat = getSafeCategoryString(appliedCoupon.targetValue).toLowerCase();
       discountableSum = cart.reduce((acc, item) => {
-        if (item.category && item.category.toLowerCase() === cat) {
+        if (getSafeCategoryString(item.category).toLowerCase() === cat) {
           return acc + (item.price * item.quantity);
         }
         return acc;
@@ -643,37 +667,42 @@ const POS = ({ view = 'pos' }) => {
     addLogEntry(`Cleared coupon code`, 'warning');
   };
 
-  const handleAddNewProduct = (e) => {
+  const handleAddNewProduct = async (e) => {
     e.preventDefault();
     if (!newProdName || !newProdPrice || !newProdCategory) {
       alert('Please fill out Name, Price and Category.');
       return;
     }
-    const newProd = {
-      name: newProdName,
-      price: parseFloat(newProdPrice),
-      category: newProdCategory,
-      description: newProdDesc || 'Custom POS Product',
-      tax: 5
-    };
-    const saved = addProduct(newProd);
-    addLogEntry(`Created and added new product: ${saved.name} to ${saved.category}`, 'success');
-    
-    // Refresh product lists
-    const prods = getProducts();
-    setProductsList(prods);
+    try {
+      const newProd = {
+        name: newProdName,
+        price: parseFloat(newProdPrice),
+        category: newProdCategory,
+        description: newProdDesc || 'Custom POS Product',
+        tax: 5
+      };
+      const saved = await addProduct(newProd);
+      addLogEntry(`Created and added new product: ${saved.name} to ${getSafeCategoryString(saved.category)}`, 'success');
+      
+      // Refresh product lists
+      const prods = await getProducts();
+      setProductsList(prods);
 
-    // Refresh categories in case it is new
-    const cats = getCategories();
-    setCategoriesList(cats.map(c => c.name));
+      // Refresh categories in case it is new
+      const cats = await getCategories();
+      setCategoriesList(cats.map(c => getSafeCategoryString(c)).filter(Boolean));
 
-    // Clear form & close modal
-    setNewProdName('');
-    setNewProdPrice('');
-    setNewProdCategory('');
-    setNewProdDesc('');
-    setIsAddProductModalOpen(false);
-    alert('Product added successfully!');
+      // Clear form & close modal
+      setNewProdName('');
+      setNewProdPrice('');
+      setNewProdCategory('');
+      setNewProdDesc('');
+      setIsAddProductModalOpen(false);
+      alert('Product added successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add product');
+    }
   };
 
   // Numpad input handler
@@ -737,12 +766,16 @@ const POS = ({ view = 'pos' }) => {
     setDiscountAmount(0);
     await loadOrders();
   };
-
+  console.log(productsList);
+  console.log(productsList.map(p => getSafeCategoryString(p.category)));
   // Search filter
-  const filteredProducts = productsList.filter((p) =>
-    p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase() &&
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = productsList.filter((p) => {
+    if (!p) return false;
+    const name = (p.name || '').toLowerCase();
+    const q = (searchCatalogQuery || '').toLowerCase();
+    const cat = getSafeCategoryString(p.category);
+    return name.includes(q) && (selectedCategory ? cat === selectedCategory : true);
+  });
 
   const handleSidebarNavigation = (path) => {
     setIsSidebarOpen(false);
@@ -1343,36 +1376,41 @@ const POS = ({ view = 'pos' }) => {
                   Add New Product
                 </h3>
                 
-                <form onSubmit={(e) => {
+                <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!newProdName || !newProdPrice || !newProdCategory) {
                     alert('Please fill out Name, Price and Category.');
                     return;
                   }
-                  const newProd = {
-                    name: newProdName,
-                    price: parseFloat(newProdPrice),
-                    category: newProdCategory,
-                    description: newProdDesc || 'Custom POS Product',
-                    tax: 5
-                  };
-                  const saved = addProduct(newProd);
-                  addLogEntry(`Created and added new product: ${saved.name} to ${saved.category}`, 'success');
-                  
-                  // Refresh product lists
-                  const prods = getProducts();
-                  setProductsList(prods);
+                  try {
+                    const newProd = {
+                      name: newProdName,
+                      price: parseFloat(newProdPrice),
+                      category: newProdCategory,
+                      description: newProdDesc || 'Custom POS Product',
+                      tax: 5
+                    };
+                    const saved = await addProduct(newProd);
+                    addLogEntry(`Created and added new product: ${saved.name} to ${getSafeCategoryString(saved.category)}`, 'success');
+                    
+                    // Refresh product lists
+                    const prods = await getProducts();
+                    setProductsList(prods);
 
-                  // Refresh categories list
-                  const cats = getCategories();
-                  setCategoriesList(cats.map(c => c.name));
+                    // Refresh categories list
+                    const cats = await getCategories();
+                    setCategoriesList(cats.map(c => getSafeCategoryString(c)).filter(Boolean));
 
-                  // Clear form
-                  setNewProdName('');
-                  setNewProdPrice('');
-                  setNewProdCategory('');
-                  setNewProdDesc('');
-                  alert('Product added successfully!');
+                    // Clear form
+                    setNewProdName('');
+                    setNewProdPrice('');
+                    setNewProdCategory('');
+                    setNewProdDesc('');
+                    alert('Product added successfully!');
+                  } catch (err) {
+                    console.error(err);
+                    alert('Failed to add product');
+                  }
                 }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
                   
                   {/* Name */}
@@ -1437,9 +1475,10 @@ const POS = ({ view = 'pos' }) => {
                       }}
                     >
                       <option value="">Select Category</option>
-                      {categoriesList.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
+                      {categoriesList.map(cat => {
+                        const catStr = getSafeCategoryString(cat);
+                        return <option key={catStr} value={catStr}>{catStr}</option>;
+                      })}
                     </select>
                   </div>
 
@@ -1513,9 +1552,10 @@ const POS = ({ view = 'pos' }) => {
                   <tbody>
                     {(() => {
                       const filtered = productsList.filter((prod) => {
-                        const q = searchCatalogQuery.toLowerCase();
+                        if (!prod) return false;
+                        const q = (searchCatalogQuery || '').toLowerCase();
                         const name = (prod.name || '').toLowerCase();
-                        const cat = (prod.category || '').toLowerCase();
+                        const cat = getSafeCategoryString(prod.category).toLowerCase();
                         return name.includes(q) || cat.includes(q);
                       });
 
@@ -1541,7 +1581,7 @@ const POS = ({ view = 'pos' }) => {
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           >
                             <td style={{ ...tdStyle, fontWeight: '700' }}>{prod.name}</td>
-                            <td style={tdStyle}>{prod.category}</td>
+                            <td style={tdStyle}>{getSafeCategoryString(prod.category)}</td>
                             <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{prod.price}</td>
                             <td style={tdStyle}>
                               <span style={{
@@ -1736,9 +1776,11 @@ const POS = ({ view = 'pos' }) => {
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = categoriesList.filter(cat => 
-                        cat.toLowerCase().includes(searchCategoriesQuery.toLowerCase())
-                      );
+                      const filtered = categoriesList.filter(cat => {
+                        const catStr = getSafeCategoryString(cat).toLowerCase();
+                        const query = (searchCategoriesQuery || '').toLowerCase();
+                        return catStr.includes(query);
+                      });
                       if (filtered.length === 0) {
                         return (
                           <tr>
@@ -3128,15 +3170,18 @@ const POS = ({ view = 'pos' }) => {
             <>
               {/* Categories Sidebar */}
               <div style={categorySidebarStyle}>
-                {categoriesList.map((cat) => (
-                  <button
-                    key={cat}
-                    style={catBtnStyle(selectedCategory === cat)}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {categoriesList.map((cat) => {
+                  const catStr = getSafeCategoryString(cat);
+                  return (
+                    <button
+                      key={catStr}
+                      style={catBtnStyle(selectedCategory === catStr)}
+                      onClick={() => setSelectedCategory(catStr)}
+                    >
+                      {catStr}
+                    </button>
+                  );
+                })}
                 
                 {user?.role === 'admin' && (
                   <button
@@ -4050,9 +4095,10 @@ const POS = ({ view = 'pos' }) => {
                 }}
               >
                 <option value="">Select Category</option>
-                {categoriesList.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
+                {categoriesList.map(cat => {
+                  const catStr = getSafeCategoryString(cat);
+                  return <option key={catStr} value={catStr}>{catStr}</option>;
+                })}
               </select>
             </div>
 
