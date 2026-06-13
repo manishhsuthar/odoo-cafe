@@ -12,6 +12,11 @@
   --border-focus: #d09d6e;
   --input-bg: #181411;
 
+  /* Primary Button Variables */
+  --bg-primary-button: #d09d6e;
+  --bg-primary-button-hover: #e0b080;
+  --text-primary-button: #110f0d;
+
   /* Fonts */
   --font-standard: "Outfit", sans-serif;
   --font-handwritten: "Outfit", sans-serif;
@@ -27,7 +32,7 @@ body.light-theme {
   --bg-primary: #f5ece1;
   --bg-card: #ffffff;
   --bg-button: #e8ded2;
-  --bg-button-hover: #d2c5b7;
+  --bg-button-hover: #d3a370;
   --text-primary: #2b2621;
   --text-secondary: #70645a;
   --text-link: #8c7662;
@@ -36,4 +41,9 @@ body.light-theme {
   --border-focus: #bfae9e;
   --input-bg: #faf8f5;
   --card-shadow: 0 10px 40px rgba(43, 38, 33, 0.15);
+
+  /* Primary Button Variables */
+  --bg-primary-button: #8c7662;
+  --bg-primary-button-hover: #76614f;
+  --text-primary-button: #ffffff;
 }

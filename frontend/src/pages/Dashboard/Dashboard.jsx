@@ -21,6 +21,7 @@ const Dashboard = () => {
     employeesOnShift: 0
   });
   const [recentActivities, setRecentActivities] = useState([]);
+  const [viewAll, setViewAll] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -48,13 +49,18 @@ const Dashboard = () => {
         employeesOnShift: activeLogs.length
       });
 
-      // Recent activities from recent orders
-      const activities = orders.slice(0, 5).map(o => ({
+      // Filter activities to only include orders of "today" (that day) sorted newest first
+      const today = new Date().toDateString();
+      const todayOrders = orders
+        .filter(o => o.dateTime && new Date(o.dateTime).toDateString() === today)
+        .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+
+      const activities = todayOrders.map(o => ({
         id: o.id,
         iconColor: o.status === 'Paid' ? '#10b981' : '#f59e0b',
         icon: ShoppingBag,
         title: o.status === 'Paid' ? `Payment collected - ${o.table}` : `Order sent to kitchen - ${o.table}`,
-        time: o.dateTime ? new Date(o.dateTime).toLocaleString() : 'Just now',
+        time: o.dateTime ? new Date(o.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
         type: o.status === 'Paid' ? 'payment' : 'order',
         meta: o.status === 'Paid' ? `₹${o.amount}` : o.items ? `${o.items.split(',').length} items` : ''
       }));
@@ -351,7 +357,27 @@ const Dashboard = () => {
 
           {/* Recent Activity Section */}
           <div>
-            <h2 style={sectionTitleStyle}>Recent Activity</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Recent Activity</h2>
+              {recentActivities.length > 5 && (
+                <button
+                  onClick={() => setViewAll(!viewAll)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--border-focus)',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                  {viewAll ? 'View Less' : 'View All'}
+                </button>
+              )}
+            </div>
             <div style={{
               backgroundColor: 'var(--bg-card)',
               borderRadius: '20px',
@@ -366,15 +392,15 @@ const Dashboard = () => {
                   No recent activity yet
                 </div>
               ) : (
-                recentActivities.map((act, idx) => (
+                (viewAll ? recentActivities : recentActivities.slice(0, 5)).map((act, idx, arr) => (
                   <div
                     key={act.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      paddingBottom: idx !== recentActivities.length - 1 ? '16px' : '0',
-                      borderBottom: idx !== recentActivities.length - 1 ? '1px solid var(--border-color)' : 'none',
+                      paddingBottom: idx !== arr.length - 1 ? '16px' : '0',
+                      borderBottom: idx !== arr.length - 1 ? '1px solid var(--border-color)' : 'none',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
