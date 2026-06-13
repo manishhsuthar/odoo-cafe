@@ -1,0 +1,23 @@
+:root {
+  /* Café/Restaurant Theme Palette */
+  --bg-primary: #f5ece1;
+  --bg-card: #ffffff;
+  --bg-button: #bfae9e;
+  --bg-button-hover: #ab9b8b;
+  --text-primary: #2b2621;
+  --text-secondary: #70645a;
+  --text-link: #8c7662;
+  --text-link-hover: #5c4d40;
+  --border-color: #e6ded6;
+  --border-focus: #bfae9e;
+  --input-bg: #faf8f5;
+
+  /* Fonts */
+  --font-standard: "Outfit", sans-serif;
+  --font-handwritten: "Architects Daughter", cursive, sans-serif;
+
+  /* Premium Box styling */
+  --card-shadow: 0 10px 40px rgba(43, 38, 33, 0.15);
+  --border-radius: 16px;
+  --transition-speed: 0.25s;
+}
