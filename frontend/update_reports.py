@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { Download, ChevronDown, TrendingUp, Receipt, BarChart3, Clock } from 'lucide-react';
-import { bodyOrdersStyle } from './POSSharedStyles';
+import re
 
-const POSReports = ({
-  ordersList,
-  logs,
-  reloadManagementData
-}) => {
-    const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+file_path = '/home/manish/Projects/odooo/frontend/src/pages/POS/components/POSReports.jsx'
+
+with open(file_path, 'r') as f:
+    content = f.read()
+
+# 1. Update Imports
+content = content.replace("import React from 'react';", "import React, { useState } from 'react';\nimport { Download, ChevronDown, TrendingUp, Receipt, BarChart3, Clock } from 'lucide-react';")
+
+# 2. Add handlers and state
+handlers = """  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   // Calculate statistics
   const totalRevenue = ordersList.reduce((acc, o) => acc + o.amount, 0);
@@ -25,16 +27,16 @@ const POSReports = ({
   }, {});
 
   const handleExportXLS = () => {
-    let csvContent = "POS ANALYTICS REPORT\r\nGenerated At," + new Date().toLocaleString() + "\r\n\r\n";
-    csvContent += "METRIC,VALUE\r\n";
-    csvContent += `Gross Revenue,INR ${totalRevenue}\r\n`;
-    csvContent += `Orders Handled,${totalOrdersCount}\r\n`;
-    csvContent += `Average Ticket,INR ${aov}\r\n`;
-    csvContent += `Outstanding Unpaid,INR ${unpaidRevenue}\r\n\r\n`;
+    let csvContent = "POS ANALYTICS REPORT\\r\\nGenerated At," + new Date().toLocaleString() + "\\r\\n\\r\\n";
+    csvContent += "METRIC,VALUE\\r\\n";
+    csvContent += `Gross Revenue,INR ${totalRevenue}\\r\\n`;
+    csvContent += `Orders Handled,${totalOrdersCount}\\r\\n`;
+    csvContent += `Average Ticket,INR ${aov}\\r\\n`;
+    csvContent += `Outstanding Unpaid,INR ${unpaidRevenue}\\r\\n\\r\\n`;
     
-    csvContent += "PAYMENT DISTRIBUTION\r\nMethod,Amount\r\n";
+    csvContent += "PAYMENT DISTRIBUTION\\r\\nMethod,Amount\\r\\n";
     Object.entries(paymentCounts).forEach(([method, amount]) => {
-      csvContent += `${method === '-' ? 'Unpaid Settlement' : method},${amount}\r\n`;
+      csvContent += `${method === '-' ? 'Unpaid Settlement' : method},${amount}\\r\\n`;
     });
     
     const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
@@ -99,14 +101,18 @@ const POSReports = ({
     printWindow.document.close();
     setIsDownloadOpen(false);
   };
+"""
+
+content = re.sub(
+    r"// Calculate statistics.*?return acc;\n  \}, \{\}\);",
+    handlers,
+    content,
+    flags=re.DOTALL
+)
 
 
-  return (
-    <div style={bodyOrdersStyle}>
-      {/* POS Analytics & Reports page */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>POS Business Reports & Dashboard</h2>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+# 3. Fix header buttons
+new_header_buttons = """        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* Download Report Dropdown */}
           <div style={{ position: 'relative' }}>
             <button
@@ -161,13 +167,19 @@ const POSReports = ({
           >
             Sync Data Log
           </button>
-        </div>
-      </div>
+        </div>"""
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+content = re.sub(
+    r"<button\s+onClick=\{reloadManagementData\}.*?Sync Data Log\s+</button>",
+    new_header_buttons,
+    content,
+    flags=re.DOTALL
+)
 
-        {/* Top Stats Cards row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+# 4. Fix Cards to remove colorful layout and add dark mode elegant styling
+old_cards = r"""<div style={{ display: 'grid', gridTemplateColumns: 'repeat\(auto-fit, minmax\(220px, 1fr\)\)', gap: '20px' }}>.*?</div>\s*</div>\s*\{/\* Payment Distribution"""
+
+new_cards = """<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
           
           <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', boxShadow: 'var(--card-shadow)', position: 'relative', textAlign: 'left' }}>
             <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', marginBottom: '16px' }}>
@@ -203,105 +215,11 @@ const POSReports = ({
 
         </div>
 
-        {/* Payment Distribution and Session Logs Section */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', alignItems: 'start' }}>
+        {/* Payment Distribution"""
 
-          {/* Payment Distribution Card */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1.5px solid var(--border-color)',
-            borderRadius: '20px',
-            padding: '24px',
-            boxShadow: 'var(--card-shadow)',
-            color: 'var(--text-primary)',
-            textAlign: 'left'
-          }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
-              Sales Volume by Payment Option
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {Object.entries(paymentCounts).map(([method, amount]) => {
-                const percentage = totalRevenue > 0 ? ((amount / totalRevenue) * 100).toFixed(1) : 0;
-                return (
-                  <div key={method} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700' }}>
-                      <span>{method === '-' ? 'Unpaid Settlement' : method}</span>
-                      <span>₹{amount} ({percentage}%)</span>
-                    </div>
-                    <div style={{ height: '8px', backgroundColor: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${percentage}%`,
-                        height: '100%',
-                        backgroundColor:
-                          method === 'UPI' ? '#0d9488' :
-                            method === 'Cash' ? '#ea580c' :
-                              method === 'Card' ? '#7c3aed' : '#ef4444',
-                        borderRadius: '4px'
-                      }} />
-                    </div>
-                  </div>
-                );
-              })}
-              {Object.keys(paymentCounts).length === 0 && (
-                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
-                  No sales records computed yet.
-                </div>
-              )}
-            </div>
-          </div>
+content = re.sub(old_cards, new_cards, content, flags=re.DOTALL)
 
-          {/* Active Session Logs Card */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1.5px solid var(--border-color)',
-            borderRadius: '20px',
-            padding: '24px',
-            boxShadow: 'var(--card-shadow)',
-            color: 'var(--text-primary)',
-            textAlign: 'left'
-          }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 20px 0', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '10px' }}>
-              Active POS Operations Logs
-            </h3>
-            <div style={{
-              maxHeight: '260px',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}>
-              {logs.slice(0, 10).map((log) => (
-                <div key={log.id} style={{
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--bg-primary)',
-                  borderLeft: `4px solid ${log.type === 'success' ? '#10b981' :
-                    log.type === 'warning' ? '#ea580c' :
-                      log.type === 'danger' ? '#ef4444' : 'var(--text-secondary)'
-                    }`,
-                  fontSize: '13px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <span>{log.message}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--mono)' }}>{log.time}</span>
-                </div>
-              ))}
-              {logs.length === 0 && (
-                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
-                  No session activity logs registered.
-                </div>
-              )}
-            </div>
-          </div>
+with open(file_path, 'w') as f:
+    f.write(content)
 
-        </div>
-
-      </div>
-
-    </div>
-  );
-};
-
-export default POSReports;
+print("Updates applied!")
