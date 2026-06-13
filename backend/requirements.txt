@@ -15,4 +15,6 @@ daphne==4.2.1
 
 python-dotenv==1.1.1
 
-psycopg2-binary==3.3.4
+psycopg2-binary
+
+djangorestframework-simplejwt
