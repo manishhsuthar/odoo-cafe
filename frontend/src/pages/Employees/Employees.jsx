@@ -2,14 +2,22 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
-import { Trash2, Search, Clock, LogIn, LogOut, ShieldAlert } from 'lucide-react';
-import { getEmployees, getEmployeeLogs, saveEmployeeLogs } from '../../utils/db';
+import { Trash2, Search, Clock, LogIn, LogOut, ShieldAlert, X } from 'lucide-react';
+import { getEmployees, getEmployeeLogs, saveEmployeeLogs, addEmployee } from '../../utils/db';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
   const [logs, setLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+
+  // Modal & form states for adding new employees
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newEmpName, setNewEmpName] = useState('');
+  const [newEmpEmail, setNewEmpEmail] = useState('');
+  const [newEmpRole, setNewEmpRole] = useState('chef');
+  const [newEmpPassword, setNewEmpPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -80,6 +88,38 @@ const Employees = () => {
     return matchesSearch && matchesRole;
   });
 
+  const handleAddEmployeeSubmit = async (e) => {
+    e.preventDefault();
+    if (!newEmpName || !newEmpEmail || !newEmpPassword) {
+      alert('Please fill out all fields.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await addEmployee({
+        name: newEmpName,
+        email: newEmpEmail,
+        role: newEmpRole,
+        password: newEmpPassword
+      });
+      alert('Employee registered successfully!');
+      setIsAddModalOpen(false);
+      // Reset form
+      setNewEmpName('');
+      setNewEmpEmail('');
+      setNewEmpRole('chef');
+      setNewEmpPassword('');
+      // Reload employee list
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.detail || err.response?.data?.message || 'Failed to register employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const headers = ['Emp ID', 'Name', 'Email', 'Login Time', 'Logout Time', 'Role', 'Action'];
 
   return (
@@ -96,6 +136,26 @@ const Employees = () => {
               <h2 className="handwritten" style={{ fontSize: '28px', color: 'var(--text-primary)', margin: 0 }}>Staff Attendance & Shifts</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Manage shift durations, login / logout timings, and security clearance roles.</p>
             </div>
+            
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              style={{
+                backgroundColor: 'var(--border-focus)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(234, 88, 12, 0.2)'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--border-focus-hover, #d24e0b)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--border-focus)'}
+            >
+              Add Employee
+            </button>
           </div>
 
           {/* Filters Bar */}
@@ -287,6 +347,184 @@ const Employees = () => {
           </div>
         </main>
       </div>
+
+      {/* Add Employee Modal */}
+      {isAddModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 100,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          backdropFilter: 'blur(4px)',
+        }}
+        onClick={() => setIsAddModalOpen(false)}
+        >
+          <div style={{
+            width: '400px',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            padding: '28px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Register New Employee</h3>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddEmployeeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', textAlign: 'left' }}>Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe"
+                  value={newEmpName}
+                  onChange={(e) => setNewEmpName(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', textAlign: 'left' }}>Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. john@cafe.com"
+                  value={newEmpEmail}
+                  onChange={(e) => setNewEmpEmail(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', textAlign: 'left' }}>Assign Role</label>
+                <select
+                  value={newEmpRole}
+                  onChange={(e) => setNewEmpRole(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s'
+                  }}
+                >
+                  <option value="chef">Chef</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', textAlign: 'left' }}>Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Min 6 characters"
+                  value={newEmpPassword}
+                  onChange={(e) => setNewEmpPassword(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'var(--bg-button)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'var(--border-focus)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  {submitting ? 'Registering...' : 'Register'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

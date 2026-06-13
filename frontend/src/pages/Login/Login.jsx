@@ -33,15 +33,15 @@ const Login = () => {
     const errors = {};
     if (!loginEmail) errors.email = 'Email Address is required';
     if (!loginPassword) errors.password = 'Password is required';
-    
+
     if (Object.keys(errors).length > 0) {
       setLoginErrors(errors);
       return;
     }
-    
+
     setLoginErrors({});
     const result = await login(loginEmail, loginPassword);
-    
+
     if (result.success) {
       if (result.role === 'admin') {
         navigate('/dashboard');
@@ -62,12 +62,12 @@ const Login = () => {
     if (!signUpEmail) errors.email = 'Email Address is required';
     if (!signUpPassword) errors.password = 'Password is required';
     if (!agreeTerms) errors.terms = 'You must agree to the Terms & Conditions';
-    
+
     if (Object.keys(errors).length > 0) {
       setSignUpErrors(errors);
       return;
     }
-    
+
     setSignUpErrors({});
     alert('Registration is not available. Please contact your administrator to create an account.');
     setIsLogin(true);
@@ -179,7 +179,7 @@ const Login = () => {
           <div style={{ width: '100%' }}>
             <h1 style={titleStyle}>Welcome Back</h1>
             <p style={subtitleStyle}>Sign in to your restaurant account</p>
- 
+
             <form onSubmit={handleLoginSubmit} style={{ width: '100%' }}>
               {loginGeneralError && (
                 <div style={{
@@ -195,7 +195,7 @@ const Login = () => {
                   {loginGeneralError}
                 </div>
               )}
- 
+
               <Input
                 label="EMAIL ADDRESS"
                 type="email"
@@ -205,7 +205,7 @@ const Login = () => {
                 onChange={(e) => setLoginEmail(e.target.value)}
                 error={loginErrors.email}
               />
- 
+
               <Input
                 label="PASSWORD"
                 type="password"
@@ -215,7 +215,7 @@ const Login = () => {
                 onChange={(e) => setLoginPassword(e.target.value)}
                 error={loginErrors.password}
               />
- 
+
               {/* Remember Me & Forgot Password Row */}
               <div style={{
                 display: 'flex',
@@ -246,8 +246,8 @@ const Login = () => {
                   />
                   Remember me
                 </label>
-                <a 
-                  href="#forgot" 
+                <a
+                  href="#forgot"
                   style={{
                     color: 'var(--text-link)',
                     fontWeight: '600',
@@ -269,8 +269,8 @@ const Login = () => {
 
             <p style={footerTextStyle}>
               Don't have an account?{' '}
-              <button 
-                style={linkStyle} 
+              <button
+                style={linkStyle}
                 onClick={() => {
                   setIsLogin(false);
                   setSignUpErrors({});
@@ -361,8 +361,8 @@ const Login = () => {
 
             <p style={footerTextStyle}>
               Already have an account?{' '}
-              <button 
-                style={linkStyle} 
+              <button
+                style={linkStyle}
                 onClick={() => {
                   setIsLogin(true);
                   setLoginErrors({});
