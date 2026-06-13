@@ -115,6 +115,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/pos-products"
+        element={
+          <PrivateRoute>
+            <POS view="products" />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/pos-sessions"
         element={
           <PrivateRoute adminOnly>
