@@ -26,20 +26,13 @@ const POSSessions = () => {
   const loadLogs = () => {
     const storedLogs = localStorage.getItem('pos_session_logs');
     if (storedLogs) {
-      setLogs(JSON.parse(storedLogs));
+      try {
+        setLogs(JSON.parse(storedLogs));
+      } catch {
+        setLogs([]);
+      }
     } else {
-      // Seed default logs if none exist
-      const initialLogs = [
-        { id: 'l1', time: '09:00:15 AM', message: 'System initialization check: Passed', type: 'success', category: 'System' },
-        { id: 'l2', time: '09:05:40 AM', message: 'User logged in: Admin (ADMIN)', type: 'success', category: 'Authentication' },
-        { id: 'l3', time: '09:15:22 AM', message: 'Table F4 reserved for Jane Smith', type: 'warning', category: 'Tables' },
-        { id: 'l4', time: '10:30:10 AM', message: 'Sent Order OR-1082 to Kitchen (Unpaid) for Table 12: 2 x Veg Sandwich', type: 'warning', category: 'Orders' },
-        { id: 'l5', time: '10:45:00 AM', message: 'Collected payment of ₹300 via Cash for Table 12 (Order: OR-1082)', type: 'success', category: 'Payments' },
-        { id: 'l6', time: '11:15:30 AM', message: 'Table F4 occupied', type: 'danger', category: 'Tables' },
-        { id: 'l7', time: '12:00:05 PM', message: 'Table F4 cleared (free)', type: 'success', category: 'Tables' }
-      ];
-      setLogs(initialLogs);
-      localStorage.setItem('pos_session_logs', JSON.stringify(initialLogs));
+      setLogs([]);
     }
   };
 

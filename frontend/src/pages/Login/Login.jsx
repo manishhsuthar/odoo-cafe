@@ -27,7 +27,7 @@ const Login = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [signUpErrors, setSignUpErrors] = useState({});
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginGeneralError('');
     const errors = {};
@@ -40,7 +40,7 @@ const Login = () => {
     }
     
     setLoginErrors({});
-    const result = login(loginEmail, loginPassword);
+    const result = await login(loginEmail, loginPassword);
     
     if (result.success) {
       if (result.role === 'admin') {

@@ -26,8 +26,9 @@ const Categories = () => {
     loadCategories();
   }, []);
 
-  const loadCategories = () => {
-    setCategories(getCategories());
+  const loadCategories = async () => {
+    const data = await getCategories();
+    setCategories(data);
   };
 
   const handleInputChange = (e) => {

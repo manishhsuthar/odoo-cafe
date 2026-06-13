@@ -18,8 +18,9 @@ const Orders = () => {
     loadOrders();
   }, []);
 
-  const loadOrders = () => {
-    setOrders(getOrders());
+  const loadOrders = async () => {
+    const data = await getOrders();
+    setOrders(data);
   };
 
   const handleStatusChange = (orderId, newStatus, payMethod = '-') => {

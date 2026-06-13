@@ -2,32 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { Layers, CalendarClock, User, Check, X, LogIn, RefreshCcw } from 'lucide-react';
-
-const DEFAULT_TABLES = [
-  // First Floor Tables
-  { id: 'f1', name: 'f1', floor: 1, status: 'free', customerName: '' },
-  { id: 'f2', name: 'f2', floor: 1, status: 'occupied', customerName: '' },
-  { id: 'f3', name: 'f3', floor: 1, status: 'free', customerName: '' },
-  { id: 'f4', name: 'f4', floor: 1, status: 'reserved', customerName: 'Jane Smith' },
-  { id: 'f5', name: 'f5', floor: 1, status: 'free', customerName: '' },
-  { id: 'f6', name: 'f6', floor: 1, status: 'occupied', customerName: '' },
-  { id: 'f7', name: 'f7', floor: 1, status: 'free', customerName: '' },
-  { id: 'f8', name: 'f8', floor: 1, status: 'free', customerName: '' },
-  { id: 'f9', name: 'f9', floor: 1, status: 'reserved', customerName: 'Alex Green' },
-  { id: 'f10', name: 'f10', floor: 1, status: 'free', customerName: '' },
-  
-  // Second Floor Tables
-  { id: 's1', name: 's1', floor: 2, status: 'free', customerName: '' },
-  { id: 's2', name: 's2', floor: 2, status: 'free', customerName: '' },
-  { id: 's3', name: 's3', floor: 2, status: 'occupied', customerName: '' },
-  { id: 's4', name: 's4', floor: 2, status: 'free', customerName: '' },
-  { id: 's5', name: 's5', floor: 2, status: 'reserved', customerName: 'David Miller' },
-  { id: 's6', name: 's6', floor: 2, status: 'free', customerName: '' },
-  { id: 's7', name: 's7', floor: 2, status: 'free', customerName: '' },
-  { id: 's8', name: 's8', floor: 2, status: 'occupied', customerName: '' },
-  { id: 's9', name: 's9', floor: 2, status: 'free', customerName: '' },
-  { id: 's10', name: 's10', floor: 2, status: 'free', customerName: '' },
-];
+import { getTables, updateTable, getFloorPlanTables, saveFloorPlanTables } from '../../utils/db';
 
 const Tables = () => {
   const [tables, setTables] = useState([]);
@@ -41,26 +16,32 @@ const Tables = () => {
     loadTables();
   }, []);
 
-  const loadTables = () => {
-    const stored = localStorage.getItem('floor_plan_tables');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length === 20) {
-          setTables(parsed);
-          return;
-        }
-      } catch (e) {
-        console.error('Failed to parse floor plan tables', e);
-      }
+  const loadTables = async () => {
+    const local = getFloorPlanTables();
+    if (Array.isArray(local) && local.length > 0) {
+      setTables(local);
+      return;
     }
-    // Seed/Reset if not 20 tables
-    localStorage.setItem('floor_plan_tables', JSON.stringify(DEFAULT_TABLES));
-    setTables(DEFAULT_TABLES);
+    try {
+      const data = await getTables();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(t => ({
+          id: t.id,
+          name: t.name,
+          floor: t.floor || 1,
+          status: t.status || 'free',
+          customerName: t.customerName || '',
+        }));
+        setTables(mapped);
+        saveFloorPlanTables(mapped);
+      }
+    } catch {
+      setTables([]);
+    }
   };
 
   const saveTablesState = (updatedTables) => {
-    localStorage.setItem('floor_plan_tables', JSON.stringify(updatedTables));
+    saveFloorPlanTables(updatedTables);
     setTables(updatedTables);
   };
 
@@ -140,11 +121,11 @@ const Tables = () => {
     setSelectedTable(null);
   };
 
-  const resetAllTables = () => {
-    if (window.confirm('Reset all table statuses back to defaults?')) {
-      localStorage.setItem('floor_plan_tables', JSON.stringify(DEFAULT_TABLES));
-      setTables(DEFAULT_TABLES);
-      addSessionLog('All floor plan table statuses reset to default', 'info');
+  const resetAllTables = async () => {
+    if (window.confirm('Reset all table statuses to free?')) {
+      const reset = tables.map(t => ({ ...t, status: 'free', customerName: '' }));
+      saveTablesState(reset);
+      addSessionLog('All table statuses reset to free', 'info');
     }
   };
 

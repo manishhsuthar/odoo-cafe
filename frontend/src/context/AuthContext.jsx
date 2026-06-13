@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { authAPI } from '../utils/db';
 
 export const AuthContext = createContext(null);
 
@@ -8,17 +9,11 @@ export const AuthProvider = ({ children }) => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize employees and session state
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     const storedEmployees = localStorage.getItem('employees');
     const storedLogs = localStorage.getItem('employee_logs');
-
-    if (storedToken && storedUser) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
-    }
 
     const defaultEmployees = [
       { id: 'emp_001', name: 'Manager Clara', email: 'clara@cafe.com', password: 'clara123', role: 'manager' },
@@ -27,35 +22,13 @@ export const AuthProvider = ({ children }) => {
       { id: 'emp_004', name: 'Chef Sarah', email: 'sarah@cafe.com', password: 'sarah123', role: 'chef' }
     ];
 
+    if (storedToken && storedUser) {
+      setUser(JSON.parse(storedUser));
+      setToken(storedToken);
+    }
+
     if (storedEmployees) {
-      let parsed = JSON.parse(storedEmployees);
-      // Enforce the roles manager/chef on existing employees in localStorage
-      let changed = false;
-      defaultEmployees.forEach(def => {
-        if (!parsed.some(e => e.email === def.email)) {
-          parsed.push(def);
-          changed = true;
-        }
-      });
-      parsed = parsed.map(emp => {
-        if (emp.email === 'john@cafe.com' && emp.password === 'john123') {
-          changed = true;
-          return { ...emp, password: 'john@123', role: 'chef', name: 'Chef John' };
-        }
-        if (emp.role !== 'manager' && emp.role !== 'chef') {
-          changed = true;
-          emp.role = 'chef';
-        }
-        if (!emp.id) {
-          changed = true;
-          emp.id = `emp_${Math.floor(1000 + Math.random() * 9000)}`;
-        }
-        return emp;
-      });
-      if (changed) {
-        localStorage.setItem('employees', JSON.stringify(parsed));
-      }
-      setEmployees(parsed);
+      setEmployees(JSON.parse(storedEmployees));
     } else {
       setEmployees(defaultEmployees);
       localStorage.setItem('employees', JSON.stringify(defaultEmployees));
@@ -74,55 +47,55 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (email, password) => {
-    // 1. Check admin credentials
-    if (email === 'cafe@admin.com' && password === 'cafe123') {
-      const adminUser = { email: 'cafe@admin.com', name: 'Cafe Admin', role: 'admin' };
-      const adminToken = 'mock-token-admin';
-      setUser(adminUser);
-      setToken(adminToken);
-      localStorage.setItem('token', adminToken);
-      localStorage.setItem('user', JSON.stringify(adminUser));
-      return { success: true, role: 'admin' };
+  const login = async (email, password) => {
+    try {
+      localStorage.removeItem('token');
+      setToken(null);
+      const data = await authAPI.login(email, password);
+      const accessToken = data.access;
+
+      localStorage.setItem('token', accessToken);
+      setToken(accessToken);
+
+      const userData = await authAPI.getCurrentUser();
+      const userInfo = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.full_name,
+        role: userData.role,
+      };
+      setUser(userInfo);
+      localStorage.setItem('user', JSON.stringify(userInfo));
+
+      // Record employee shift if not admin
+      if (userData.role !== 'admin') {
+        const storedLogs = localStorage.getItem('employee_logs');
+        const logs = storedLogs ? JSON.parse(storedLogs) : [];
+        logs.forEach(log => {
+          if (log.employeeEmail === userData.email && !log.logoutTime) {
+            log.logoutTime = new Date().toISOString();
+          }
+        });
+        logs.unshift({
+          id: `log_${Date.now()}`,
+          employeeEmail: userData.email,
+          employeeName: userData.full_name,
+          role: userData.role,
+          loginTime: new Date().toISOString(),
+          logoutTime: null
+        });
+        localStorage.setItem('employee_logs', JSON.stringify(logs));
+      }
+
+      return { success: true, role: userData.role };
+    } catch (err) {
+      const message = err.response?.data?.detail || err.response?.data?.message || 'Invalid email or password';
+      return { success: false, error: message };
     }
-
-    // 2. Check employee credentials
-    const foundEmp = employees.find(emp => emp.email === email && emp.password === password);
-    if (foundEmp) {
-      const empToken = `mock-token-employee-${foundEmp.email}`;
-      setUser(foundEmp);
-      setToken(empToken);
-      localStorage.setItem('token', empToken);
-      localStorage.setItem('user', JSON.stringify(foundEmp));
-
-      // Record login shift time
-      const storedLogs = localStorage.getItem('employee_logs');
-      const logs = storedLogs ? JSON.parse(storedLogs) : [];
-      // Close any previous open sessions for this employee
-      logs.forEach(log => {
-        if (log.employeeEmail === foundEmp.email && !log.logoutTime) {
-          log.logoutTime = new Date().toISOString();
-        }
-      });
-      logs.unshift({
-        id: `log_${Date.now()}`,
-        employeeEmail: foundEmp.email,
-        employeeName: foundEmp.name,
-        role: foundEmp.role,
-        loginTime: new Date().toISOString(),
-        logoutTime: null
-      });
-      localStorage.setItem('employee_logs', JSON.stringify(logs));
-
-      return { success: true, role: foundEmp.role };
-    }
-
-    return { success: false, error: 'Invalid email or password' };
   };
 
   const registerEmployee = (name, email, password, role = 'cashier') => {
-    // Check if email already exists
-    if (email === 'cafe@admin.com' || employees.some(emp => emp.email === email)) {
+    if (employees.some(emp => emp.email === email)) {
       return { success: false, error: 'Email already exists' };
     }
 
@@ -140,7 +113,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    // Record logout time in logs
     if (user && user.role !== 'admin') {
       const storedLogs = localStorage.getItem('employee_logs');
       if (storedLogs) {

@@ -1,61 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, DollarSign, Grid3X3, Users, Plus, CalendarClock, Ticket } from 'lucide-react';
+import { ShoppingCart, DollarSign, Grid3X3, Users, Plus, ShoppingBag } from 'lucide-react';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import useAuth from '../../hooks/useAuth';
-import { getOrders } from '../../utils/db';
+import { getOrders, getEmployeeLogs } from '../../utils/db';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
-    ordersCount: 24,
-    revenue: 24500,
-    activeTables: 8
+    ordersCount: 0,
+    revenue: 0,
+    activeTables: 0,
+    employeesOnShift: 0
   });
+  const [recentActivities, setRecentActivities] = useState([]);
 
   useEffect(() => {
-    const list = getOrders();
-    const totalOrders = list.length;
-    const totalRev = list
-      .filter(o => o.status === 'Paid')
-      .reduce((sum, o) => sum + o.amount, 0);
-    const activeTbls = new Set(list.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
+    Promise.all([
+      getOrders(),
+      Promise.resolve(getEmployeeLogs())
+    ]).then(([orders, logs]) => {
+      if (!Array.isArray(orders)) orders = [];
+      const totalOrders = orders.length;
+      const totalRev = orders
+        .filter(o => o.status === 'Paid')
+        .reduce((sum, o) => sum + o.amount, 0);
+      const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
 
-    setStats({
-      ordersCount: totalOrders,
-      revenue: totalRev,
-      activeTables: activeTbls
-    });
+      const activeLogs = Array.isArray(logs) ? logs.filter(l => l.clockOut === null || l.clockOut === undefined) : [];
+      
+      setStats({
+        ordersCount: totalOrders,
+        revenue: totalRev,
+        activeTables: activeTbls,
+        employeesOnShift: activeLogs.length
+      });
+
+      // Recent activities from recent orders
+      const activities = orders.slice(0, 5).map(o => ({
+        id: o.id,
+        iconColor: o.status === 'Paid' ? '#10b981' : '#f59e0b',
+        icon: ShoppingBag,
+        title: o.status === 'Paid' ? `Payment collected - ${o.table}` : `Order sent to kitchen - ${o.table}`,
+        time: o.dateTime ? new Date(o.dateTime).toLocaleString() : 'Just now',
+        type: o.status === 'Paid' ? 'payment' : 'order',
+        meta: o.status === 'Paid' ? `₹${o.amount}` : o.items ? `${o.items.split(',').length} items` : ''
+      }));
+      setRecentActivities(activities);
+    }).catch(() => {});
   }, []);
 
   // Modal states
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
-  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
 
   // Form states
-  const [productName, setProductName] = useState('');
-  const [productPrice, setProductPrice] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [employeeEmail, setEmployeeEmail] = useState('');
   const [employeePassword, setEmployeePassword] = useState('');
   const [employeeRole, setEmployeeRole] = useState('chef');
-  const [couponCode, setCouponCode] = useState('');
-  const [couponDiscount, setCouponDiscount] = useState('');
-
-  const handleAddProductSubmit = (e) => {
-    e.preventDefault();
-    alert(`Product Added: ${productName} - $${productPrice}`);
-    setProductName('');
-    setProductPrice('');
-    setIsProductModalOpen(false);
-  };
 
   const handleAddEmployeeSubmit = (e) => {
     e.preventDefault();
@@ -71,63 +79,6 @@ const Dashboard = () => {
       alert(result.error);
     }
   };
-
-  const handleCreateCouponSubmit = (e) => {
-    e.preventDefault();
-    alert(`Coupon Created: ${couponCode} with ${couponDiscount}% discount`);
-    setCouponCode('');
-    setCouponDiscount('');
-    setIsCouponModalOpen(false);
-  };
-
-  // Mock activities list
-  const recentActivities = [
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order #OR-8239 placed by Table 4',
-      time: '3 mins ago',
-      meta: '₹1,450',
-      icon: ShoppingCart,
-      iconColor: '#f97316',
-    },
-    {
-      id: 2,
-      type: 'payment',
-      title: 'Payment processed successfully via UPI',
-      time: '12 mins ago',
-      meta: '+₹3,420',
-      icon: DollarSign,
-      iconColor: '#10b981',
-    },
-    {
-      id: 3,
-      type: 'booking',
-      title: 'Table 6 reserved for Jane Smith',
-      time: '25 mins ago',
-      meta: '4 Guests',
-      icon: CalendarClock,
-      iconColor: '#3b82f6',
-    },
-    {
-      id: 4,
-      type: 'coupon',
-      title: 'Coupon code "WELCOME10" redeemed',
-      time: '45 mins ago',
-      meta: '-₹150',
-      icon: Ticket,
-      iconColor: '#ef4444',
-    },
-    {
-      id: 5,
-      type: 'employee',
-      title: 'Waiter Mark checked in for shift',
-      time: '1 hour ago',
-      meta: '11:00 AM',
-      icon: Users,
-      iconColor: '#a855f7',
-    },
-  ];
 
   // Inline layout styles
   const dashboardContainerStyle = {
@@ -310,25 +261,14 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Card 4: Vacant Tables */}
-              <div style={cardStyle}>
-                <div style={iconContainerStyle('#475569')}>
-                  <Grid3X3 size={20} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={cardLabelStyle}>Vacant Tables</span>
-                  <span style={cardValueStyle}>{Math.max(0, 12 - stats.activeTables)}</span>
-                </div>
-              </div>
-
-              {/* Card 5: Employees on Shift */}
+              {/* Card 4: Employees on Shift */}
               <div style={cardStyle}>
                 <div style={iconContainerStyle('#a855f7')}>
                   <Users size={20} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={cardLabelStyle}>Employees on Shift</span>
-                  <span style={cardValueStyle}>12</span>
+                  <span style={cardValueStyle}>{stats.employeesOnShift}</span>
                 </div>
               </div>
             </div>
@@ -379,7 +319,7 @@ const Dashboard = () => {
               {/* Quick Action 3: Create Coupon */}
               <button
                 style={quickActionCardStyle}
-                onClick={() => setIsCouponModalOpen(true)}
+                onClick={() => navigate('/coupons')}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#b09677';
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -409,7 +349,12 @@ const Dashboard = () => {
               gap: '20px',
               transition: 'background-color var(--transition-speed)',
             }}>
-              {recentActivities.map((act, idx) => (
+              {recentActivities.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px', padding: '20px 0' }}>
+                  No recent activity yet
+                </div>
+              ) : (
+              recentActivities.map((act, idx) => (
                 <div 
                   key={act.id} 
                   style={{ 
@@ -445,50 +390,17 @@ const Dashboard = () => {
                   <span style={{
                     fontSize: '15px',
                     fontWeight: '700',
-                    color: act.type === 'payment' ? '#10b981' : act.type === 'coupon' ? '#ef4444' : 'var(--text-secondary)',
+                    color: act.type === 'payment' ? '#10b981' : 'var(--text-secondary)',
                   }}>
                     {act.meta}
                   </span>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
         </main>
       </div>
-
-      {/* Add Product Modal */}
-      <Modal
-        isOpen={isProductModalOpen}
-        onClose={() => setIsProductModalOpen(false)}
-        title="Add New Product"
-      >
-        <form onSubmit={handleAddProductSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <Input
-            label="Product Name"
-            placeholder="e.g. Cold Brew Coffee"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            required
-          />
-          <Input
-            label="Price ($)"
-            type="number"
-            step="0.01"
-            placeholder="e.g. 4.50"
-            value={productPrice}
-            onChange={(e) => setProductPrice(e.target.value)}
-            required
-          />
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-            <Button variant="secondary" onClick={() => setIsProductModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary">
-              Add Product
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Add Employee Modal */}
       <Modal
@@ -551,40 +463,6 @@ const Dashboard = () => {
         </form>
       </Modal>
 
-      {/* Create Coupon Modal */}
-      <Modal
-        isOpen={isCouponModalOpen}
-        onClose={() => setIsCouponModalOpen(false)}
-        title="Generate Coupon Code"
-      >
-        <form onSubmit={handleCreateCouponSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <Input
-            label="Coupon Code"
-            placeholder="e.g. SUMMER25"
-            value={couponCode}
-            onChange={(e) => setCouponCode(e.target.value)}
-            required
-          />
-          <Input
-            label="Discount Percentage (%)"
-            type="number"
-            min="1"
-            max="100"
-            placeholder="e.g. 25"
-            value={couponDiscount}
-            onChange={(e) => setCouponDiscount(e.target.value)}
-            required
-          />
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-            <Button variant="secondary" onClick={() => setIsCouponModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary">
-              Create Coupon
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

@@ -48,9 +48,10 @@ const Products = () => {
     }
   }, [location]);
 
-  const loadData = () => {
-    setProducts(getProducts());
-    setCategories(getCategories());
+  const loadData = async () => {
+    const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
+    setProducts(prods);
+    setCategories(cats);
   };
 
   const handleProductInputChange = (e) => {

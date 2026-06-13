@@ -18,19 +18,20 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder } from '../../utils/db';
+import { getCategories, getProducts, getPaymentMethods, getTables, getCoupons, addOrder } from '../../utils/db';
 
 const POS = () => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Load from localStorage
+  // Load from API
   const [categoriesList, setCategoriesList] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState('');
+  const [couponList, setCouponList] = useState([]);
   
   // Session Logs states
   const [logs, setLogs] = useState([]);
@@ -47,47 +48,38 @@ const POS = () => {
   };
 
   useEffect(() => {
-    const cats = getCategories();
-    const prods = getProducts();
-    setCategoriesList(cats.map(c => c.name));
-    setProductsList(prods);
-    if (cats.length > 0) {
-      setSelectedCategory(cats[0].name);
-    }
-
-    // Load dynamic active payment methods
-    const stored = localStorage.getItem('payment_methods');
-    let list = [];
-    if (stored) {
-      list = JSON.parse(stored);
-    } else {
-      list = [
-        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
-        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
-        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
-      ];
-      localStorage.setItem('payment_methods', JSON.stringify(list));
-    }
-    const active = list.filter(m => m.activated).map(m => ({
-      ...m,
-      name: m.name || m.type
-    }));
-    setPaymentMethods(active);
-    if (active.length > 0) {
-      setSelectedPayment(active[0].name);
-    }
+    (async () => {
+      const [cats, prods, pmData, coupData] = await Promise.all([
+        getCategories().catch(() => []),
+        getProducts().catch(() => []),
+        getPaymentMethods().catch(() => []),
+        getCoupons().catch(() => []),
+      ]);
+      setCouponList(Array.isArray(coupData) ? coupData : []);
+      setCategoriesList(cats.map(c => c.name));
+      setProductsList(prods);
+      if (cats.length > 0) {
+        setSelectedCategory(cats[0].name);
+      }
+      const list = Array.isArray(pmData) ? pmData : [];
+      const active = list.filter(m => m.activated).map(m => ({
+        ...m,
+        name: m.name || m.type
+      }));
+      setPaymentMethods(active);
+      if (active.length > 0) {
+        setSelectedPayment(active[0].name);
+      }
+    })();
 
     // Load session logs
     const storedLogs = localStorage.getItem('pos_session_logs');
     if (storedLogs) {
-      setLogs(JSON.parse(storedLogs));
+      try {
+        setLogs(JSON.parse(storedLogs));
+      } catch { setLogs([]); }
     } else {
-      const initialLogs = [
-        { id: 'l1', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: 'System initialization check: Passed', type: 'success' },
-        { id: 'l2', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message: `POS Session started by: ${user ? user.name : 'Staff'}`, type: 'info' }
-      ];
-      setLogs(initialLogs);
-      localStorage.setItem('pos_session_logs', JSON.stringify(initialLogs));
+      setLogs([]);
     }
   }, []);
 
@@ -112,11 +104,9 @@ const POS = () => {
 
   // State Management
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState([
-    { id: 'm1', name: 'Cheese Burger', price: 150, quantity: 2 }
-  ]);
-  const [paidAmount, setPaidAmount] = useState('300');
-  const [activeTable, setActiveTable] = useState('Table 12');
+  const [cart, setCart] = useState([]);
+  const [paidAmount, setPaidAmount] = useState('0');
+  const [activeTable, setActiveTable] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Cart operations
@@ -214,53 +204,33 @@ const POS = () => {
 
   // Automatic Promo engine
   useEffect(() => {
-    // If a coupon code is manually applied, that has precedence
-    if (appliedCoupon && appliedCoupon.type === 'Coupon') {
-      return;
-    }
+    if (appliedCoupon && appliedCoupon.type === 'Coupon') return;
 
-    const stored = localStorage.getItem('coupons_list');
-    if (!stored) return;
-
-    try {
-      const list = JSON.parse(stored);
-      // Find active Automated Promos where subtotal fits
-      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= c.minAmount);
+    getCoupons().then(list => {
+      const autoPromos = (list || []).filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= (c.minAmount || 0));
       if (autoPromos.length > 0) {
-        // Find the one with maximum benefit
         const bestPromo = autoPromos.sort((a, b) => b.value - a.value)[0];
         setAppliedCoupon(bestPromo);
-      } else {
-        // Clear if conditions no longer match
-        if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
-          setAppliedCoupon(null);
-        }
+      } else if (appliedCoupon && appliedCoupon.type === 'Automated Promo') {
+        setAppliedCoupon(null);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    }).catch(() => {});
   }, [subTotal, cart]);
 
   const totalBeforeTax = Math.max(0, subTotal - discountAmount);
   const tax = Math.round(totalBeforeTax * 0.05); // 5% GST
   const total = totalBeforeTax + tax;
 
-  const handleApplyCouponCode = (codeStr) => {
+  const handleApplyCouponCode = async (codeStr) => {
     if (!codeStr.trim()) {
       alert('Please enter a coupon code.');
       return;
     }
-    const stored = localStorage.getItem('coupons_list');
     let couponsList = [];
-    if (stored) {
-      couponsList = JSON.parse(stored);
-    } else {
-      couponsList = [
-        { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-        { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
-        { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(couponsList));
+    try {
+      couponsList = await getCoupons();
+    } catch {
+      couponsList = [];
     }
 
     const found = couponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
@@ -299,20 +269,20 @@ const POS = () => {
   };
 
   // Submit order to Kitchen (Unpaid)
-  const sendToKitchen = () => {
+  const sendToKitchen = async () => {
     if (cart.length === 0) {
       alert('Your cart is empty.');
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = addOrder({
+    const newOrder = await addOrder({
       table: activeTable,
       amount: total,
       status: 'Unpaid',
-      paymentMethod: '-',
+      payment_method: '-',
       items: orderItemsString,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      discountAmount: discountAmount
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
+      discount_amount: discountAmount
     });
     addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
     alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
@@ -323,20 +293,20 @@ const POS = () => {
   };
 
   // Collect Payment (Paid)
-  const collectPayment = () => {
+  const collectPayment = async () => {
     if (cart.length === 0) {
       alert('Your cart is empty.');
       return;
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-    const newOrder = addOrder({
+    const newOrder = await addOrder({
       table: activeTable,
       amount: total,
       status: 'Paid',
-      paymentMethod: selectedPayment,
+      payment_method: selectedPayment,
       items: orderItemsString,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      discountAmount: discountAmount
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
+      discount_amount: discountAmount
     });
     addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
     alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
@@ -665,16 +635,13 @@ const POS = () => {
           </div>
 
           <div style={headerButtonsStyle}>
-            {/* Table Dropdown selection */}
+            {/* Table Dropdown */}
             <select
               value={activeTable}
               onChange={(e) => setActiveTable(e.target.value)}
               style={tableSelectStyle}
             >
-              <option value="Table 1">Table 1</option>
-              <option value="Table 4">Table 4</option>
-              <option value="Table 6">Table 6</option>
-              <option value="Table 12">Table 12</option>
+              <option value="">Select Table</option>
               <option value="Takeaway">Takeaway</option>
             </select>
 
@@ -1243,10 +1210,7 @@ const POS = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
               <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Available Store Coupons:</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                {(JSON.parse(localStorage.getItem('coupons_list')) || [
-                  { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-                  { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-                ]).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
+                {(couponList || []).filter(c => c.type === 'Coupon' && c.activated).map(coupon => (
                   <button
                     key={coupon.id}
                     onClick={() => {

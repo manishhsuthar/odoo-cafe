@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
-import { getCategories, getProducts } from '../../utils/db';
-import { Plus, Trash2, Search, Save, Calendar, Check, X, Tag, HelpCircle, GripVertical } from 'lucide-react';
-
-const DEFAULT_COUPONS = [
-  { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-  { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
-  { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-];
+import { getCategories, getProducts, getCoupons, addCoupon, updateCoupon, deleteCoupon } from '../../utils/db';
+import { Plus, Trash2, Search, Save, Tag, GripVertical } from 'lucide-react';
 
 const Coupons = () => {
   const [coupons, setCoupons] = useState([]);
@@ -33,42 +27,43 @@ const Coupons = () => {
 
   useEffect(() => {
     loadCoupons();
-    // Load category and product choices for targeting
-    setCategories(getCategories().map(c => c.name));
-    setProducts(getProducts().map(p => p.name));
+    (async () => {
+      const cats = await getCategories();
+      const prods = await getProducts();
+      setCategories(cats.map(c => c.name));
+      setProducts(prods.map(p => p.name));
+    })();
   }, []);
 
-  const loadCoupons = () => {
-    const stored = localStorage.getItem('coupons_list');
-    if (stored) {
-      setCoupons(JSON.parse(stored));
-    } else {
-      localStorage.setItem('coupons_list', JSON.stringify(DEFAULT_COUPONS));
-      setCoupons(DEFAULT_COUPONS);
+  const loadCoupons = async () => {
+    try {
+      const data = await getCoupons();
+      setCoupons(Array.isArray(data) ? data : []);
+    } catch {
+      setCoupons([]);
     }
   };
 
-  const handleSave = (updatedList) => {
-    const listToSave = updatedList || coupons;
-    localStorage.setItem('coupons_list', JSON.stringify(listToSave));
-    setCoupons([...listToSave]);
+  const handleSave = async (updatedList) => {
+    setCoupons([...updatedList]);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this coupon/promotion?')) {
-      const updated = coupons.filter(c => c.id !== id);
-      handleSave(updated);
+      try {
+        await deleteCoupon(id);
+        setCoupons(prev => prev.filter(c => c.id !== id));
+      } catch {
+        alert('Failed to delete coupon');
+      }
     }
   };
 
-  const handleToggleActive = (id, currentVal) => {
-    const updated = coupons.map(c => {
-      if (c.id === id) {
-        return { ...c, activated: !currentVal };
-      }
-      return c;
-    });
-    handleSave(updated);
+  const handleToggleActive = async (id, currentVal) => {
+    try {
+      await updateCoupon(id, { activated: !currentVal });
+      setCoupons(prev => prev.map(c => c.id === id ? { ...c, activated: !currentVal } : c));
+    } catch {}
   };
 
   const handleOpenNewModal = () => {
@@ -99,7 +94,7 @@ const Coupons = () => {
     setIsModalOpen(true);
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formName.trim()) {
       alert('Promotion name is required');
@@ -110,28 +105,30 @@ const Coupons = () => {
       return;
     }
 
-    const couponData = {
-      id: selectedCoupon ? selectedCoupon.id : `coupon_${Date.now()}`,
+    const payload = {
       name: formName.trim(),
       type: formType,
       code: formType === 'Coupon' ? formCode.trim().toUpperCase() : '',
-      discountType: formDiscountType,
+      discount_type: formDiscountType === 'Percentage' ? 'percentage' : 'fixed',
       value: Number(formValue),
-      minAmount: Number(formMinAmount),
-      targetType: formTargetType,
-      targetValue: formTargetType === 'All' ? '' : formTargetValue,
+      min_amount: Number(formMinAmount),
+      target_type: formTargetType === 'All' ? 'all' : formTargetType.toLowerCase(),
+      target_value: formTargetType === 'All' ? '' : formTargetValue,
       activated: formActivated
     };
 
-    let updated;
-    if (selectedCoupon) {
-      updated = coupons.map(c => c.id === selectedCoupon.id ? couponData : c);
-    } else {
-      updated = [...coupons, couponData];
+    try {
+      if (selectedCoupon) {
+        const updated = await updateCoupon(selectedCoupon.id, payload);
+        setCoupons(prev => prev.map(c => c.id === selectedCoupon.id ? { ...c, ...updated } : c));
+      } else {
+        const created = await addCoupon(payload);
+        setCoupons(prev => [...prev, created]);
+      }
+      setIsModalOpen(false);
+    } catch {
+      alert('Failed to save coupon');
     }
-
-    handleSave(updated);
-    setIsModalOpen(false);
   };
 
   // Filter coupons based on search query

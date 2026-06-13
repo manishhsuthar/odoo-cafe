@@ -7,7 +7,7 @@ class TableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Table
-        fields = ["id", "floor", "floor_name", "number", "capacity", "status", "created_at"]
+        fields = ["id", "floor", "floor_name", "name", "number", "capacity", "status", "customer_name", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 

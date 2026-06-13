@@ -2,12 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { Plus, Trash2, Save, GripVertical } from 'lucide-react';
-
-const DEFAULT_METHODS = [
-  { id: '1', type: 'Cash', value: '', activated: true },
-  { id: '2', type: 'Card', value: '', activated: true },
-  { id: '3', type: 'UPI', value: 'abc@upi.com', activated: true }
-];
+import { getPaymentMethods, savePaymentMethods } from '../../utils/db';
 
 const PaymentMethods = () => {
   const [methods, setMethods] = useState([]);
@@ -17,32 +12,28 @@ const PaymentMethods = () => {
   }, []);
 
   const loadMethods = () => {
-    const stored = localStorage.getItem('payment_methods');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const mapped = parsed.map(m => ({
-            id: m.id || `pay_${Date.now()}_${Math.random()}`,
-            type: m.type || 'UPI',
-            value: m.value !== undefined ? m.value : (m.upiId || ''),
-            activated: m.activated !== undefined ? m.activated : true
-          }));
-          setMethods(mapped);
-          return;
-        }
-      } catch (e) {
-        console.error('Failed to parse payment methods', e);
-      }
-    }
-    localStorage.setItem('payment_methods', JSON.stringify(DEFAULT_METHODS));
-    setMethods(DEFAULT_METHODS);
+    getPaymentMethods()
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        const mapped = list.map(m => ({
+          id: m.id || `pay_${Date.now()}_${Math.random()}`,
+          type: m.type || m.name || 'UPI',
+          value: m.value || '',
+          activated: m.activated !== undefined ? m.activated : true
+        }));
+        setMethods(mapped);
+      })
+      .catch(() => setMethods([]));
   };
 
-  const handleSave = (updatedList) => {
+  const handleSave = async (updatedList) => {
     const listToSave = updatedList || methods;
-    localStorage.setItem('payment_methods', JSON.stringify(listToSave));
-    setMethods([...listToSave]);
+    try {
+      await savePaymentMethods(listToSave);
+      setMethods([...listToSave]);
+    } catch (e) {
+      setMethods([...listToSave]);
+    }
   };
 
   const handleAddRow = () => {
