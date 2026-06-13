@@ -29,6 +29,8 @@ const POS = () => {
   const [categoriesList, setCategoriesList] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPayment, setSelectedPayment] = useState('');
 
   useEffect(() => {
     const cats = getCategories();
@@ -38,6 +40,28 @@ const POS = () => {
     if (cats.length > 0) {
       setSelectedCategory(cats[0].name);
     }
+
+    // Load dynamic active payment methods
+    const stored = localStorage.getItem('payment_methods');
+    let list = [];
+    if (stored) {
+      list = JSON.parse(stored);
+    } else {
+      list = [
+        { id: '1', name: 'Cash', type: 'Cash', value: '', activated: true },
+        { id: '2', name: 'Card', type: 'Card', value: '', activated: true },
+        { id: '3', name: 'UPI', type: 'UPI', value: 'abc@upi.com', activated: true }
+      ];
+      localStorage.setItem('payment_methods', JSON.stringify(list));
+    }
+    const active = list.filter(m => m.activated).map(m => ({
+      ...m,
+      name: m.name || m.type
+    }));
+    setPaymentMethods(active);
+    if (active.length > 0) {
+      setSelectedPayment(active[0].name);
+    }
   }, []);
 
   // State Management
@@ -45,7 +69,6 @@ const POS = () => {
   const [cart, setCart] = useState([
     { id: 'm1', name: 'Cheese Burger', price: 150, quantity: 2 }
   ]);
-  const [selectedPayment, setSelectedPayment] = useState('Cash');
   const [paidAmount, setPaidAmount] = useState('300');
   const [activeTable, setActiveTable] = useState('Table 12');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -729,29 +752,28 @@ const POS = () => {
           <div style={paymentPanelStyle}>
             {/* Quick Payment Selection */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  style={payMethodBtnStyle(selectedPayment === 'Cash')}
-                  onClick={() => setSelectedPayment('Cash')}
-                >
-                  <DollarSign size={16} />
-                  Cash
-                </button>
-                <button
-                  style={payMethodBtnStyle(selectedPayment === 'UPI')}
-                  onClick={() => setSelectedPayment('UPI')}
-                >
-                  <UserPlus size={16} />
-                  UPI
-                </button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {paymentMethods.length === 0 ? (
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active payment methods.</span>
+                ) : (
+                  paymentMethods.map((method) => (
+                    <button
+                      key={method.id}
+                      style={{
+                        ...payMethodBtnStyle(selectedPayment === method.name),
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '95px'
+                      }}
+                      onClick={() => setSelectedPayment(method.name)}
+                    >
+                      {method.type === 'Cash' && <DollarSign size={15} />}
+                      {method.type === 'Card' && <Percent size={15} />}
+                      {method.type === 'UPI' && <UserPlus size={15} />}
+                      {method.name}
+                    </button>
+                  ))
+                )}
               </div>
-              <button
-                style={{ ...payMethodBtnStyle(selectedPayment === 'Card'), flex: 'none', width: '100%' }}
-                onClick={() => setSelectedPayment('Card')}
-              >
-                <Percent size={16} />
-                Card
-              </button>
             </div>
 
             {/* Paid Amount indicator */}
