@@ -14,6 +14,10 @@ import Customers from '../pages/Customers/Customers';
 import Reports from '../pages/Reports/Reports';
 import POS from '../pages/POS/POS';
 import KDS from '../pages/KDS/KDS';
+import PaymentMethods from '../pages/PaymentMethods/PaymentMethods';
+import Coupons from '../pages/Coupons/Coupons';
+import KitchenInventory from '../pages/KitchenInventory/KitchenInventory';
+import TableBooking from '../pages/TableBooking/TableBooking';
 
 const AppRoutes = () => {
   return (
@@ -106,6 +110,38 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <KDS />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/payment-methods"
+        element={
+          <PrivateRoute>
+            <PaymentMethods />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/coupons"
+        element={
+          <PrivateRoute>
+            <Coupons />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/kitchen-inventory"
+        element={
+          <PrivateRoute>
+            <KitchenInventory />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/table-booking"
+        element={
+          <PrivateRoute>
+            <TableBooking />
           </PrivateRoute>
         }
       />
