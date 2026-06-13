@@ -3675,6 +3675,7 @@ const POS = ({ view = 'pos' }) => {
                             {method.type === 'Cash' && <IndianRupee size={15} />}
                             {method.type === 'Card' && <Percent size={15} />}
                             {method.type === 'UPI' && <UserPlus size={15} />}
+                            {!['Cash', 'Card', 'UPI'].includes(method.type) && <PlusCircle size={15} />}
                             {method.name}
                           </button>
                         ))

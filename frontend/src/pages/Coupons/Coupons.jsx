@@ -37,22 +37,47 @@ const Coupons = () => {
 
   const loadCoupons = async () => {
     try {
-      const data = await getCoupons();
-      setCoupons(Array.isArray(data) ? data : []);
+      let data = await getCoupons().catch(() => []);
+      if (!Array.isArray(data) || data.length === 0) {
+        const stored = localStorage.getItem('coupons_list');
+        if (stored) {
+          data = JSON.parse(stored);
+        } else {
+          const defaultCoupons = [
+            { id: 'c_1', name: 'Welcome Offer', type: 'Coupon', code: 'NEW20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
+            { id: 'c_2', name: 'Festive Special', type: 'Coupon', code: 'FEST50', discountType: 'Fixed Amount', value: 50, minAmount: 500, targetType: 'All', targetValue: '', activated: true },
+            { id: 'c_3', name: 'Weekend Bonanza', type: 'Automated Promo', code: '', discountType: 'Percentage', value: 10, minAmount: 250, targetType: 'All', targetValue: '', activated: true },
+            { id: 'c_4', name: 'Foodie Discount', type: 'Coupon', code: 'FOOD15', discountType: 'Percentage', value: 15, minAmount: 150, targetType: 'Category', targetValue: 'Food', activated: true }
+          ];
+          localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
+          data = defaultCoupons;
+        }
+      }
+      const mapped = data.map(c => ({
+        id: c.id,
+        name: c.name,
+        type: c.type || (c.code ? 'Coupon' : 'Automated Promo'),
+        code: c.code || '',
+        discountType: c.discountType || (c.discount_type === 'percentage' ? 'Percentage' : 'Fixed Amount') || 'Percentage',
+        value: Number(c.value || c.discount_value || 0),
+        minAmount: Number(c.minAmount || c.min_amount || 0),
+        targetType: c.targetType || (c.target_type === 'all' ? 'All' : c.target_type) || 'All',
+        targetValue: c.targetValue || c.target_value || '',
+        activated: c.activated !== undefined ? c.activated : true
+      }));
+      setCoupons(mapped);
     } catch {
       setCoupons([]);
     }
   };
 
-  const handleSave = async (updatedList) => {
-    setCoupons([...updatedList]);
-  };
-
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this coupon/promotion?')) {
       try {
-        await deleteCoupon(id);
-        setCoupons(prev => prev.filter(c => c.id !== id));
+        await deleteCoupon(id).catch(() => {});
+        const updated = coupons.filter(c => c.id !== id);
+        setCoupons(updated);
+        localStorage.setItem('coupons_list', JSON.stringify(updated));
       } catch {
         alert('Failed to delete coupon');
       }
@@ -61,8 +86,26 @@ const Coupons = () => {
 
   const handleToggleActive = async (id, currentVal) => {
     try {
-      await updateCoupon(id, { activated: !currentVal });
-      setCoupons(prev => prev.map(c => c.id === id ? { ...c, activated: !currentVal } : c));
+      const target = coupons.find(c => c.id === id);
+      if (!target) return;
+      const nextActiveState = !currentVal;
+      
+      const apiPayload = {
+        name: target.name,
+        type: target.type,
+        code: target.code,
+        discount_type: target.discountType === 'Percentage' ? 'percentage' : 'fixed',
+        value: target.value,
+        min_amount: target.minAmount,
+        target_type: target.targetType === 'All' ? 'all' : target.targetType.toLowerCase(),
+        target_value: target.targetValue,
+        activated: nextActiveState
+      };
+
+      await updateCoupon(id, apiPayload).catch(() => {});
+      const updated = coupons.map(c => c.id === id ? { ...c, activated: nextActiveState } : c);
+      setCoupons(updated);
+      localStorage.setItem('coupons_list', JSON.stringify(updated));
     } catch {}
   };
 
@@ -106,24 +149,52 @@ const Coupons = () => {
     }
 
     const payload = {
+      id: selectedCoupon ? selectedCoupon.id : `c_${Date.now()}`,
       name: formName.trim(),
       type: formType,
       code: formType === 'Coupon' ? formCode.trim().toUpperCase() : '',
-      discount_type: formDiscountType === 'Percentage' ? 'percentage' : 'fixed',
+      discountType: formDiscountType,
       value: Number(formValue),
-      min_amount: Number(formMinAmount),
-      target_type: formTargetType === 'All' ? 'all' : formTargetType.toLowerCase(),
-      target_value: formTargetType === 'All' ? '' : formTargetValue,
+      minAmount: Number(formMinAmount),
+      targetType: formTargetType,
+      targetValue: formTargetValue,
       activated: formActivated
     };
 
+    const apiPayload = {
+      name: payload.name,
+      type: payload.type,
+      code: payload.code,
+      discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'fixed',
+      value: payload.value,
+      min_amount: payload.minAmount,
+      target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
+      target_value: payload.targetValue,
+      activated: payload.activated
+    };
+
     try {
+      let savedObj = payload;
       if (selectedCoupon) {
-        const updated = await updateCoupon(selectedCoupon.id, payload);
-        setCoupons(prev => prev.map(c => c.id === selectedCoupon.id ? { ...c, ...updated } : c));
+        try {
+          const updated = await updateCoupon(selectedCoupon.id, apiPayload);
+          savedObj = { ...payload, ...updated };
+        } catch {
+          // offline fallback
+        }
+        const updatedList = coupons.map(c => c.id === selectedCoupon.id ? savedObj : c);
+        setCoupons(updatedList);
+        localStorage.setItem('coupons_list', JSON.stringify(updatedList));
       } else {
-        const created = await addCoupon(payload);
-        setCoupons(prev => [...prev, created]);
+        try {
+          const created = await addCoupon(apiPayload);
+          savedObj = { ...payload, ...created };
+        } catch {
+          // offline fallback
+        }
+        const updatedList = [...coupons, savedObj];
+        setCoupons(updatedList);
+        localStorage.setItem('coupons_list', JSON.stringify(updatedList));
       }
       setIsModalOpen(false);
     } catch {
@@ -231,11 +302,8 @@ const Coupons = () => {
                   <tr 
                     key={coupon.id} 
                     style={{
-                      borderBottom: '1px solid var(--border-color)',
-                      transition: 'background-color var(--transition-speed)'
+                      borderBottom: '1px solid var(--border-color)'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-button)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     {/* Drag handle and Promo Name */}
                     <td 
@@ -409,6 +477,8 @@ const Coupons = () => {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
                   padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
@@ -429,6 +499,8 @@ const Coupons = () => {
                   value={formType}
                   onChange={(e) => setFormType(e.target.value)}
                   style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
@@ -457,6 +529,8 @@ const Coupons = () => {
                   value={formType === 'Coupon' ? formCode : ''}
                   onChange={(e) => setFormCode(e.target.value)}
                   style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
@@ -481,6 +555,8 @@ const Coupons = () => {
                   value={formDiscountType}
                   onChange={(e) => setFormDiscountType(e.target.value)}
                   style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
@@ -508,6 +584,8 @@ const Coupons = () => {
                   value={formValue}
                   onChange={(e) => setFormValue(e.target.value)}
                   style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
@@ -532,6 +610,8 @@ const Coupons = () => {
                     setFormTargetValue('');
                   }}
                   style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--border-color)',
@@ -557,6 +637,8 @@ const Coupons = () => {
                     disabled
                     placeholder="All Store Products"
                     style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: '8px',
                       border: '1.5px solid var(--border-color)',
@@ -573,6 +655,8 @@ const Coupons = () => {
                     required
                     onChange={(e) => setFormTargetValue(e.target.value)}
                     style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: '8px',
                       border: '1.5px solid var(--border-color)',
@@ -594,6 +678,8 @@ const Coupons = () => {
                     required
                     onChange={(e) => setFormTargetValue(e.target.value)}
                     style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: '8px',
                       border: '1.5px solid var(--border-color)',
@@ -623,6 +709,8 @@ const Coupons = () => {
                 value={formMinAmount}
                 onChange={(e) => setFormMinAmount(e.target.value)}
                 style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
                   padding: '10px 12px',
                   borderRadius: '8px',
                   border: '1.5px solid var(--border-color)',
