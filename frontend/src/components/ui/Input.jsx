@@ -58,13 +58,13 @@ const Input = ({
   const leftIconStyle = {
     position: 'absolute',
     left: '16px',
-    color: '#a0958a',
+    color: 'var(--text-secondary)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     pointerEvents: 'none',
   };
-
+ 
   const eyeButtonStyle = {
     position: 'absolute',
     right: '16px',
@@ -74,16 +74,16 @@ const Input = ({
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    color: '#a0958a',
+    color: 'var(--text-secondary)',
     padding: 0,
   };
-
+ 
   const handleFocus = (e) => {
     e.target.style.borderColor = 'var(--border-focus)';
     e.target.style.boxShadow = '0 0 0 4px rgba(191, 174, 158, 0.15)';
-    e.target.style.backgroundColor = '#ffffff';
+    e.target.style.backgroundColor = 'var(--bg-card)';
   };
-
+ 
   const handleBlur = (e) => {
     e.target.style.borderColor = 'var(--border-color)';
     e.target.style.boxShadow = 'none';

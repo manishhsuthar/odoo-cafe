@@ -109,9 +109,10 @@ const Dashboard = () => {
   const dashboardContainerStyle = {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: '#110f0d',
-    color: '#ffffff',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
     fontFamily: 'var(--font-standard)',
+    transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
   const contentAreaStyle = {
@@ -137,20 +138,20 @@ const Dashboard = () => {
   const welcomeTitleStyle = {
     fontSize: '32px',
     fontWeight: '700',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     margin: 0,
   };
 
   const welcomeSubStyle = {
     fontSize: '15px',
-    color: '#a0958a',
+    color: 'var(--text-secondary)',
     margin: 0,
   };
 
   const sectionTitleStyle = {
     fontSize: '20px',
     fontWeight: '700',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     marginBottom: '20px',
   };
 
@@ -163,12 +164,13 @@ const Dashboard = () => {
 
   const cardStyle = {
     flex: '1 1 200px',
-    backgroundColor: '#211c18',
+    backgroundColor: 'var(--bg-card)',
     borderRadius: '18px',
     padding: '24px',
     display: 'flex',
     flexDirection: 'column',
     gap: '14px',
+    transition: 'background-color var(--transition-speed)',
   };
 
   const iconContainerStyle = (bgColor) => ({
@@ -184,14 +186,14 @@ const Dashboard = () => {
 
   const cardLabelStyle = {
     fontSize: '20px',
-    color: '#8a7e72',
+    color: 'var(--text-secondary)',
     fontWeight: '600',
   };
 
   const cardValueStyle = {
     fontSize: '28px',
     fontWeight: '700',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
   };
 
   const quickActionsGridStyle = {
@@ -203,7 +205,7 @@ const Dashboard = () => {
 
   const quickActionCardStyle = {
     flex: '1 1 280px',
-    backgroundColor: '#bda384',
+    backgroundColor: 'var(--border-focus)',
     borderRadius: '20px',
     padding: '36px 24px',
     border: 'none',
@@ -213,7 +215,7 @@ const Dashboard = () => {
     justifyContent: 'center',
     gap: '16px',
     cursor: 'pointer',
-    color: '#110f0d',
+    color: 'var(--bg-primary)',
     transition: 'transform 0.2s ease, background-color 0.2s ease',
   };
 
@@ -221,11 +223,11 @@ const Dashboard = () => {
     width: '48px',
     height: '48px',
     borderRadius: '12px',
-    backgroundColor: 'rgba(17, 15, 13, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#110f0d',
+    color: 'var(--bg-primary)',
   };
 
   const actionTextStyle = {
@@ -375,12 +377,13 @@ const Dashboard = () => {
           <div>
             <h2 style={sectionTitleStyle}>Recent Activity</h2>
             <div style={{
-              backgroundColor: '#211c18',
+              backgroundColor: 'var(--bg-card)',
               borderRadius: '20px',
               padding: '24px 30px',
               display: 'flex',
               flexDirection: 'column',
               gap: '20px',
+              transition: 'background-color var(--transition-speed)',
             }}>
               {recentActivities.map((act, idx) => (
                 <div 
@@ -390,7 +393,7 @@ const Dashboard = () => {
                     alignItems: 'center', 
                     justifyContent: 'space-between',
                     paddingBottom: idx !== recentActivities.length - 1 ? '16px' : '0',
-                    borderBottom: idx !== recentActivities.length - 1 ? '1px solid #2d2621' : 'none',
+                    borderBottom: idx !== recentActivities.length - 1 ? '1px solid var(--border-color)' : 'none',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -407,10 +410,10 @@ const Dashboard = () => {
                       <act.icon size={18} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '600', color: '#ffffff' }}>
+                      <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
                         {act.title}
                       </span>
-                      <span style={{ fontSize: '13px', color: '#8a7e72' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                         {act.time}
                       </span>
                     </div>
@@ -418,7 +421,7 @@ const Dashboard = () => {
                   <span style={{
                     fontSize: '15px',
                     fontWeight: '700',
-                    color: act.type === 'payment' ? '#10b981' : act.type === 'coupon' ? '#ef4444' : '#a0958a',
+                    color: act.type === 'payment' ? '#10b981' : act.type === 'coupon' ? '#ef4444' : 'var(--text-secondary)',
                   }}>
                     {act.meta}
                   </span>

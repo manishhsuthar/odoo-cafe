@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User, Sun, Moon } from 'lucide-react';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import loginBg from '../../assets/login_bg.png';
 import useAuth from '../../hooks/useAuth';
+import useTheme from '../../hooks/useTheme';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
 
   // Login inputs
@@ -116,14 +118,14 @@ const Login = () => {
   };
 
   const subtitleStyle = {
-    color: '#8a7e72',
+    color: 'var(--text-secondary)',
     fontSize: '15px',
     fontWeight: '400',
     marginBottom: '36px',
   };
 
   const footerTextStyle = {
-    color: '#a0958a',
+    color: 'var(--text-secondary)',
     fontSize: '14px',
     marginTop: '32px',
   };
@@ -143,6 +145,31 @@ const Login = () => {
 
   return (
     <div style={pageStyle}>
+      {/* Floating Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
+          padding: '10px',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: 'var(--card-shadow)',
+          zIndex: 10,
+          transition: 'all var(--transition-speed)',
+        }}
+        title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+      >
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
+
       <div style={overlayStyle} />
       <div style={cardStyle}>
         {isLogin ? (
@@ -150,7 +177,7 @@ const Login = () => {
           <div style={{ width: '100%' }}>
             <h1 style={titleStyle}>Welcome Back</h1>
             <p style={subtitleStyle}>Sign in to your restaurant account</p>
-
+ 
             <form onSubmit={handleLoginSubmit} style={{ width: '100%' }}>
               {loginGeneralError && (
                 <div style={{
@@ -166,7 +193,7 @@ const Login = () => {
                   {loginGeneralError}
                 </div>
               )}
-
+ 
               <Input
                 label="EMAIL ADDRESS"
                 type="email"
@@ -176,7 +203,7 @@ const Login = () => {
                 onChange={(e) => setLoginEmail(e.target.value)}
                 error={loginErrors.email}
               />
-
+ 
               <Input
                 label="PASSWORD"
                 type="password"
@@ -186,7 +213,7 @@ const Login = () => {
                 onChange={(e) => setLoginPassword(e.target.value)}
                 error={loginErrors.password}
               />
-
+ 
               {/* Remember Me & Forgot Password Row */}
               <div style={{
                 display: 'flex',
@@ -200,7 +227,7 @@ const Login = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  color: '#8a7e72',
+                  color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}>
@@ -301,7 +328,7 @@ const Login = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  color: '#8a7e72',
+                  color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}>

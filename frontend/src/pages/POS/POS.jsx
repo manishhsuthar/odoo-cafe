@@ -16,9 +16,12 @@ import {
   Percent 
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import useTheme from '../../hooks/useTheme';
+import { Sun, Moon } from 'lucide-react';
 
 const POS = () => {
   const { logout, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   // Categories & Products Data
@@ -138,10 +141,11 @@ const POS = () => {
   const pageStyle = {
     display: 'flex',
     height: '100vh',
-    backgroundColor: '#110f0d',
-    color: '#ffffff',
+    backgroundColor: 'var(--bg-primary)',
+    color: 'var(--text-primary)',
     fontFamily: 'var(--font-standard)',
     overflow: 'hidden',
+    transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
   const mainAreaStyle = {
@@ -153,13 +157,14 @@ const POS = () => {
 
   const headerStyle = {
     height: '70px',
-    backgroundColor: '#1c1714',
-    borderBottom: '1px solid #2d2621',
+    backgroundColor: 'var(--bg-card)',
+    borderBottom: '1px solid var(--border-color)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0 24px',
     gap: '20px',
+    transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
   };
 
   const headerButtonsStyle = {
@@ -169,9 +174,9 @@ const POS = () => {
   };
 
   const iconBtnStyle = {
-    backgroundColor: '#2b211a',
+    backgroundColor: 'var(--bg-button)',
     border: 'none',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     width: '40px',
     height: '40px',
     borderRadius: '10px',
@@ -179,19 +184,20 @@ const POS = () => {
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
   const tableSelectStyle = {
-    backgroundColor: '#2b211a',
+    backgroundColor: 'var(--bg-button)',
     border: 'none',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     padding: '10px 16px',
     borderRadius: '10px',
     fontSize: '14px',
     fontWeight: '700',
     outline: 'none',
     cursor: 'pointer',
+    transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
   const bodyGridStyle = {
@@ -204,18 +210,19 @@ const POS = () => {
 
   // Categories sidebar styling
   const categorySidebarStyle = {
-    backgroundColor: '#181411',
-    borderRight: '1px solid #2d2621',
+    backgroundColor: 'var(--bg-card)',
+    borderRight: '1px solid var(--border-color)',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     padding: '16px 8px',
     overflowY: 'auto',
+    transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
   };
 
   const catBtnStyle = (isActive) => ({
-    backgroundColor: isActive ? '#bfae9e' : 'transparent',
-    color: isActive ? '#110f0d' : '#a0958a',
+    backgroundColor: isActive ? 'var(--border-focus)' : 'transparent',
+    color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
     border: 'none',
     padding: '14px 10px',
     borderRadius: '10px',
@@ -223,7 +230,7 @@ const POS = () => {
     fontSize: '13px',
     cursor: 'pointer',
     textAlign: 'center',
-    transition: 'all 0.2s',
+    transition: 'all var(--transition-speed)',
   });
 
   // Product Grid container
@@ -237,7 +244,7 @@ const POS = () => {
   };
 
   const productCardStyle = (inStock) => ({
-    backgroundColor: '#211c18',
+    backgroundColor: 'var(--bg-card)',
     borderRadius: '16px',
     padding: '16px',
     display: 'flex',
@@ -246,20 +253,21 @@ const POS = () => {
     height: '130px',
     cursor: inStock ? 'pointer' : 'not-allowed',
     border: '1.5px solid transparent',
-    transition: 'all 0.2s ease',
+    transition: 'all var(--transition-speed)',
     opacity: inStock ? 1 : 0.5,
     position: 'relative',
     textAlign: 'left',
   });
 
   const cartPanelStyle = {
-    backgroundColor: '#181411',
-    borderLeft: '1px solid #2d2621',
-    borderRight: '1px solid #2d2621',
+    backgroundColor: 'var(--input-bg)',
+    borderLeft: '1px solid var(--border-color)',
+    borderRight: '1px solid var(--border-color)',
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
     overflow: 'hidden',
+    transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
   };
 
   const cartListStyle = {
@@ -272,28 +280,30 @@ const POS = () => {
   };
 
   const cartItemStyle = {
-    backgroundColor: '#211c18',
+    backgroundColor: 'var(--bg-card)',
     padding: '14px',
     borderRadius: '12px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: '8px',
+    transition: 'background-color var(--transition-speed)',
   };
 
   const paymentPanelStyle = {
-    backgroundColor: '#1c1714',
+    backgroundColor: 'var(--bg-card)',
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
     height: '100%',
+    transition: 'background-color var(--transition-speed)',
   };
 
   const payMethodBtnStyle = (isActive) => ({
     flex: 1,
-    backgroundColor: isActive ? '#bfae9e' : '#2b211a',
-    color: isActive ? '#110f0d' : '#a0958a',
+    backgroundColor: isActive ? 'var(--border-focus)' : 'var(--bg-button)',
+    color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
     border: 'none',
     padding: '16px',
     borderRadius: '12px',
@@ -304,13 +314,13 @@ const POS = () => {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '10px',
-    transition: 'all 0.2s',
+    transition: 'all var(--transition-speed)',
   });
 
   const numpadButtonStyle = {
-    backgroundColor: '#2b211a',
+    backgroundColor: 'var(--bg-button)',
     border: 'none',
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     borderRadius: '10px',
     fontSize: '18px',
     fontWeight: '700',
@@ -319,7 +329,7 @@ const POS = () => {
     alignItems: 'center',
     justifyContent: 'center',
     height: '52px',
-    transition: 'background-color 0.2s',
+    transition: 'background-color var(--transition-speed), color var(--transition-speed)',
   };
 
   // Slide-out hamburger navigation menu styling
@@ -329,21 +339,21 @@ const POS = () => {
     right: isSidebarOpen ? 0 : '-300px',
     width: '280px',
     height: '100vh',
-    backgroundColor: '#1a1512',
-    borderLeft: '1px solid #28211b',
-    boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+    backgroundColor: 'var(--bg-card)',
+    borderLeft: '1px solid var(--border-color)',
+    boxShadow: 'var(--card-shadow)',
     zIndex: 1000,
     display: 'flex',
     flexDirection: 'column',
     padding: '24px 20px',
-    transition: 'right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+    transition: 'right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color var(--transition-speed), border-color var(--transition-speed)',
   };
 
   const menuLinkStyle = {
     display: 'block',
     width: '100%',
     padding: '14px 16px',
-    color: '#a0958a',
+    color: 'var(--text-secondary)',
     fontSize: '15px',
     fontWeight: '600',
     textDecoration: 'none',
@@ -352,7 +362,7 @@ const POS = () => {
     backgroundColor: 'transparent',
     textAlign: 'left',
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    transition: 'all var(--transition-speed)',
   };
 
   return (
@@ -452,6 +462,15 @@ const POS = () => {
               <Layers size={18} />
             </button>
             
+            {/* Theme Toggle Button */}
+            <button 
+              style={iconBtnStyle} 
+              onClick={toggleTheme} 
+              title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             {/* User badge */}
             <div style={{
               display: 'flex',
@@ -460,8 +479,8 @@ const POS = () => {
               width: '40px',
               height: '40px',
               borderRadius: '50%',
-              backgroundColor: '#bfae9e',
-              color: '#110f0d',
+              backgroundColor: 'var(--border-focus)',
+              color: 'var(--bg-primary)',
               fontWeight: '700',
             }}>
               {user ? user.name.charAt(0) : 'E'}
@@ -521,10 +540,10 @@ const POS = () => {
                   right: '12px',
                 }} />
                 
-                <span style={{ fontSize: '15px', fontWeight: '700', color: '#ffffff', wordBreak: 'break-word' }}>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                   {p.name}
                 </span>
-                <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--bg-button)' }}>
+                <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-link)' }}>
                   ₹{p.price}
                 </span>
               </button>
@@ -537,8 +556,8 @@ const POS = () => {
               {cart.map((item) => (
                 <div key={item.id} style={cartItemStyle}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', flex: 1 }}>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff' }}>{item.name}</span>
-                    <span style={{ fontSize: '12px', color: '#8a7e72' }}>₹{item.price} each</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.name}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>₹{item.price} each</span>
                   </div>
                   
                   {/* Quantity adjustment controls */}
@@ -546,9 +565,9 @@ const POS = () => {
                     <button
                       onClick={() => updateQuantity(item.id, -1)}
                       style={{
-                        backgroundColor: '#2b211a',
+                        backgroundColor: 'var(--bg-button)',
                         border: 'none',
-                        color: '#ffffff',
+                        color: 'var(--text-primary)',
                         width: '28px',
                         height: '28px',
                         borderRadius: '6px',
@@ -558,15 +577,15 @@ const POS = () => {
                     >
                       -
                     </button>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff', width: '16px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', width: '16px' }}>
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateQuantity(item.id, 1)}
                       style={{
-                        backgroundColor: '#2b211a',
+                        backgroundColor: 'var(--bg-button)',
                         border: 'none',
-                        color: '#ffffff',
+                        color: 'var(--text-primary)',
                         width: '28px',
                         height: '28px',
                         borderRadius: '6px',
@@ -578,7 +597,7 @@ const POS = () => {
                     </button>
                   </div>
                   
-                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff', marginLeft: '8px', minWidth: '40px', textAlign: 'right' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginLeft: '8px', minWidth: '40px', textAlign: 'right' }}>
                     ₹{item.price * item.quantity}
                   </span>
                 </div>
@@ -587,20 +606,21 @@ const POS = () => {
 
             {/* Calculations & Send to Kitchen */}
             <div style={{
-              backgroundColor: '#1c1714',
-              borderTop: '1px solid #2d2621',
+              backgroundColor: 'var(--bg-card)',
+              borderTop: '1px solid var(--border-color)',
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
+              transition: 'background-color var(--transition-speed), border-color var(--transition-speed)',
             }}>
               {/* Send to Kitchen button */}
               <button
                 onClick={sendToKitchen}
                 style={{
                   width: '100%',
-                  backgroundColor: 'var(--bg-button)',
-                  color: '#110f0d',
+                  backgroundColor: 'var(--border-focus)',
+                  color: 'var(--bg-primary)',
                   border: 'none',
                   borderRadius: '12px',
                   padding: '14px',
@@ -611,48 +631,48 @@ const POS = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  transition: 'background-color 0.2s',
+                  transition: 'background-color var(--transition-speed), color var(--transition-speed)',
                 }}
                 onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--border-focus)'}
               >
                 <Send size={16} />
                 Send to Kitchen
               </button>
-
+ 
               {/* Utility buttons row */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
                   onClick={() => alert('Customer linked to bill.')}
-                  style={{ flex: 1, backgroundColor: '#2b211a', border: 'none', color: '#a0958a', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                 >
                   Customer
                 </button>
                 <button 
                   onClick={() => alert('Discount applied.')}
-                  style={{ flex: 1, backgroundColor: '#2b211a', border: 'none', color: '#a0958a', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                 >
                   Discount
                 </button>
                 <button 
                   onClick={() => alert('Order printed.')}
-                  style={{ flex: 1, backgroundColor: '#2b211a', border: 'none', color: '#a0958a', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                 >
                   Send
                 </button>
               </div>
-
+ 
               {/* Calculation math rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderTop: '1px solid #2d2621', paddingTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a0958a' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderTop: '1px solid var(--border-color)', paddingTop: '12px', transition: 'border-color var(--transition-speed)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Sub total</span>
                   <span>₹{subTotal}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a0958a' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                   <span>Tax(GST 5%)</span>
                   <span>₹{tax}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '16px', color: '#ffffff', marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '16px', color: 'var(--text-primary)', marginTop: '4px', transition: 'color var(--transition-speed)' }}>
                   <span>Total</span>
                   <span>₹{total}</span>
                 </div>
@@ -691,19 +711,20 @@ const POS = () => {
 
             {/* Paid Amount indicator */}
             <div style={{ margin: '14px 0', textAlign: 'left' }}>
-              <span style={{ fontSize: '13px', color: '#8a7e72', fontWeight: '700' }}>Amount</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Amount</span>
               <div style={{
                 fontSize: '32px',
                 fontWeight: '800',
-                color: '#ffffff',
-                borderBottom: '2px solid #2d2621',
+                color: 'var(--text-primary)',
+                borderBottom: '2px solid var(--border-color)',
                 paddingBottom: '8px',
-                marginTop: '6px'
+                marginTop: '6px',
+                transition: 'color var(--transition-speed), border-color var(--transition-speed)',
               }}>
                 ₹{paidAmount}
               </div>
             </div>
-
+ 
             {/* Numeric Numpad */}
             <div style={{
               display: 'grid',
@@ -715,8 +736,8 @@ const POS = () => {
                   key={num}
                   style={numpadButtonStyle}
                   onClick={() => handleNumpadClick(num)}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#382c23'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#2b211a'}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
                 >
                   {num}
                 </button>
@@ -725,21 +746,21 @@ const POS = () => {
               <button
                 style={numpadButtonStyle}
                 onClick={() => handleNumpadClick('0')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#382c23'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#2b211a'}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
               >
                 0
               </button>
-
+ 
               <button
                 style={numpadButtonStyle}
                 onClick={() => handleNumpadClick('+/-')}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#382c23'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#2b211a'}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-button-hover)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-button)'}
               >
                 +/-
               </button>
-
+ 
               <button
                 style={{ ...numpadButtonStyle, backgroundColor: '#d9534f', color: '#ffffff' }}
                 onClick={() => handleNumpadClick('x')}
@@ -749,24 +770,24 @@ const POS = () => {
                 &larr;
               </button>
             </div>
-
+ 
             {/* Quick Action Payment options */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '10px' }}>
               <button 
                 onClick={() => alert(`Prices set to base.`)}
-                style={{ backgroundColor: '#2b211a', border: 'none', color: '#ffffff', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
               >
                 Prices
               </button>
               <button 
                 onClick={() => alert(`Applied numerical discount.`)}
-                style={{ backgroundColor: '#2b211a', border: 'none', color: '#ffffff', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
               >
                 Disc.
               </button>
               <button 
                 onClick={() => alert(`Quantity multiplier ready.`)}
-                style={{ backgroundColor: '#2b211a', border: 'none', color: '#ffffff', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', padding: '12px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
               >
                 Qty
               </button>

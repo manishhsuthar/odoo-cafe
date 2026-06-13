@@ -23,14 +23,15 @@ const Sidebar = () => {
 
   const sidebarStyle = {
     width: '260px',
-    backgroundColor: '#1a1512', // Warm dark brown sidebar bg
-    color: '#ffffff',
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-primary)',
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
     position: 'sticky',
     top: 0,
-    borderRight: '1px solid #28211b',
+    borderRight: '1px solid var(--border-color)',
+    transition: 'background-color var(--transition-speed), border-color var(--transition-speed), color var(--transition-speed)',
   };
 
   const headerStyle = {
@@ -38,7 +39,8 @@ const Sidebar = () => {
     fontSize: '22px',
     fontWeight: '700',
     letterSpacing: '0.5px',
-    borderBottom: '1px solid #28211b',
+    borderBottom: '1px solid var(--border-color)',
+    transition: 'border-color var(--transition-speed)',
   };
 
   const navListStyle = {
@@ -57,17 +59,17 @@ const Sidebar = () => {
     gap: '12px',
     padding: '12px 16px',
     borderRadius: '8px',
-    color: '#a0958a', // muted beige
+    color: 'var(--text-secondary)',
     textDecoration: 'none',
     fontSize: '14px',
     fontWeight: '600',
-    transition: 'all 0.2s ease',
+    transition: 'all var(--transition-speed) ease',
   };
 
   const activeLinkStyle = {
     ...linkStyle,
-    backgroundColor: '#2b211a',
-    color: '#ffffff',
+    backgroundColor: 'var(--bg-button)',
+    color: 'var(--text-primary)',
   };
 
   const handleLogout = () => {

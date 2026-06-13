@@ -1,9 +1,33 @@
 :root {
-  /* Café/Restaurant Theme Palette */
+  /* Café/Restaurant Theme Palette (Dark Theme Default) */
+  --bg-primary: #110f0d;
+  --bg-card: #1c1714;
+  --bg-button: #2b211a;
+  --bg-button-hover: #382c23;
+  --text-primary: #ffffff;
+  --text-secondary: #a0958a;
+  --text-link: #bfae9e;
+  --text-link-hover: #ffffff;
+  --border-color: #2d2621;
+  --border-focus: #bfae9e;
+  --input-bg: #181411;
+
+  /* Fonts */
+  --font-standard: "Outfit", sans-serif;
+  --font-handwritten: "Architects Daughter", cursive, sans-serif;
+
+  /* Premium Box styling */
+  --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  --border-radius: 16px;
+  --transition-speed: 0.25s;
+}
+
+body.light-theme {
+  /* Light Theme Palette override */
   --bg-primary: #f5ece1;
   --bg-card: #ffffff;
-  --bg-button: #bfae9e;
-  --bg-button-hover: #ab9b8b;
+  --bg-button: #e8ded2;
+  --bg-button-hover: #d2c5b7;
   --text-primary: #2b2621;
   --text-secondary: #70645a;
   --text-link: #8c7662;
@@ -11,13 +35,5 @@
   --border-color: #e6ded6;
   --border-focus: #bfae9e;
   --input-bg: #faf8f5;
-
-  /* Fonts */
-  --font-standard: "Outfit", sans-serif;
-  --font-handwritten: "Architects Daughter", cursive, sans-serif;
-
-  /* Premium Box styling */
   --card-shadow: 0 10px 40px rgba(43, 38, 33, 0.15);
-  --border-radius: 16px;
-  --transition-speed: 0.25s;
 }
