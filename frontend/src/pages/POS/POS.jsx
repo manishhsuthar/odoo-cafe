@@ -51,6 +51,7 @@ const POS = () => {
     const prods = getProducts();
     setCategoriesList(cats.map(c => c.name));
     setProductsList(prods);
+    setOrdersList(getOrders());
     if (cats.length > 0) {
       setSelectedCategory(cats[0].name);
     }
@@ -98,12 +99,16 @@ const POS = () => {
     }
   }, [user]);
 
-  // Keep a live sync hook to pull logs periodically (e.g. from table reservation changes)
+  // Keep a live sync hook to pull logs and orders periodically
   useEffect(() => {
     const handleSync = () => {
       const storedLogs = localStorage.getItem('pos_session_logs');
       if (storedLogs) {
         setLogs(JSON.parse(storedLogs));
+      }
+      const storedOrders = localStorage.getItem('orders');
+      if (storedOrders) {
+        setOrdersList(JSON.parse(storedOrders));
       }
     };
     const interval = setInterval(handleSync, 2000);
@@ -127,6 +132,18 @@ const POS = () => {
   const [newProdPrice, setNewProdPrice] = useState('');
   const [newProdCategory, setNewProdCategory] = useState('');
   const [newProdDesc, setNewProdDesc] = useState('');
+
+  // Customer selection & creation modal states
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [searchCustomerQuery, setSearchCustomerQuery] = useState('');
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustEmail, setNewCustEmail] = useState('');
+  const [newCustPhone, setNewCustPhone] = useState('');
+
+  // Orders list and details states
+  const [ordersList, setOrdersList] = useState([]);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
 
   // Cart operations
   const addToCart = (product) => {
@@ -254,6 +271,10 @@ const POS = () => {
   const tax = Math.round(totalBeforeTax * 0.05); // 5% GST
   const total = totalBeforeTax + tax;
 
+  useEffect(() => {
+    setPaidAmount(total.toString());
+  }, [total]);
+
   const handleApplyCouponCode = (codeStr) => {
     if (!codeStr.trim()) {
       alert('Please enter a coupon code.');
@@ -328,6 +349,46 @@ const POS = () => {
     alert('Product added successfully!');
   };
 
+  const handleCreateCustomer = (e) => {
+    e.preventDefault();
+    if (!newCustName || !newCustPhone) {
+      alert('Please fill out Name and Phone.');
+      return;
+    }
+    
+    const stored = localStorage.getItem('customers');
+    let customersList = [];
+    if (stored) {
+      customersList = JSON.parse(stored);
+    } else {
+      customersList = [
+        { id: 'cust_1', name: 'Rajesh Kumar', email: 'rajesh.kumar@gmail.com', phone: '+91 98765 43210', spend: 12850, ordersCount: 6 },
+        { id: 'cust_2', name: 'Priya Singh', email: 'priya.singh@yahoo.com', phone: '+91 87654 32109', spend: 10420, ordersCount: 5 },
+        { id: 'cust_3', name: 'Amit Patel', email: 'amit.patel@outlook.com', phone: '+91 76543 21098', spend: 8180, ordersCount: 4 }
+      ];
+    }
+
+    const newCust = {
+      id: `cust_${Date.now()}`,
+      name: newCustName,
+      email: newCustEmail || 'no-email@test.com',
+      phone: newCustPhone,
+      spend: 0,
+      ordersCount: 0
+    };
+
+    customersList.push(newCust);
+    localStorage.setItem('customers', JSON.stringify(customersList));
+    addLogEntry(`Created new customer profile: ${newCust.name}`, 'success');
+
+    setSelectedCustomer(newCust);
+    setNewCustName('');
+    setNewCustEmail('');
+    setNewCustPhone('');
+    setIsCustomerModalOpen(false);
+    alert('Customer created and linked successfully!');
+  };
+
   // Numpad input handler
   const handleNumpadClick = (value) => {
     if (value === 'x') {
@@ -349,6 +410,7 @@ const POS = () => {
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
     const newOrder = addOrder({
       table: activeTable,
+      customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
       amount: total,
       status: 'Unpaid',
       paymentMethod: '-',
@@ -362,6 +424,7 @@ const POS = () => {
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    setSelectedCustomer(null);
   };
 
   // Collect Payment (Paid)
@@ -373,6 +436,7 @@ const POS = () => {
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
     const newOrder = addOrder({
       table: activeTable,
+      customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
       amount: total,
       status: 'Paid',
       paymentMethod: selectedPayment,
@@ -380,12 +444,37 @@ const POS = () => {
       couponCode: appliedCoupon ? appliedCoupon.code : null,
       discountAmount: discountAmount
     });
+
+    // Update customer spend in local database
+    if (selectedCustomer) {
+      const stored = localStorage.getItem('customers');
+      if (stored) {
+        try {
+          const list = JSON.parse(stored);
+          const updatedList = list.map(c => {
+            if (c.id === selectedCustomer.id || c.name === selectedCustomer.name) {
+              return { 
+                ...c, 
+                spend: (c.spend || 0) + total,
+                ordersCount: (c.ordersCount || 0) + 1
+              };
+            }
+            return c;
+          });
+          localStorage.setItem('customers', JSON.stringify(updatedList));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
     addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
     alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
     setCart([]);
     setPaidAmount('0');
     setAppliedCoupon(null);
     setDiscountAmount(0);
+    setSelectedCustomer(null);
   };
 
   // Search filter
@@ -730,6 +819,30 @@ const POS = () => {
             >
               <Grid size={16} />
               {activeTable ? `Table: ${activeTable}` : 'Select Table'}
+            </button>
+
+            {/* Customer Selection Button */}
+            <button 
+              onClick={() => setIsCustomerModalOpen(true)}
+              style={{
+                backgroundColor: selectedCustomer ? 'var(--border-focus)' : 'var(--bg-button)',
+                color: selectedCustomer ? 'var(--bg-primary)' : 'var(--text-primary)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+            >
+              <User size={16} />
+              {selectedCustomer ? `Customer: ${selectedCustomer.name}` : 'Link Customer'}
             </button>
 
             <button style={iconBtnStyle} onClick={() => alert('Cash register drawer is open.')}>
@@ -1115,6 +1228,23 @@ const POS = () => {
                 Checkout
               </button>
               <button 
+                onClick={() => setActiveRightTab('orders')}
+                style={{
+                  flex: 1,
+                  padding: '12px 6px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderBottom: activeRightTab === 'orders' ? '2.5px solid var(--border-focus)' : '2.5px solid transparent',
+                  color: activeRightTab === 'orders' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Orders
+              </button>
+              <button 
                 onClick={() => setActiveRightTab('logs')}
                 style={{
                   flex: 1,
@@ -1244,6 +1374,74 @@ const POS = () => {
                     Qty
                   </button>
                 </div>
+              </div>
+            ) : activeRightTab === 'orders' ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                height: '100%',
+                maxHeight: '440px',
+                overflowY: 'auto',
+                paddingRight: '4px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '6px' }}>
+                  <span style={{ fontWeight: '800', color: 'var(--text-secondary)' }}>Orders List</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Total: {ordersList.length}</span>
+                </div>
+                {ordersList.length === 0 ? (
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '20px' }}>No orders found.</span>
+                ) : (
+                  ordersList.map((ord) => {
+                    const isPaid = ord.status === 'Paid';
+                    return (
+                      <div
+                        key={ord.id}
+                        onClick={() => setSelectedOrderDetails(ord)}
+                        style={{
+                          backgroundColor: 'var(--bg-card)',
+                          border: '1.5px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          textAlign: 'left',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-focus)';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '13.5px', fontWeight: '800', color: 'var(--text-primary)' }}>{ord.id}</span>
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            textTransform: 'uppercase',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: isPaid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            color: isPaid ? '#10b981' : '#ef4444'
+                          }}>{ord.status}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{ord.customerName || 'Walk-in Customer'}</span>
+                          <span style={{ fontWeight: '700' }}>₹{ord.amount}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                          {new Date(ord.dateTime).toLocaleDateString()} {new Date(ord.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             ) : (
               <div style={{
@@ -1819,6 +2017,402 @@ const POS = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Customer Selector & Quick-Create Modal Overlay */}
+      {isCustomerModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: '500px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '24px',
+            padding: '30px',
+            boxShadow: 'var(--card-shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-standard)',
+            textAlign: 'left'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Customer CRM</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Link customer to active transaction</span>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsCustomerModalOpen(false);
+                  setSearchCustomerQuery('');
+                }}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Search customer section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Search Existing Customer</label>
+              <input
+                type="text"
+                placeholder="Search by name or phone..."
+                value={searchCustomerQuery}
+                onChange={(e) => setSearchCustomerQuery(e.target.value)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+              
+              {/* Search Results list */}
+              <div style={{
+                maxHeight: '140px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                marginTop: '6px'
+              }}>
+                {(() => {
+                  const stored = localStorage.getItem('customers');
+                  let list = [];
+                  if (stored) {
+                    list = JSON.parse(stored);
+                  } else {
+                    list = [
+                      { id: 'cust_1', name: 'Rajesh Kumar', email: 'rajesh.kumar@gmail.com', phone: '+91 98765 43210', spend: 12850, ordersCount: 6 },
+                      { id: 'cust_2', name: 'Priya Singh', email: 'priya.singh@yahoo.com', phone: '+91 87654 32109', spend: 10420, ordersCount: 5 },
+                      { id: 'cust_3', name: 'Amit Patel', email: 'amit.patel@outlook.com', phone: '+91 76543 21098', spend: 8180, ordersCount: 4 }
+                    ];
+                  }
+
+                  const filtered = list.filter(c => 
+                    c.name.toLowerCase().includes(searchCustomerQuery.toLowerCase()) ||
+                    c.phone.includes(searchCustomerQuery)
+                  );
+
+                  if (filtered.length === 0) {
+                    return <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '6px 0' }}>No matching customer profiles found.</span>;
+                  }
+
+                  return filtered.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedCustomer(c);
+                        setIsCustomerModalOpen(false);
+                        setSearchCustomerQuery('');
+                        addLogEntry(`Linked customer ${c.name} to POS ticket`, 'info');
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--border-focus)'}
+                      onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: '750' }}>{c.name}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{c.phone} • {c.email}</span>
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--border-focus)' }}>₹{c.spend || 0} spend</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', padding: '10px 0' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '10px' }}>Or Create New Customer Profile</span>
+              <form onSubmit={handleCreateCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Name *"
+                    required
+                    value={newCustName}
+                    onChange={(e) => setNewCustName(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px'
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone *"
+                    required
+                    value={newCustPhone}
+                    onChange={(e) => setNewCustPhone(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={newCustEmail}
+                  onChange={(e) => setNewCustEmail(e.target.value)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px'
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginTop: '4px'
+                  }}
+                >
+                  Create & Link Customer
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details View Overlay */}
+      {selectedOrderDetails && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: '450px',
+            backgroundColor: 'var(--bg-card)',
+            border: '2px solid var(--border-color)',
+            borderRadius: '24px',
+            padding: '30px',
+            boxShadow: 'var(--card-shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-standard)',
+            textAlign: 'left'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Order Details: {selectedOrderDetails.id}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {new Date(selectedOrderDetails.dateTime).toLocaleString()}
+                </span>
+              </div>
+              <button 
+                onClick={() => setSelectedOrderDetails(null)}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Dining Table:</span>
+                <span style={{ fontWeight: '755' }}>{selectedOrderDetails.table || 'Takeaway'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Customer Profile:</span>
+                <span style={{ fontWeight: '755' }}>{selectedOrderDetails.customerName || 'Walk-in Customer'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Payment Method:</span>
+                <span style={{ fontWeight: '755' }}>{selectedOrderDetails.paymentMethod}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Transaction Status:</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  textTransform: 'uppercase',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: selectedOrderDetails.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: selectedOrderDetails.status === 'Paid' ? '#10b981' : '#ef4444'
+                }}>
+                  {selectedOrderDetails.status}
+                </span>
+              </div>
+
+              {/* Items Summary list */}
+              <div style={{ 
+                borderTop: '1px dashed var(--border-color)', 
+                borderBottom: '1px dashed var(--border-color)', 
+                padding: '12px 0', 
+                margin: '6px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>ITEMS ORDERED</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
+                  {selectedOrderDetails.items.split(', ').map((itemStr, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span>{itemStr}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                <span>Grand Total:</span>
+                <span>₹{selectedOrderDetails.amount}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => alert(`Receipt printed for order ${selectedOrderDetails.id}`)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-primary)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Print Receipt
+              </button>
+              
+              {selectedOrderDetails.status === 'Unpaid' ? (
+                <button
+                  onClick={() => {
+                    const stored = localStorage.getItem('orders');
+                    if (stored) {
+                      try {
+                        const list = JSON.parse(stored);
+                        const updated = list.map(o => {
+                          if (o.id === selectedOrderDetails.id) {
+                            return { ...o, status: 'Paid', paymentMethod: 'Cash' };
+                          }
+                          return o;
+                        });
+                        localStorage.setItem('orders', JSON.stringify(updated));
+                        addLogEntry(`Order ${selectedOrderDetails.id} marked as Paid (Settled)`, 'success');
+                        alert(`Order ${selectedOrderDetails.id} settled successfully!`);
+                        
+                        if (selectedOrderDetails.customerName && selectedOrderDetails.customerName !== 'Walk-in Customer') {
+                          const custStored = localStorage.getItem('customers');
+                          if (custStored) {
+                            const custs = JSON.parse(custStored);
+                            const updatedCusts = custs.map(c => {
+                              if (c.name === selectedOrderDetails.customerName) {
+                                return { 
+                                  ...c, 
+                                  spend: (c.spend || 0) + selectedOrderDetails.amount,
+                                  ordersCount: (c.ordersCount || 0) + 1
+                                };
+                              }
+                              return c;
+                            });
+                            localStorage.setItem('customers', JSON.stringify(updatedCusts));
+                          }
+                        }
+
+                        setSelectedOrderDetails({ ...selectedOrderDetails, status: 'Paid', paymentMethod: 'Cash' });
+                        setOrdersList(updated);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Mark as Paid
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedOrderDetails(null)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: 'var(--border-focus)',
+                    color: 'var(--bg-primary)',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Close View
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

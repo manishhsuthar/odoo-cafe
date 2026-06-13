@@ -1,8 +1,8 @@
 // LocalStorage database helpers for Categories and Products
 
 const DEFAULT_CATEGORIES = [
-  { id: 'cat_drink', name: 'Drink', color: '#0d9488' },
-  { id: 'cat_food', name: 'Food', color: '#ea580c' },
+  { id: 'cat_drink', name: 'Drinks', color: '#0d9488' },
+  { id: 'cat_food', name: 'Foods', color: '#ea580c' },
   { id: 'cat_bev', name: 'Beverages', color: '#7c3aed' },
   { id: 'cat_chaat', name: 'Chaat', color: '#b45309' },
   { id: 'cat_des', name: 'Desert', color: '#db2777' },
@@ -10,6 +10,18 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_PRODUCTS = [
+  { id: 'dr1', name: 'Mango Shake', price: 120, inStock: true, category: 'Drinks', tax: 5, description: 'Fresh sweet mango milkshake' },
+  { id: 'dr2', name: 'Lemon Mint Mojito', price: 130, inStock: true, category: 'Drinks', tax: 5, description: 'Refreshing sparkling mojito with fresh mint and lemon' },
+  { id: 'dr3', name: 'Fresh Orange Juice', price: 110, inStock: true, category: 'Drinks', tax: 5, description: '100% freshly squeezed oranges' },
+  { id: 'dr4', name: 'Iced Latte', price: 140, inStock: true, category: 'Drinks', tax: 5, description: 'Espresso chilled with milk over ice' },
+  { id: 'dr5', name: 'Hot Cocoa', price: 90, inStock: true, category: 'Drinks', tax: 5, description: 'Rich hot milk cocoa' },
+  
+  { id: 'fd1', name: 'Margherita Pizza', price: 250, inStock: true, category: 'Foods', tax: 5, description: 'Classic mozzarella cheese and fresh basil pizza' },
+  { id: 'fd2', name: 'Veg Club Sandwich', price: 150, inStock: true, category: 'Foods', tax: 5, description: 'Triple decker toast with fresh veggies and cheese' },
+  { id: 'fd3', name: 'Garlic Bread Sticks', price: 120, inStock: true, category: 'Foods', tax: 5, description: 'Baked garlic butter dough sticks' },
+  { id: 'fd4', name: 'French Fries', price: 90, inStock: true, category: 'Foods', tax: 5, description: 'Crispy salted potato fries' },
+  { id: 'fd5', name: 'Spiced Paneer Tikka', price: 210, inStock: true, category: 'Foods', tax: 5, description: 'Spicy grilled cottage cheese cubes' },
+
   { id: 'b1', name: 'Masala Tea', price: 40, inStock: true, category: 'Beverages', tax: 5, description: 'Hot brewed Indian spiced tea' },
   { id: 'b2', name: 'Coffee', price: 60, inStock: true, category: 'Beverages', tax: 5, description: 'Rich roasted espresso coffee' },
   { id: 'b3', name: 'Lassi', price: 50, inStock: true, category: 'Beverages', tax: 5, description: 'Creamy sweet yogurt drink' },
@@ -35,10 +47,11 @@ const DEFAULT_ORDERS = [
 ];
 
 export const initDb = () => {
-  if (!localStorage.getItem('categories')) {
+  const cats = localStorage.getItem('categories');
+  const hasDrinksCategory = cats && cats.includes('Drinks');
+
+  if (!cats || !hasDrinksCategory) {
     localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
-  }
-  if (!localStorage.getItem('products')) {
     localStorage.setItem('products', JSON.stringify(DEFAULT_PRODUCTS));
   }
   if (!localStorage.getItem('orders')) {
