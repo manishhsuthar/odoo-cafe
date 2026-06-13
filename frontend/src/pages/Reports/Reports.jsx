@@ -4,6 +4,136 @@ import Sidebar from '../../components/layout/Sidebar';
 import { getOrders } from '../../utils/db';
 import { Calendar, User, Clock, ShoppingBag, ArrowUpRight, TrendingUp, BarChart3, Receipt, Award, Download, ChevronDown, Search } from 'lucide-react';
 
+const getMockDate = (daysAgo, hour, minute) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+};
+
+const MOCK_REPORTS_ORDERS = [
+  {
+    id: 'ORD-1001',
+    dateTime: getMockDate(0, 9, 30),
+    customerName: 'Rajesh Kumar',
+    table: 'Table 4',
+    items: '2 x Espresso Coffee, 1 x Paneer Tikka Sandwich',
+    paymentMethod: 'UPI',
+    amount: 330,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1002',
+    dateTime: getMockDate(0, 12, 15),
+    customerName: 'Anita Singh',
+    table: 'Table 12',
+    items: '1 x Cappuccino Coffee, 1 x Chocolate Ice Cream',
+    paymentMethod: 'Card',
+    amount: 230,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1003',
+    dateTime: getMockDate(0, 15, 0),
+    customerName: 'Amit Patel',
+    table: 'Table 2',
+    items: '2 x Masala Tea, 1 x French Fries',
+    paymentMethod: 'UPI',
+    amount: 220,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1004',
+    dateTime: getMockDate(0, 18, 45),
+    customerName: 'Sneha Reddy',
+    table: 'Walk-in',
+    items: '1 x Cafe Latte Coffee, 1 x Garlic Bread',
+    paymentMethod: 'Cash',
+    amount: 200,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1005',
+    dateTime: getMockDate(1, 10, 0),
+    customerName: 'Priya Sharma',
+    table: 'Table 8',
+    items: '1 x Paneer Curry, 2 x Roti, 1 x Mango Lassi',
+    paymentMethod: 'UPI',
+    amount: 450,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1006',
+    dateTime: getMockDate(1, 13, 30),
+    customerName: 'John Doe',
+    table: 'Table 5',
+    items: '1 x Veg Biryani Rice, 1 x Pepsi Soda',
+    paymentMethod: 'Card',
+    amount: 380,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1007',
+    dateTime: getMockDate(1, 20, 0),
+    customerName: 'Vikram Malhotra',
+    table: 'Table 1',
+    items: '1 x Chicken Curry, 2 x Naan, 1 x Chocolate Ice Cream',
+    paymentMethod: 'UPI',
+    amount: 520,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1008',
+    dateTime: getMockDate(2, 8, 45),
+    customerName: 'Karan Johar',
+    table: 'Table 3',
+    items: '2 x Masala Tea, 1 x Veg Samosa Appetizer',
+    paymentMethod: 'Cash',
+    amount: 180,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1009',
+    dateTime: getMockDate(2, 12, 0),
+    customerName: 'Sunita Williams',
+    table: 'Walk-in',
+    items: '1 x Paneer Tikka Sandwich, 1 x French Fries, 1 x Pepsi Soda',
+    paymentMethod: 'Card',
+    amount: 410,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1010',
+    dateTime: getMockDate(3, 19, 15),
+    customerName: 'Rohan Mehra',
+    table: 'Table 7',
+    items: '1 x Veg Pizza, 1 x Garlic Bread, 2 x Coca Cola Soda',
+    paymentMethod: 'UPI',
+    amount: 650,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1011',
+    dateTime: getMockDate(4, 11, 30),
+    customerName: 'Meera Nair',
+    table: 'Table 6',
+    items: '1 x Cappuccino Coffee, 1 x Chocolate Cake Dessert',
+    paymentMethod: 'Card',
+    amount: 270,
+    status: 'Paid'
+  },
+  {
+    id: 'ORD-1012',
+    dateTime: getMockDate(5, 14, 0),
+    customerName: 'Rahul Dravid',
+    table: 'Table 10',
+    items: '1 x Chicken Biryani Rice, 1 x Mango Lassi',
+    paymentMethod: 'UPI',
+    amount: 480,
+    status: 'Paid'
+  }
+];
+
 const Reports = () => {
   const todayStr = new Date().toLocaleDateString('en-CA');
 
@@ -28,6 +158,10 @@ const Reports = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [topCategories, setTopCategories] = useState([]);
   const [chartData, setChartData] = useState([]);
+
+  // Hover states for details display
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [hoveredCategory, setHoveredCategory] = useState(null);
 
   useEffect(() => {
     computeLiveMetrics();
@@ -68,8 +202,16 @@ const Reports = () => {
   };
 
   const computeLiveMetrics = async () => {
-    const dbOrders = (await getOrders()) || [];
-    
+    let dbOrders = (await getOrders().catch(() => [])) || [];
+    if (!Array.isArray(dbOrders) || dbOrders.length === 0) {
+      const stored = localStorage.getItem('orders');
+      if (stored) {
+        dbOrders = JSON.parse(stored);
+      } else {
+        dbOrders = MOCK_REPORTS_ORDERS;
+      }
+    }
+
     let filtered = dbOrders;
 
     // Filter by Date Range (From - To)
@@ -89,7 +231,7 @@ const Reports = () => {
     // Filter by Customer Search Name (checks order count / list for specific customer name)
     if (customerSearch.trim() !== '') {
       const query = customerSearch.toLowerCase();
-      filtered = filtered.filter(o => 
+      filtered = filtered.filter(o =>
         o.customerName && o.customerName.toLowerCase().includes(query)
       );
     }
@@ -239,19 +381,19 @@ const Reports = () => {
     csvContent += `Period,${fromDate || 'Any'} to ${toDate || 'Any'}\r\n`;
     csvContent += `Customer Filter,${customerSearch || 'All Customers'}\r\n`;
     csvContent += `Generated At,${new Date().toLocaleString()}\r\n\r\n`;
-    
+
     csvContent += `METRIC,VALUE\r\n`;
     csvContent += `Total Orders,${liveStats.totalOrders}\r\n`;
     csvContent += `Total Revenue,INR ${liveStats.totalRevenue}\r\n`;
     csvContent += `Avg Order Value,INR ${liveStats.avgOrderValue}\r\n\r\n`;
-    
+
     csvContent += `TOP ORDERS\r\n`;
     csvContent += `Order ID,Customer,Amount,ItemsCount,Date\r\n`;
     topOrders.forEach(o => {
       csvContent += `${o.id},"${o.customer}",${o.amount},${o.items},${o.date}\r\n`;
     });
     csvContent += `\r\n`;
-    
+
     csvContent += `TOP PRODUCTS\r\n`;
     csvContent += `Product,Quantity,Revenue,Percent of Revenue\r\n`;
     topProducts.forEach(p => {
@@ -280,7 +422,7 @@ const Reports = () => {
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank', 'width=950,height=800');
     const isLight = document.body.classList.contains('light-theme');
-    
+
     const htmlContent = `
       <html>
         <head>
@@ -413,7 +555,7 @@ const Reports = () => {
         </body>
       </html>
     `;
-    
+
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     setIsDownloadOpen(false);
@@ -424,7 +566,7 @@ const Reports = () => {
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
         <Header title="Reports & Analytics" />
-        
+
         <main style={{ padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', gap: '28px' }}>
           {/* Header Block with Download Dropdown */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -432,7 +574,7 @@ const Reports = () => {
               <h2 className="handwritten" style={{ fontSize: '28px', color: 'var(--text-primary)', margin: 0 }}>Reports & Analytics</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Track your restaurant performance, revenue growth, category distribution, and item stats.</p>
             </div>
-            
+
             {/* Download Report Button with Dropdown */}
             <div style={{ position: 'relative' }}>
               <button
@@ -462,8 +604,8 @@ const Reports = () => {
               {isDownloadOpen && (
                 <>
                   {/* Backdrop click closer */}
-                  <div 
-                    onClick={() => setIsDownloadOpen(false)} 
+                  <div
+                    onClick={() => setIsDownloadOpen(false)}
                     style={{ position: 'fixed', inset: 0, zIndex: 999 }}
                   />
                   <div style={{
@@ -636,7 +778,7 @@ const Reports = () => {
             </div>
           </div>          {/* Stats Cards Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            
+
             {/* Total Orders Card */}
             <div style={{
               backgroundColor: 'var(--bg-card)',
@@ -660,7 +802,7 @@ const Reports = () => {
               }}>
                 <Receipt size={18} />
               </div>
-              
+
               <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Orders</span>
               <h3 style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', margin: '8px 0 4px 0' }}>
                 {liveStats.totalOrders.toLocaleString()}
@@ -731,13 +873,13 @@ const Reports = () => {
 
           {/* Visual Charts Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
-            
+
             {/* Sales Trend (SVG Gradient Graph) */}
             <div style={{
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border-color)',
               borderRadius: '16px',
-              padding: '24px',
+              padding: '28px',
               boxShadow: 'var(--card-shadow)',
               textAlign: 'left'
             }}>
@@ -745,7 +887,7 @@ const Reports = () => {
                 <BarChart3 size={16} style={{ color: 'var(--text-link)' }} />
                 <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Sales Trend</span>
               </div>
-              
+
               {(() => {
                 const dataPoints = chartData.length > 0 ? chartData.slice(0, 10) : [];
                 const maxAmount = Math.max(...dataPoints.map(o => o.amount || 0), 1);
@@ -763,47 +905,94 @@ const Reports = () => {
                   ? `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`
                   : '';
                 return (
-                <div style={{ position: 'relative', height: '220px', width: '100%' }}>
-                  {dataPoints.length === 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      No sales data yet
-                    </div>
-                  ) : (
-                  <>
-                  <svg viewBox={`0 0 ${chartW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--border-focus)" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="var(--border-focus)" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    
-                    {/* Grid Lines */}
-                    <line x1="0" y1="50" x2={chartW} y2="50" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="0" y1="100" x2={chartW} y2="100" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="0" y1="150" x2={chartW} y2="150" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
-                    
-                    {/* Area path */}
-                    {areaD && <path d={areaD} fill="url(#chartGrad)" />}
+                  <div style={{ position: 'relative', height: '220px', width: '100%' }}>
+                    {dataPoints.length === 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                        No sales data yet
+                      </div>
+                    ) : (
+                      <>
+                        <svg viewBox={`0 0 ${chartW} ${chartH}`} width="100%" height="100%" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--border-focus)" stopOpacity="0.45" />
+                              <stop offset="100%" stopColor="var(--border-focus)" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
 
-                    {/* Line stroke */}
-                    {lineD && <path d={lineD} fill="none" stroke="var(--border-focus)" strokeWidth="3.5" strokeLinecap="round" />}
-                    
-                    {/* Data points */}
-                    {points.map((p, i) => (
-                      <circle key={i} cx={p.x} cy={p.y} r="5" fill="var(--bg-primary)" stroke="var(--border-focus)" strokeWidth="2" />
-                    ))}
-                  </svg>
+                          {/* Grid Lines */}
+                          <line x1="0" y1="50" x2={chartW} y2="50" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
+                          <line x1="0" y1="100" x2={chartW} y2="100" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
+                          <line x1="0" y1="150" x2={chartW} y2="150" stroke="var(--border-color)" strokeWidth="1" strokeDasharray="4" />
 
-                  {/* X Axis Labels */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {points.map((p, i) => (
-                      <span key={i}>{p.label}</span>
-                    ))}
+                          {/* Area path */}
+                          {areaD && <path d={areaD} fill="url(#chartGrad)" />}
+
+                          {/* Line stroke */}
+                          {lineD && <path d={lineD} fill="none" stroke="var(--border-focus)" strokeWidth="3.5" strokeLinecap="round" />}
+
+                          {/* Data points */}
+                          {points.map((p, i) => (
+                            <circle
+                              key={i}
+                              cx={p.x}
+                              cy={p.y}
+                              r={hoveredPoint && hoveredPoint.x === p.x ? "7" : "5"}
+                              fill="var(--bg-primary)"
+                              stroke="var(--border-focus)"
+                              strokeWidth="2.5"
+                              style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
+                              onMouseEnter={() => {
+                                setHoveredPoint({
+                                  x: p.x,
+                                  y: p.y,
+                                  label: p.label,
+                                  amount: p.amount
+                                });
+                              }}
+                              onMouseLeave={() => {
+                                setHoveredPoint(null);
+                              }}
+                            />
+                          ))}
+                        </svg>
+
+                        {/* X Axis Labels */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          {points.map((p, i) => (
+                            <span key={i}>{p.label}</span>
+                          ))}
+                        </div>
+
+                        {/* Hover Tooltip */}
+                        {hoveredPoint && (
+                          <div style={{
+                            position: 'absolute',
+                            left: `${(hoveredPoint.x / chartW) * 100}%`,
+                            top: `${(hoveredPoint.y / chartH) * 100 - 45}%`,
+                            transform: 'translate(-50%, -100%)',
+                            backgroundColor: 'rgba(30, 24, 20, 0.95)',
+                            border: '1.5px solid var(--border-color)',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                            color: '#fff',
+                            fontSize: '11.5px',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            <div style={{ fontWeight: '800', color: '#bfae9e' }}>Time: {hoveredPoint.label}</div>
+                            <div style={{ fontSize: '13px', fontWeight: '850', color: '#10b981' }}>Revenue: ₹{hoveredPoint.amount}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                  </>
-                  )}
-                </div>
                 );
               })()}
             </div>
@@ -818,55 +1007,98 @@ const Reports = () => {
               textAlign: 'left'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                <Clock size={16} style={{ color: 'var(--text-link)' }} />
+                <BarChart3 size={16} style={{ color: 'var(--text-link)' }} />
                 <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Top Categories Distribution</span>
               </div>
-              
+
               {topCategories.length === 0 ? (
                 <div style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', width: '100%' }}>
                   No data yet
                 </div>
               ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', height: '220px' }}>
-                {/* SVG Donut Chart */}
-                <svg width="150" height="150" viewBox="0 0 40 40" style={{ transform: 'rotate(-90deg)' }}>
-                  {(() => {
-                    const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
-                    let offset = 0;
-                    return topCategories.slice(0, 5).map((c, i) => {
-                      const dash = c.percent;
-                      const gap = 100 - dash;
-                      const circle = (
-                        <circle key={c.name}
-                          cx="20" cy="20" r="15.915"
-                          fill="transparent"
-                          stroke={colors[i % colors.length]}
-                          strokeWidth="5.5"
-                          strokeDasharray={`${dash} ${gap}`}
-                          strokeDashoffset={-offset}
-                        />
-                      );
-                      offset += dash;
-                      return circle;
-                    });
-                  })()}
-                  {/* Center cutout */}
-                  <circle cx="20" cy="20" r="12" fill="var(--bg-card)" />
-                </svg>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px', height: '220px' }}>
+                  {/* SVG Donut Chart wrapper for centering */}
+                  <div style={{ position: 'relative', width: '150px', height: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="150" height="150" viewBox="0 0 40 40" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                      {(() => {
+                        const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
+                        let offset = 0;
+                        return topCategories.slice(0, 5).map((c, i) => {
+                          const dash = c.percent;
+                          const gap = 100 - dash;
+                          const isHovered = hoveredCategory && hoveredCategory.name === c.name;
+                          const circle = (
+                            <circle key={c.name}
+                              cx="20" cy="20" r="15.915"
+                              fill="transparent"
+                              stroke={colors[i % colors.length]}
+                              strokeWidth={isHovered ? "7.0" : "5.5"}
+                              strokeDasharray={`${dash} ${gap}`}
+                              strokeDashoffset={-offset}
+                              style={{ cursor: 'pointer', transition: 'stroke-width 0.15s ease' }}
+                              onMouseEnter={() => setHoveredCategory(c)}
+                              onMouseLeave={() => setHoveredCategory(null)}
+                            />
+                          );
+                          offset += dash;
+                          return circle;
+                        });
+                      })()}
+                      {/* Center cutout */}
+                      <circle cx="20" cy="20" r="12" fill="var(--bg-card)" />
+                    </svg>
 
-                {/* Legends */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {(() => {
-                    const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
-                    return topCategories.slice(0, 5).map((c, i) => (
-                      <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: colors[i % colors.length] }} />
-                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{c.name} ({c.percent}%)</span>
-                      </div>
-                    ));
-                  })()}
+                    {/* Centered details */}
+                    <div style={{
+                      position: 'absolute',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                      pointerEvents: 'none',
+                      width: '75px'
+                    }}>
+                      <span style={{ fontSize: '10.5px', fontWeight: '800', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                        {hoveredCategory ? hoveredCategory.name : 'Total'}
+                      </span>
+                      <span style={{ fontSize: '14px', fontWeight: '850', color: 'var(--text-primary)', marginTop: '2px' }}>
+                        {hoveredCategory ? `${hoveredCategory.percent}%` : '100%'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Legends */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(() => {
+                      const colors = ['#dfc2a5', '#bfae9e', '#8c7662', '#5c4d40', '#3d3228'];
+                      return topCategories.slice(0, 5).map((c, i) => {
+                        const isHovered = hoveredCategory && hoveredCategory.name === c.name;
+                        return (
+                          <div
+                            key={c.name}
+                            onMouseEnter={() => setHoveredCategory(c)}
+                            onMouseLeave={() => setHoveredCategory(null)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: isHovered ? 'var(--bg-button)' : 'transparent',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors[i % colors.length] }} />
+                            <span style={{ fontWeight: '700', color: isHovered ? 'var(--text-link)' : 'var(--text-primary)' }}>{c.name} ({c.percent}%)</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
-              </div>
               )}
             </div>
 
@@ -885,7 +1117,7 @@ const Reports = () => {
               <Receipt size={16} style={{ color: 'var(--text-link)' }} />
               <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Top Orders</span>
             </div>
-            
+
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '1px solid var(--border-color)' }}>
@@ -923,7 +1155,7 @@ const Reports = () => {
               <Award size={16} style={{ color: 'var(--text-link)' }} />
               <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Top Products</span>
             </div>
-            
+
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '1px solid var(--border-color)' }}>
@@ -959,7 +1191,7 @@ const Reports = () => {
               <BarChart3 size={16} style={{ color: 'var(--text-link)' }} />
               <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Top Categories</span>
             </div>
-            
+
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '1px solid var(--border-color)' }}>
