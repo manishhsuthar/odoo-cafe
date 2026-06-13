@@ -45,7 +45,7 @@ const Dashboard = () => {
   const [employeeName, setEmployeeName] = useState('');
   const [employeeEmail, setEmployeeEmail] = useState('');
   const [employeePassword, setEmployeePassword] = useState('');
-  const [employeeRole, setEmployeeRole] = useState('waiter');
+  const [employeeRole, setEmployeeRole] = useState('chef');
   const [couponCode, setCouponCode] = useState('');
   const [couponDiscount, setCouponDiscount] = useState('');
 
@@ -65,7 +65,7 @@ const Dashboard = () => {
       setEmployeeName('');
       setEmployeeEmail('');
       setEmployeePassword('');
-      setEmployeeRole('waiter');
+      setEmployeeRole('chef');
       setIsEmployeeModalOpen(false);
     } else {
       alert(result.error);
@@ -536,8 +536,6 @@ const Dashboard = () => {
                 outline: 'none',
               }}
             >
-              <option value="waiter">Waiter</option>
-              <option value="cashier">Cashier</option>
               <option value="chef">Chef</option>
               <option value="manager">Manager</option>
             </select>
