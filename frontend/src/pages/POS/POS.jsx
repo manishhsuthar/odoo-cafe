@@ -254,6 +254,10 @@ const POS = () => {
   const tax = Math.round(totalBeforeTax * 0.05); // 5% GST
   const total = totalBeforeTax + tax;
 
+  useEffect(() => {
+    setPaidAmount(total.toString());
+  }, [total]);
+
   const handleApplyCouponCode = (codeStr) => {
     if (!codeStr.trim()) {
       alert('Please enter a coupon code.');
@@ -731,6 +735,15 @@ const POS = () => {
             >
               <Grid size={16} />
               {activeTable ? `Table: ${activeTable}` : 'Select Table'}
+            </button>
+
+            {/* Customer Navigation Button */}
+            <button 
+              style={iconBtnStyle} 
+              onClick={() => navigate('/orders')}
+              title="Go to Orders Tracking"
+            >
+              <User size={18} />
             </button>
 
             <button style={iconBtnStyle} onClick={() => alert('Cash register drawer is open.')}>
