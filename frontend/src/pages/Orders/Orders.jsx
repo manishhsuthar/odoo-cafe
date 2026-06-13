@@ -10,7 +10,7 @@ const Orders = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
-  
+
   // Custom Payment Modal for completing unpaid orders
   const [activePaymentOrder, setActivePaymentOrder] = useState(null);
 
@@ -80,7 +80,7 @@ const Orders = () => {
 
   // Filter orders based on search query, status, and payment method
   const filteredOrders = orders.filter((order) => {
-    const matchesSearch = 
+    const matchesSearch =
       order.table.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.items && order.items.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -98,16 +98,16 @@ const Orders = () => {
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
         <Header title="Order Tracking" />
-        
+
         <main style={{ padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 className="handwritten" style={{ fontSize: '28px', color: 'var(--text-primary)', margin: 0 }}>Active Orders & Receipts</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Track sales checkout status, tables serving, and payments received.</p>
             </div>
-            
-            <button 
+
+            <button
               onClick={loadOrders}
               style={{
                 display: 'flex',
@@ -147,7 +147,7 @@ const Orders = () => {
             {/* Search Input */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 14px', width: '300px', transition: 'border-color 0.2s' }}>
               <Search size={16} color="var(--text-secondary)" />
-              <input 
+              <input
                 type="text"
                 placeholder="Search table, ID or items..."
                 value={searchQuery}
@@ -165,10 +165,10 @@ const Orders = () => {
 
             {/* Quick Status and Payment Filter Buttons */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-              
+
               {/* Status Filter */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Status:</span>
                 <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--input-bg)', borderRadius: '6px', padding: '2px' }}>
                   {['All', 'Paid', 'Unpaid'].map((status) => (
                     <button
@@ -194,9 +194,9 @@ const Orders = () => {
 
               {/* Payment Method Filter */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Paid By:</span>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Paid By:</span>
                 <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--input-bg)', borderRadius: '6px', padding: '2px' }}>
-                  {['All', 'Cash', 'UPI', 'Card', '-'].map((method) => (
+                  {['All', 'Cash', 'UPI', 'Card'].map((method) => (
                     <button
                       key={method}
                       onClick={() => setPaymentFilter(method)}
@@ -254,14 +254,14 @@ const Orders = () => {
                           borderRadius: '4px',
                           fontSize: '11px',
                           fontWeight: '700',
-                          backgroundColor: 
+                          backgroundColor:
                             order.paymentMethod === 'Cash' ? 'rgba(13, 148, 136, 0.15)' :
-                            order.paymentMethod === 'UPI' ? 'rgba(124, 58, 237, 0.15)' :
-                            'rgba(37, 99, 235, 0.15)',
+                              order.paymentMethod === 'UPI' ? 'rgba(124, 58, 237, 0.15)' :
+                                'rgba(37, 99, 235, 0.15)',
                           color:
                             order.paymentMethod === 'Cash' ? '#0d9488' :
-                            order.paymentMethod === 'UPI' ? '#7c3aed' :
-                            '#2563eb',
+                              order.paymentMethod === 'UPI' ? '#7c3aed' :
+                                '#2563eb',
                         }}>
                           {order.paymentMethod}
                         </span>
@@ -289,7 +289,7 @@ const Orders = () => {
                     <td style={{ padding: '16px 12px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         {order.status === 'Unpaid' && (
-                          <button 
+                          <button
                             onClick={() => handleMarkAsPaidClick(order)}
                             style={{
                               background: 'none',
@@ -310,7 +310,7 @@ const Orders = () => {
                             <CheckCircle size={16} />
                           </button>
                         )}
-                        <button 
+                        <button
                           onClick={() => handleDeleteOrder(order.id)}
                           style={{
                             background: 'none',
@@ -366,7 +366,7 @@ const Orders = () => {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
               <h3 className="handwritten" style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)' }}>Process Payment</h3>
-              <button 
+              <button
                 onClick={() => setActivePaymentOrder(null)}
                 style={{ background: 'none', border: 'none', color: '#ff5c5c', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
               >

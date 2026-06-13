@@ -380,18 +380,26 @@ const Products = () => {
                         )}
                       </td>
                       <td style={{ padding: '16px 12px', fontSize: '14px' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: '12px',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          backgroundColor: 'var(--bg-button)',
-                          color: 'var(--text-link)',
-                          border: '1px solid var(--border-color)'
-                        }}>
-                          {product.categoryName || product.category}
-                        </span>
+                        {(() => {
+                          const catName = product.categoryName || product.category;
+                          const catObj = categories.find(c => c.name.toLowerCase() === (catName || '').toLowerCase());
+                          const catColor = catObj ? catObj.color : '#64748b';
+                          const isHex = typeof catColor === 'string' && catColor.startsWith('#');
+                          return (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              backgroundColor: isHex ? `${catColor}18` : 'var(--bg-button)',
+                              color: catColor,
+                              border: isHex ? `1px solid ${catColor}33` : '1px solid var(--border-color)'
+                            }}>
+                              {catName}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: '16px 12px', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
                         {isEditing ? (
