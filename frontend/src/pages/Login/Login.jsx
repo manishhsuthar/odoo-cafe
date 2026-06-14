@@ -152,6 +152,7 @@ const Login = () => {
       <div style={cardStyle}>
         {/* LOGIN FORM */}
         <div style={{ width: '100%' }}>
+          <img src="/logo.png" alt="Logo" style={{ height: '48px', marginBottom: '16px' }} />
           <h1 style={titleStyle}>Welcome Back</h1>
           <p style={subtitleStyle}>Sign in to your restaurant account</p>
 

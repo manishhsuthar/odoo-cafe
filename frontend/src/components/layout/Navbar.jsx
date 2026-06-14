@@ -12,10 +12,11 @@ const Navbar = () => {
       backgroundColor: 'var(--bg-primary)',
     }}>
       <div className="handwritten" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-        <Link to="/" style={{ color: 'var(--text-primary)' }}>Odoo POS</Link>
+        <Link to="/" style={{ color: 'transparent', display: 'flex', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Bite & Brew Logo" style={{ height: '140px', transform: 'scale(1.2)', transformOrigin: 'left center', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+        </Link>
       </div>
       <div style={{ display: 'flex', gap: '20px' }}>
-        <Link to="/dashboard" className="handwritten" style={{ color: 'var(--text-secondary)' }}>Dashboard</Link>
         <Link to="/pos" className="handwritten" style={{ color: 'var(--text-secondary)' }}>POS</Link>
         <Link to="/kds" className="handwritten" style={{ color: 'var(--text-secondary)' }}>KDS</Link>
         <Link to="/products" className="handwritten" style={{ color: 'var(--text-secondary)' }}>Products</Link>

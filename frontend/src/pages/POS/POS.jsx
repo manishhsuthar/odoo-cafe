@@ -411,10 +411,10 @@ const POS = ({ view = 'pos' }) => {
         [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
       }));
     }
-    
+
     setActiveTable(tableName);
     setIsTableModalOpen(false);
-    
+
     setTableCarts(prev => {
       const existingData = prev[tableName] || { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' };
       setCart(existingData.cart);
@@ -1076,17 +1076,13 @@ const POS = ({ view = 'pos' }) => {
             <div
               onClick={() => navigate('/pos')}
               style={{
-                backgroundColor: 'var(--border-focus)',
-                color: 'var(--bg-primary)',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                fontWeight: '800',
-                fontSize: '18px',
-                letterSpacing: '0.5px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              Café POS
+              <img src="/logo.png" alt="Bite & Brew Logo" style={{ height: '60px', paddingRight: '20px', transform: 'scale(1.4)', transformOrigin: 'left center', objectFit: 'contain', mixBlendMode: 'multiply', display: 'block' }} />
             </div>
 
             {/* Search Bar */}
@@ -1114,40 +1110,40 @@ const POS = ({ view = 'pos' }) => {
 
           <div style={headerButtonsStyle}>
             {/* QR Code Payment Modal */}
-      {isQrModalOpen && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
-        }}>
-          <div style={{
-            backgroundColor: 'var(--bg-card)', padding: '30px', borderRadius: '20px',
-            textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', width: '350px'
-          }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '22px', color: 'var(--text-primary)' }}>UPI Payment</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Scan the QR Code to pay ₹{total}</p>
-            <div style={{ padding: '15px', background: '#fff', display: 'inline-block', borderRadius: '15px', marginBottom: '20px' }}>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=merchant@upi&pn=Cafe&am=${total}&cu=INR`} alt="UPI QR Code" />
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => setIsQrModalOpen(false)}
-                style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => { setIsQrModalOpen(false); processPayment(); }}
-                style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: '#10b981', border: 'none', color: '#fff', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Mark Paid
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            {isQrModalOpen && (
+              <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
+              }}>
+                <div style={{
+                  backgroundColor: 'var(--bg-card)', padding: '30px', borderRadius: '20px',
+                  textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', width: '350px'
+                }}>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '22px', color: 'var(--text-primary)' }}>UPI Payment</h3>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Scan the QR Code to pay ₹{total}</p>
+                  <div style={{ padding: '15px', background: '#fff', display: 'inline-block', borderRadius: '15px', marginBottom: '20px' }}>
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=merchant@upi&pn=Cafe&am=${total}&cu=INR`} alt="UPI QR Code" />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => setIsQrModalOpen(false)}
+                      style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-primary)', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { setIsQrModalOpen(false); processPayment(); }}
+                      style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: '#10b981', border: 'none', color: '#fff', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Mark Paid
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
-      {/* Takeaway / Table Selection Modal */}
+            {/* Takeaway / Table Selection Modal */}
             <button
               onClick={() => setIsTableModalOpen(true)}
               style={{

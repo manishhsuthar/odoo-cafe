@@ -93,7 +93,9 @@ const Sidebar = () => {
 
   return (
     <aside style={sidebarStyle}>
-      <div style={headerStyle}>Admin</div>
+      <div style={headerStyle}>
+        <img src="/logo.png" alt="Bite & Brew Logo" style={{ height: '100px', transform: 'scale(1.2)', transformOrigin: 'left center', objectFit: 'contain' }} />
+      </div>
       <ul style={navListStyle}>
         {menuItems.map((item) => (
           <li key={item.name}>
