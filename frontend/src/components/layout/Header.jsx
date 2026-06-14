@@ -25,7 +25,7 @@ const Header = ({ title }) => {
       }}>
         {title}
       </h2>
-      
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* Theme Toggle Button */}
         <button
