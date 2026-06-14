@@ -24,7 +24,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct, getTables, updateTable } from '../../utils/db';
 import POSOrdersHistory from './components/POSOrdersHistory';
 import POSProductsManagement from './components/POSProductsManagement';
 import POSCategoriesManagement from './components/POSCategoriesManagement';
@@ -331,6 +331,17 @@ const POS = ({ view = 'pos' }) => {
         setProductsList(finalProds);
         if (finalCats.length > 0) {
           setSelectedCategory(finalCats[0].name);
+        }
+
+        const backendTables = await getTables().catch(() => []);
+        if (backendTables && backendTables.length > 0) {
+          setTablesList(backendTables.map(t => ({
+            id: t.id,
+            name: t.name,
+            floor: t.floor || 1,
+            status: t.status || 'free',
+            customerName: t.customerName || t.customer_name || ''
+          })));
         }
       } catch (err) {
         console.error("Error loading POS initial data, using mock data:", err);
@@ -703,6 +714,15 @@ const POS = ({ view = 'pos' }) => {
         [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
       }));
       if (activeTable !== 'Takeaway') {
+        const targetTable = tablesList.find(t => t.name === activeTable);
+        if (targetTable && targetTable.id) {
+          updateTable(targetTable.id, {
+            floor: targetTable.floor,
+            name: targetTable.name,
+            status: 'occupied',
+            customer_name: ''
+          }).catch(() => {});
+        }
         setTablesList(prev => {
           const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'occupied' } : t);
           localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
@@ -738,6 +758,15 @@ const POS = ({ view = 'pos' }) => {
         [activeTable]: { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' }
       }));
       if (activeTable !== 'Takeaway') {
+        const targetTable = tablesList.find(t => t.name === activeTable);
+        if (targetTable && targetTable.id) {
+          updateTable(targetTable.id, {
+            floor: targetTable.floor,
+            name: targetTable.name,
+            status: 'free',
+            customer_name: ''
+          }).catch(() => {});
+        }
         setTablesList(prev => {
           const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'free' } : t);
           localStorage.setItem('floor_plan_tables', JSON.stringify(updated));

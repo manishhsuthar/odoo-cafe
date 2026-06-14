@@ -83,6 +83,7 @@ const Sidebar = () => {
     { name: 'Order Tracking', path: '/orders', icon: ShoppingCart },
     { name: 'Employee Record', path: '/employees', icon: Users },
     { name: 'Tables & Floor Plans', path: '/tables', icon: Grid3X3 },
+    { name: 'Table Bookings', path: '/table-booking', icon: CalendarClock },
     { name: 'Payment Methods', path: '/payment-methods', icon: DollarSign },
     { name: 'Coupon Generation', path: '/coupons', icon: Ticket },
     { name: 'Revenue Reports', path: '/reports', icon: BarChart3 },

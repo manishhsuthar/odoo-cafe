@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
-import { getOrders } from '../../utils/db';
+import {
+  getReportsSummary,
+  getSalesTrend,
+  getTopOrders,
+  getTopProducts,
+  getTopCategories
+} from '../../utils/db';
 import { Calendar, User, Clock, ShoppingBag, ArrowUpRight, TrendingUp, BarChart3, Receipt, Award, Download, ChevronDown, Search } from 'lucide-react';
 
 const getMockDate = (daysAgo, hour, minute) => {
@@ -202,47 +208,79 @@ const Reports = () => {
   };
 
   const computeLiveMetrics = async () => {
-    let dbOrders = (await getOrders().catch(() => [])) || [];
-    if (!Array.isArray(dbOrders) || dbOrders.length === 0) {
-      const stored = localStorage.getItem('orders');
-      if (stored) {
-        dbOrders = JSON.parse(stored);
-      } else {
-        dbOrders = MOCK_REPORTS_ORDERS;
+    try {
+      const params = {};
+      if (fromDate) params.from = fromDate;
+      if (toDate) params.to = toDate;
+
+      // 1. Fetch Summary
+      const summary = await getReportsSummary(params);
+      setLiveStats({
+        totalOrders: summary.totalOrders || 0,
+        totalRevenue: summary.totalRevenue ? parseFloat(summary.totalRevenue) : 0,
+        avgOrderValue: summary.avgOrderValue ? Math.round(parseFloat(summary.avgOrderValue)) : 0
+      });
+
+      // 2. Fetch Sales Trend
+      const trend = await getSalesTrend(params);
+      const trendData = trend.map(t => ({
+        amount: parseFloat(t.totalRevenue || 0),
+        dateTime: t.date
+      }));
+      setChartData(trendData);
+
+      // 3. Fetch Top Orders
+      const ordersData = await getTopOrders(params);
+      let mappedOrders = ordersData.map(o => ({
+        id: o.orderId,
+        customer: o.customer,
+        amount: parseFloat(o.amount || 0),
+        items: o.items,
+        date: o.date
+      }));
+
+      // Filter locally by customerSearch & product if user selected them
+      if (customerSearch.trim() !== '') {
+        const query = customerSearch.toLowerCase();
+        mappedOrders = mappedOrders.filter(o =>
+          o.customer && o.customer.toLowerCase().includes(query)
+        );
       }
-    }
+      if (product !== 'All') {
+        mappedOrders = mappedOrders.filter(o =>
+          o.items && o.items.toLowerCase().includes(product.toLowerCase())
+        );
+      }
+      setTopOrders(mappedOrders);
 
-    let filtered = dbOrders;
+      // 4. Fetch Top Products
+      const productsData = await getTopProducts(params);
+      let mappedProducts = productsData.map(p => ({
+        name: p.product,
+        quantity: p.quantitySold,
+        revenue: parseFloat(p.revenue || 0),
+        percent: parseFloat(p.percentOfRevenue || 0)
+      }));
+      if (product !== 'All') {
+        mappedProducts = mappedProducts.filter(p =>
+          p.name && p.name.toLowerCase().includes(product.toLowerCase())
+        );
+      }
+      setTopProducts(mappedProducts);
 
-    // Filter by Date Range (From - To)
-    if (fromDate) {
-      filtered = filtered.filter(o => {
-        const oDateStr = new Date(o.dateTime).toISOString().split('T')[0];
-        return oDateStr >= fromDate;
-      });
-    }
-    if (toDate) {
-      filtered = filtered.filter(o => {
-        const oDateStr = new Date(o.dateTime).toISOString().split('T')[0];
-        return oDateStr <= toDate;
-      });
-    }
+      // 5. Fetch Top Categories
+      const categoriesData = await getTopCategories(params);
+      const mappedCategories = categoriesData.map(c => ({
+        name: c.category || 'Other',
+        revenue: parseFloat(c.revenue || 0),
+        orders: c.orders,
+        percent: parseFloat(c.percentOfRevenue || 0)
+      }));
+      setTopCategories(mappedCategories);
 
-    // Filter by Customer Search Name (checks order count / list for specific customer name)
-    if (customerSearch.trim() !== '') {
-      const query = customerSearch.toLowerCase();
-      filtered = filtered.filter(o =>
-        o.customerName && o.customerName.toLowerCase().includes(query)
-      );
-    }
-
-    // Filter by product selector keyword if any
-    if (product !== 'All') {
-      filtered = filtered.filter(o => o.items && o.items.toLowerCase().includes(product.toLowerCase()));
-    }
-
-    // If no records match, output zeros
-    if (filtered.length === 0) {
+    } catch (err) {
+      console.error("Error fetching live metrics:", err);
+      // Fallback: clear stats on error
       setLiveStats({
         totalOrders: 0,
         totalRevenue: 0,
@@ -251,127 +289,8 @@ const Reports = () => {
       setTopOrders([]);
       setTopProducts([]);
       setTopCategories([]);
-      return;
+      setChartData([]);
     }
-
-    // Calculations
-    const totalOrders = filtered.length;
-    const totalRevenue = filtered.reduce((sum, o) => sum + (o.amount || 0), 0);
-    const avgOrderValue = Math.round(totalRevenue / totalOrders);
-
-    setLiveStats({
-      totalOrders,
-      totalRevenue,
-      avgOrderValue
-    });
-
-    // Top Orders
-    const liveTopOrders = filtered.slice(0, 5).map(o => ({
-      id: o.id,
-      customer: o.customerName || 'Walk-in Customer',
-      amount: o.amount,
-      items: o.items ? o.items.split(',').length : 1,
-      date: new Date(o.dateTime).toISOString().slice(0, 10)
-    }));
-    setTopOrders(liveTopOrders);
-
-    // Calculate live items and categories stats
-    const categoryStatsMap = {};
-    const productStatsMap = {};
-    const orderAmount = filtered.reduce((sum, o) => sum + (o.amount || 0), 0);
-
-    filtered.forEach(o => {
-      if (o.items) {
-        const itemsList = o.items.split(',');
-        const itemCount = itemsList.length;
-
-        itemsList.forEach(itemStr => {
-          const trimmed = itemStr.trim();
-          if (!trimmed) return;
-
-          let qty = 1;
-          let name = trimmed;
-
-          const prefixMatch = trimmed.match(/^(\d+)\s*[xX]\s*(.+)$/);
-          const suffixMatch = trimmed.match(/^(.+)\s*[xX]\s*(\d+)$/);
-
-          if (prefixMatch) {
-            qty = parseInt(prefixMatch[1]) || 1;
-            name = prefixMatch[2].trim();
-          } else if (suffixMatch) {
-            qty = parseInt(suffixMatch[2]) || 1;
-            name = suffixMatch[1].trim();
-          }
-
-          if (!productStatsMap[name]) {
-            productStatsMap[name] = { name, quantity: 0, count: 0 };
-          }
-          productStatsMap[name].quantity += qty;
-          productStatsMap[name].count += 1;
-
-          let category = 'Other';
-          const nameLower = name.toLowerCase();
-          if (nameLower.includes('tea') || nameLower.includes('coffee') || nameLower.includes('lassi') || nameLower.includes('beverage') || nameLower.includes('soda')) {
-            category = 'Beverages';
-          } else if (nameLower.includes('cake') || nameLower.includes('ice cream') || nameLower.includes('kheer') || nameLower.includes('dessert')) {
-            category = 'Desserts';
-          } else if (nameLower.includes('samosa') || nameLower.includes('fries') || nameLower.includes('appetizer')) {
-            category = 'Appetizers';
-          } else if (nameLower.includes('rice') || nameLower.includes('biryani') || nameLower.includes('curry') || nameLower.includes('chicken') || nameLower.includes('paneer') || nameLower.includes('naan') || nameLower.includes('roti')) {
-            category = 'Main Course';
-          }
-
-          if (!categoryStatsMap[category]) {
-            categoryStatsMap[category] = { name: category, revenue: 0, orders: 0 };
-          }
-          categoryStatsMap[category].orders += 1;
-        });
-      }
-    });
-
-    // Allocate order amount proportionally across items for product revenue
-    Object.keys(productStatsMap).forEach(name => {
-      productStatsMap[name].revenue = orderAmount > 0
-        ? parseFloat(((productStatsMap[name].count / filtered.length) * orderAmount / filtered.length).toFixed(2))
-        : 0;
-    });
-
-    // Allocate revenue to categories proportionally
-    const totalItemCount = Object.values(productStatsMap).reduce((s, p) => s + p.count, 0);
-    Object.keys(categoryStatsMap).forEach(cat => {
-      const categoryTotalCount = filtered.reduce((sum, o) => {
-        if (!o.items) return sum;
-        return sum + o.items.split(',').filter(item => {
-          const nameLower = item.trim().toLowerCase();
-          if (cat === 'Beverages') return nameLower.includes('tea') || nameLower.includes('coffee') || nameLower.includes('lassi') || nameLower.includes('soda');
-          if (cat === 'Desserts') return nameLower.includes('cake') || nameLower.includes('ice cream') || nameLower.includes('kheer');
-          if (cat === 'Appetizers') return nameLower.includes('samosa') || nameLower.includes('fries');
-          if (cat === 'Main Course') return nameLower.includes('rice') || nameLower.includes('biryani') || nameLower.includes('curry') || nameLower.includes('chicken') || nameLower.includes('paneer') || nameLower.includes('naan');
-          return false;
-        }).length;
-      }, 0);
-      categoryStatsMap[cat].revenue = totalItemCount > 0 && orderAmount > 0
-        ? parseFloat(((categoryTotalCount / totalItemCount) * orderAmount).toFixed(2))
-        : 0;
-    });
-
-    const liveTopProducts = Object.values(productStatsMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5)
-      .map(p => ({
-        ...p,
-        percent: orderAmount > 0 ? parseFloat(((p.revenue / orderAmount) * 100).toFixed(1)) : 0
-      }));
-    setTopProducts(liveTopProducts);
-
-    const liveTopCategories = Object.values(categoryStatsMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .map(c => ({
-        ...c,
-        percent: orderAmount > 0 ? parseFloat(((c.revenue / orderAmount) * 100).toFixed(1)) : 0
-      }));
-    setTopCategories(liveTopCategories);
-    setChartData(filtered);
   };
 
   // XLS Exporter

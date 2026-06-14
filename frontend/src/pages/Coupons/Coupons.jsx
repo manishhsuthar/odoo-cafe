@@ -95,11 +95,11 @@ const Coupons = () => {
         type: target.type,
         code: target.code,
         discount_type: target.discountType === 'Percentage' ? 'percentage' : 'fixed',
-        value: target.value,
-        min_amount: target.minAmount,
+        discount_value: target.value,
+        min_order_amount: target.minAmount,
         target_type: target.targetType === 'All' ? 'all' : target.targetType.toLowerCase(),
         target_value: target.targetValue,
-        activated: nextActiveState
+        is_active: nextActiveState
       };
 
       await updateCoupon(id, apiPayload).catch(() => {});
@@ -161,18 +161,17 @@ const Coupons = () => {
       activated: formActivated
     };
 
-    const apiPayload = {
-      name: payload.name,
-      type: payload.type,
-      code: payload.code,
-      discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'fixed',
-      value: payload.value,
-      min_amount: payload.minAmount,
-      target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
-      target_value: payload.targetValue,
-      activated: payload.activated
-    };
-
+  const apiPayload = {
+    name: payload.name,
+    type: payload.type,
+    code: payload.code,
+    discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'flat',
+    discount_value: payload.value,
+    min_order_amount: payload.minAmount,
+    target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
+    target_value: payload.targetValue,
+    is_active: payload.activated
+    }; 
     try {
       let savedObj = payload;
       if (selectedCoupon) {
