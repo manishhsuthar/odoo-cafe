@@ -1325,7 +1325,7 @@ const POS = ({ view = 'pos' }) => {
                 cursor: 'pointer'
               }}
             >
-              <img src="/logo.png" alt="Odoo Logo" style={{ height: '40px', objectFit: 'contain' }} />
+              <img src="/logo.png" alt="Byte & Brew" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
 
             {/* Search Bar */}

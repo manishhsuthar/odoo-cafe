@@ -94,9 +94,9 @@ const Sidebar = () => {
 
   return (
     <aside style={sidebarStyle}>
-      <div style={{ ...headerStyle, display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 24px' }}>
-        <img src="/logo.png" alt="Odoo Logo" style={{ height: '70px', objectFit: 'contain' }} />
-        <span>Admin</span>
+      <div style={{ ...headerStyle, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px' }}>
+        <img src="/logo.png" alt="Byte & Brew" style={{ height: '50px', maxWidth: '100%', objectFit: 'contain' }} />
+        <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--border-focus)' }}>Admin</span>
       </div>
       <ul style={navListStyle}>
         {menuItems.map((item) => (

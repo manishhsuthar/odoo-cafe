@@ -62,10 +62,15 @@ const Dashboard = () => {
         const stored = localStorage.getItem('floor_plan_tables');
         tables = stored ? JSON.parse(stored) : [];
       }
-      const totalOrders = orders.length;
-      const totalRev = orders
+      const today = new Date().toDateString();
+      const todayOrders = orders.filter(
+        o => o.dateTime && new Date(o.dateTime).toDateString() === today
+      );
+
+      const totalOrders = todayOrders.length;
+      const totalRev = todayOrders
         .filter(o => o.status === 'Paid')
-        .reduce((sum, o) => sum + o.amount, 0);
+        .reduce((sum, o) => sum + parseFloat(o.amount || 0), 0);
       const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
       const totalTblsCount = tables.length || 12; // fallback to 12 if no tables in db
       const vacantTbls = Math.max(0, totalTblsCount - activeTbls);
@@ -81,12 +86,9 @@ const Dashboard = () => {
       });
 
       // Filter activities to only include orders of "today" (that day) sorted newest first
-      const today = new Date().toDateString();
-      const todayOrders = orders
-        .filter(o => o.dateTime && new Date(o.dateTime).toDateString() === today)
-        .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+      const sortedTodayOrders = [...todayOrders].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
 
-      const activities = todayOrders.map(o => ({
+      const activities = sortedTodayOrders.map(o => ({
         id: o.id,
         iconColor: o.status === 'Paid' ? '#10b981' : '#f59e0b',
         icon: ShoppingBag,

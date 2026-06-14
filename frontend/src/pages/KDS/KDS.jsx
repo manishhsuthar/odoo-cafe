@@ -389,7 +389,7 @@ const KDS = () => {
             onClick={() => navigate('/kds')}
             style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
-            <img src="/logo.png" alt="Odoo Logo" style={{ height: '70px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Byte & Brew" style={{ height: '50px', objectFit: 'contain' }} />
           </div>
           <span style={{
             fontSize: '22px',

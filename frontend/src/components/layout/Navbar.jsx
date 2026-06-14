@@ -13,7 +13,7 @@ const Navbar = () => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.png" alt="Odoo Logo" style={{ height: '40px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="Byte & Brew" style={{ height: '40px', objectFit: 'contain' }} />
         </Link>
       </div>
       <div style={{ display: 'flex', gap: '20px' }}>
