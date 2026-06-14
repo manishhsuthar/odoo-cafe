@@ -24,7 +24,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct, getTables, updateTable } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct, getTables, updateTable, deleteTable, updateOrderStatus, updateOrder } from '../../utils/db';
 import POSOrdersHistory from './components/POSOrdersHistory';
 import POSProductsManagement from './components/POSProductsManagement';
 import POSCategoriesManagement from './components/POSCategoriesManagement';
@@ -33,6 +33,7 @@ import POSCouponsManagement from './components/POSCouponsManagement';
 import POSBookingsManagement from './components/POSBookingsManagement';
 import POSEmployeesManagement from './components/POSEmployeesManagement';
 import POSReports from './components/POSReports';
+import POSCustomers from './components/POSCustomers';
 
 const MOCK_PRODUCTS = [
   {
@@ -123,8 +124,23 @@ const POS = ({ view = 'pos' }) => {
 
   // Load from localStorage
   const [categoriesList, setCategoriesList] = useState([]);
+  const [categoriesObjects, setCategoriesObjects] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+
+  const getProductCategoryName = (p) => {
+    if (!p) return '';
+    if (p.categoryName) return String(p.categoryName);
+    if (p.category) {
+      if (typeof p.category === 'string') return p.category;
+      if (typeof p.category === 'object' && p.category.name) return String(p.category.name);
+      if (typeof p.category === 'number') {
+        const found = categoriesObjects.find(c => c.id === p.category);
+        if (found) return found.name;
+      }
+    }
+    return '';
+  };
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPayment, setSelectedPayment] = useState('');
 
@@ -138,19 +154,19 @@ const POS = ({ view = 'pos' }) => {
   const [searchOrdersQuery, setSearchOrdersQuery] = useState('');
 
   useEffect(() => {
-    const loadOrders = () => {
-      const stored = localStorage.getItem('orders');
-      if (stored) {
-        try {
-          setOrdersList(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
+    const loadOrders = async () => {
+      try {
+        const backendOrders = await getOrders();
+        if (Array.isArray(backendOrders)) {
+          setOrdersList(backendOrders);
         }
+      } catch (e) {
+        console.error("Failed to load orders from backend:", e);
       }
     };
     loadOrders();
-    window.addEventListener('storage', loadOrders);
-    return () => window.removeEventListener('storage', loadOrders);
+    const interval = setInterval(loadOrders, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   // POS Products states and handlers
@@ -328,24 +344,35 @@ const POS = ({ view = 'pos' }) => {
         const finalProds = prods && prods.length > 0 ? prods : MOCK_PRODUCTS;
 
         setCategoriesList(finalCats.map(c => c.name));
+        setCategoriesObjects(finalCats);
         setProductsList(finalProds);
         if (finalCats.length > 0) {
           setSelectedCategory(finalCats[0].name);
         }
 
-        const backendTables = await getTables().catch(() => []);
-        if (backendTables && backendTables.length > 0) {
-          setTablesList(backendTables.map(t => ({
-            id: t.id,
-            name: t.name,
-            floor: t.floor || 1,
-            status: t.status || 'free',
-            customerName: t.customerName || t.customer_name || ''
-          })));
+        let backendTables = await getTables().catch(() => []);
+        if (!backendTables || backendTables.length === 0) {
+          const defaults = [];
+          for (let i = 1; i <= 10; i++) {
+            defaults.push({ name: `f${i}`, floor: 1, status: 'free' });
+            defaults.push({ name: `s${i}`, floor: 2, status: 'free' });
+          }
+          await Promise.all(defaults.map(t => addTable(t).catch(e => console.error(e))));
+          backendTables = await getTables().catch(() => []);
         }
+
+        const finalTables = backendTables && backendTables.length > 0 ? backendTables : [];
+        setTablesList(finalTables.map(t => ({
+          id: t.id,
+          name: t.name,
+          floor: (t.floor && typeof t.floor === 'object') ? t.floor.id : (t.floor || 1),
+          status: t.status || 'free',
+          customerName: t.customerName || t.customer_name || ''
+        })));
       } catch (err) {
         console.error("Error loading POS initial data, using mock data:", err);
         setCategoriesList(MOCK_CATEGORIES.map(c => c.name));
+        setCategoriesObjects(MOCK_CATEGORIES);
         setProductsList(MOCK_PRODUCTS);
         setSelectedCategory(MOCK_CATEGORIES[0].name);
       }
@@ -427,6 +454,37 @@ const POS = ({ view = 'pos' }) => {
     setIsTableModalOpen(false);
     
     setTableCarts(prev => {
+      // First check if there is an active unpaid order for this table on the backend
+      const existingUnpaidOrder = ordersList.find(o => o.table === tableName && o.status === 'Unpaid');
+      if (existingUnpaidOrder && existingUnpaidOrder.orderItems) {
+        const reconstructedCart = existingUnpaidOrder.orderItems.map(item => {
+          const productObj = productsList.find(p => p.id === item.product);
+          return {
+            id: item.product,
+            name: item.productName || (productObj ? productObj.name : ''),
+            price: parseFloat(item.price) || (productObj ? parseFloat(productObj.price) : 0),
+            quantity: item.quantity,
+            category: productObj ? productObj.categoryName || productObj.category : '',
+            inStock: productObj ? productObj.isAvailable : true
+          };
+        });
+        
+        let couponObj = null;
+        if (existingUnpaidOrder.couponCode) {
+          couponObj = { code: existingUnpaidOrder.couponCode };
+        }
+        
+        const discAmt = parseFloat(existingUnpaidOrder.discountAmount) || 0;
+        
+        setCart(reconstructedCart);
+        setAppliedCoupon(couponObj);
+        setDiscountAmount(discAmt);
+        setPaidAmount('0');
+        
+        prev[tableName] = { cart: reconstructedCart, appliedCoupon: couponObj, discountAmount: discAmt, paidAmount: '0' };
+        return prev;
+      }
+
       const existingData = prev[tableName] || { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' };
       setCart(existingData.cart);
       setAppliedCoupon(existingData.appliedCoupon);
@@ -441,19 +499,7 @@ const POS = ({ view = 'pos' }) => {
   // Table Floor Plan modal
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [activeFloor, setActiveFloor] = useState(1);
-  const [tablesList, setTablesList] = useState(() => {
-    const storedTables = localStorage.getItem('floor_plan_tables');
-    if (storedTables) {
-      return JSON.parse(storedTables);
-    }
-    const defaults = [];
-    for (let i = 1; i <= 10; i++) {
-      defaults.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
-      defaults.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
-    }
-    localStorage.setItem('floor_plan_tables', JSON.stringify(defaults));
-    return defaults;
-  });
+  const [tablesList, setTablesList] = useState([]);
   const [activeBookingsTab, setActiveBookingsTab] = useState('reservations'); // 'reservations' or 'tables'
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const [newTableName, setNewTableName] = useState('');
@@ -538,7 +584,8 @@ const POS = ({ view = 'pos' }) => {
     } else if (appliedCoupon.targetType === 'Category') {
       const cat = appliedCoupon.targetValue.toLowerCase();
       discountableSum = cart.reduce((acc, item) => {
-        if (item.category && item.category.toLowerCase() === cat) {
+        const itemCatName = getProductCategoryName(item);
+        if (itemCatName && itemCatName.toLowerCase() === cat) {
           return acc + (item.price * item.quantity);
         }
         return acc;
@@ -698,17 +745,72 @@ const POS = ({ view = 'pos' }) => {
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
     try {
-      const newOrder = await addOrder({
-        table: activeTable,
-        amount: total,
-        status: 'Unpaid',
-        paymentMethod: '-',
-        items: orderItemsString,
-        couponCode: appliedCoupon ? appliedCoupon.code : null,
-        discountAmount: discountAmount
-      });
-      addLogEntry(`Sent Order ${newOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
-      alert(`Order sent to Kitchen successfully for ${activeTable}!\\nTotal Amount: ₹${total}`);
+      const existingOrder = ordersList.find(o => o.table === activeTable && o.status === 'Unpaid');
+      let targetOrder;
+      if (existingOrder) {
+        // Calculate the diff of items for the log
+        const originalItems = existingOrder.items ? existingOrder.items.split(',').map(item => {
+          const trimmed = item.trim();
+          const match = trimmed.match(/^(\d+)\s*x\s*(.+)$/i);
+          return {
+            name: match ? match[2].trim().toLowerCase() : trimmed.toLowerCase(),
+            quantity: match ? parseInt(match[1]) : 1
+          };
+        }) : [];
+
+        const originalTotals = {};
+        originalItems.forEach(item => {
+          originalTotals[item.name] = (originalTotals[item.name] || 0) + item.quantity;
+        });
+
+        const newTotals = {};
+        cart.forEach(item => {
+          const name = item.name.toLowerCase();
+          newTotals[name] = (newTotals[name] || 0) + item.quantity;
+        });
+
+        const diffParts = [];
+        Object.keys(newTotals).forEach(name => {
+          const oldQty = originalTotals[name] || 0;
+          const newQty = newTotals[name];
+          if (newQty > oldQty) {
+            diffParts.push(`+${newQty - oldQty} x ${name.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())}`);
+          }
+        });
+
+        Object.keys(originalTotals).forEach(name => {
+          const oldQty = originalTotals[name];
+          const newQty = newTotals[name] || 0;
+          if (newQty < oldQty) {
+            diffParts.push(`-${oldQty - newQty} x ${name.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())}`);
+          }
+        });
+
+        const diffString = diffParts.join(', ') || 'No changes';
+
+        targetOrder = await updateOrder(existingOrder.id, {
+          table: activeTable,
+          amount: total,
+          status: 'Unpaid',
+          paymentMethod: '-',
+          items: orderItemsString,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          discountAmount: discountAmount
+        });
+        addLogEntry(`Updated Order ${targetOrder.id} in Kitchen (Unpaid) for ${activeTable}: ${diffString}`, 'warning');
+      } else {
+        targetOrder = await addOrder({
+          table: activeTable,
+          amount: total,
+          status: 'Unpaid',
+          paymentMethod: '-',
+          items: orderItemsString,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          discountAmount: discountAmount
+        });
+        addLogEntry(`Sent Order ${targetOrder.id} to Kitchen (Unpaid) for ${activeTable}: ${orderItemsString}`, 'warning');
+      }
+      alert(`Order sent to Kitchen successfully for ${activeTable}!\nTotal Amount: ₹${total}`);
       setTableCarts(prev => ({
         ...prev,
         [activeTable]: { cart, appliedCoupon, discountAmount, paidAmount }
@@ -725,9 +827,13 @@ const POS = ({ view = 'pos' }) => {
         }
         setTablesList(prev => {
           const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'occupied' } : t);
-          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
           return updated;
         });
+      }
+      // Refresh orders list
+      const backendOrders = await getOrders().catch(() => []);
+      if (Array.isArray(backendOrders)) {
+        setOrdersList(backendOrders);
       }
     } catch (err) {
       console.error(err);
@@ -738,17 +844,32 @@ const POS = ({ view = 'pos' }) => {
   const processPayment = async () => {
     try {
       const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
-      const newOrder = await addOrder({
-        table: activeTable,
-        amount: total,
-        status: 'Paid',
-        paymentMethod: selectedPayment,
-        items: orderItemsString,
-        couponCode: appliedCoupon ? appliedCoupon.code : null,
-        discountAmount: discountAmount
-      });
-      addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${newOrder.id})`, 'success');
-      alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\\nTable: ${activeTable}`);
+      const existingOrder = ordersList.find(o => o.table === activeTable && o.status === 'Unpaid');
+      let targetOrder;
+      if (existingOrder) {
+        targetOrder = await updateOrder(existingOrder.id, {
+          table: activeTable,
+          amount: total,
+          status: 'Paid',
+          paymentMethod: selectedPayment,
+          items: orderItemsString,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          discountAmount: discountAmount
+        });
+        addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Updated Order: ${targetOrder.id})`, 'success');
+      } else {
+        targetOrder = await addOrder({
+          table: activeTable,
+          amount: total,
+          status: 'Paid',
+          paymentMethod: selectedPayment,
+          items: orderItemsString,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          discountAmount: discountAmount
+        });
+        addLogEntry(`Collected payment of ₹${total} via ${selectedPayment} for ${activeTable} (Order: ${targetOrder.id})`, 'success');
+      }
+      alert(`Payment of ₹${total} collected successfully via ${selectedPayment}!\nTable: ${activeTable}`);
       setCart([]);
       setPaidAmount('0');
       setAppliedCoupon(null);
@@ -769,9 +890,13 @@ const POS = ({ view = 'pos' }) => {
         }
         setTablesList(prev => {
           const updated = prev.map(t => t.name === activeTable ? { ...t, status: 'free' } : t);
-          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
           return updated;
         });
+      }
+      // Refresh orders list
+      const backendOrders = await getOrders().catch(() => []);
+      if (Array.isArray(backendOrders)) {
+        setOrdersList(backendOrders);
       }
     } catch (err) {
       console.error(err);
@@ -792,11 +917,100 @@ const POS = ({ view = 'pos' }) => {
     await processPayment();
   };
 
+  const handlePrintReceipt = () => {
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      return;
+    }
+
+    const itemsHtml = cart.map(item => `
+      <tr style="border-bottom: 1px dashed #ddd;">
+        <td style="padding: 6px 0; font-size: 14px;">${item.name} x ${item.quantity}</td>
+        <td style="padding: 6px 0; text-align: right; font-size: 14px;">₹${item.price * item.quantity}</td>
+      </tr>
+    `).join('');
+
+    const discountHtml = discountAmount > 0 ? `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px;">
+        <span>Discount:</span>
+        <span>-₹${discountAmount}</span>
+      </div>
+    ` : '';
+
+    const receiptHtml = `
+      <html>
+        <head>
+          <title>Receipt - Table ${activeTable || 'Takeaway'}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; font-family: monospace; color: #000; }
+              @page { size: 80mm auto; margin: 0; }
+            }
+            body { font-family: monospace; padding: 20px; max-width: 400px; margin: 0 auto; color: #333; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div style="text-align: center; margin-bottom: 15px;">
+            <h2 style="margin: 0 0 5px 0;">CAFÉ POS</h2>
+            <p style="margin: 0; font-size: 12px;">123 Gourmet Street, Foodville</p>
+            <p style="margin: 2px 0 0 0; font-size: 12px;">Tel: +91 98765 43210</p>
+          </div>
+          <hr style="border-top: 1px dashed #000; margin: 10px 0;"/>
+          <div style="font-size: 12px; margin-bottom: 10px; line-height: 1.4;">
+            <div><strong>Date:</strong> ${new Date().toLocaleString()}</div>
+            <div><strong>Table:</strong> ${activeTable || 'Takeaway'}</div>
+            <div><strong>Cashier:</strong> ${user ? user.name : 'Staff'}</div>
+          </div>
+          <hr style="border-top: 1px dashed #000; margin: 10px 0;"/>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1px solid #000;">
+                <th style="text-align: left; padding-bottom: 5px; font-size: 12px;">Item</th>
+                <th style="text-align: right; padding-bottom: 5px; font-size: 12px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <hr style="border-top: 1px dashed #000; margin: 15px 0 10px 0;"/>
+          <div style="line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px;">
+              <span>Subtotal:</span>
+              <span>₹${subTotal}</span>
+            </div>
+            ${discountHtml}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px;">
+              <span>GST (5%):</span>
+              <span>₹${tax}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px solid #000; padding-top: 5px;">
+              <span>TOTAL:</span>
+              <span>₹${total}</span>
+            </div>
+          </div>
+          <hr style="border-top: 1px dashed #000; margin: 15px 0;"/>
+          <div style="text-align: center; font-size: 12px; margin-top: 15px;">
+            <p style="margin: 0;">Thank you for your visit!</p>
+            <p style="margin: 5px 0 0 0;">Please visit us again.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=600,height=600');
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+  };
+
   // Search filter
-  const filteredProducts = productsList.filter((p) =>
-    p.category && selectedCategory && p.category.toLowerCase() === selectedCategory.toLowerCase() &&
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = productsList.filter((p) => {
+    const prodCatName = getProductCategoryName(p);
+    return (
+      prodCatName && selectedCategory && prodCatName.toLowerCase() === selectedCategory.toLowerCase() &&
+      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const handleSidebarNavigation = (path) => {
     setIsSidebarOpen(false);
@@ -1088,6 +1302,7 @@ const POS = ({ view = 'pos' }) => {
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'bookings' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'bookings' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-bookings')}><Calendar size={18} /> Bookings & Tables</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}><User size={18} /> Staff / Employees</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}><BarChart2 size={18} /> Sales Reports</button>
+          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'customers' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'customers' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-customers')}><User size={18} /> Customers</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'transparent', color: 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/kds')}><ChefHat size={18} /> Kitchen Display (KDS)</button>
         </div>
         <button
@@ -1105,17 +1320,12 @@ const POS = ({ view = 'pos' }) => {
             <div
               onClick={() => navigate('/pos')}
               style={{
-                backgroundColor: 'var(--border-focus)',
-                color: 'var(--bg-primary)',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                fontWeight: '800',
-                fontSize: '18px',
-                letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
                 cursor: 'pointer'
               }}
             >
-              Café POS
+              <img src="/logo.png" alt="Odoo Logo" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
 
             {/* Search Bar */}
@@ -1297,6 +1507,7 @@ const POS = ({ view = 'pos' }) => {
             setNewProdCategory={setNewProdCategory}
             newProdDesc={newProdDesc}
             setNewProdDesc={setNewProdDesc}
+            getProductCategoryName={getProductCategoryName}
           />
         ) : view === 'categories' ? (
           <POSCategoriesManagement
@@ -1337,6 +1548,8 @@ const POS = ({ view = 'pos' }) => {
             logs={logs}
             reloadManagementData={reloadManagementData}
           />
+        ) : view === 'customers' ? (
+          <POSCustomers />
         ) : (
           <div style={bodyGridStyle}>
 
@@ -1607,7 +1820,7 @@ const POS = ({ view = 'pos' }) => {
                 {/* Utility buttons row */}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    onClick={() => navigate('/pos-orders')}
+                    onClick={() => navigate('/pos-customers')}
                     style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                   >
                     Customer
@@ -1619,7 +1832,7 @@ const POS = ({ view = 'pos' }) => {
                     Discount
                   </button>
                   <button
-                    onClick={() => alert('Order printed.')}
+                    onClick={handlePrintReceipt}
                     style={{ flex: 1, backgroundColor: 'var(--bg-button)', border: 'none', color: 'var(--text-secondary)', padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background-color var(--transition-speed), color var(--transition-speed)' }}
                   >
                     Send
@@ -2102,23 +2315,33 @@ const POS = ({ view = 'pos' }) => {
                   }}
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newTableName.trim()) return;
                     const name = newTableName.trim();
                     if (tablesList.some(t => t.name.toLowerCase() === name.toLowerCase())) {
                       alert('Table name already exists!');
                       return;
                     }
-                    const newTable = {
-                      id: `t_${Date.now()}`,
-                      name,
-                      floor: activeFloor,
-                      status: 'free'
-                    };
-                    const updated = [...tablesList, newTable];
-                    setTablesList(updated);
-                    localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-                    setNewTableName('');
+                    try {
+                      await addTable({
+                        name,
+                        floor: activeFloor,
+                        status: 'free',
+                        customerName: ''
+                      });
+                      const backendTables = await getTables();
+                      setTablesList(backendTables.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        floor: (t.floor && typeof t.floor === 'object') ? t.floor.id : (t.floor || 1),
+                        status: t.status || 'free',
+                        customerName: t.customerName || t.customer_name || ''
+                      })));
+                      setNewTableName('');
+                    } catch (err) {
+                      console.error(err);
+                      alert('Failed to add table to backend.');
+                    }
                   }}
                   style={{
                     padding: '8px 16px',
@@ -2212,11 +2435,22 @@ const POS = ({ view = 'pos' }) => {
                       </button>
                       {isEditingLayout && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (window.confirm(`Delete table ${t.name}?`)) {
-                              const updated = tablesList.filter(item => item.id !== t.id);
-                              setTablesList(updated);
-                              localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
+                              try {
+                                await deleteTable(t.id);
+                                const backendTables = await getTables();
+                                setTablesList(backendTables.map(t => ({
+                                  id: t.id,
+                                  name: t.name,
+                                  floor: (t.floor && typeof t.floor === 'object') ? t.floor.id : (t.floor || 1),
+                                  status: t.status || 'free',
+                                  customerName: t.customerName || t.customer_name || ''
+                                })));
+                              } catch (err) {
+                                console.error(err);
+                                alert('Failed to delete table from backend.');
+                              }
                             }
                           }}
                           style={{
@@ -2539,44 +2773,20 @@ const POS = ({ view = 'pos' }) => {
 
               {selectedOrderDetails.status === 'Unpaid' ? (
                 <button
-                  onClick={() => {
-                    const stored = localStorage.getItem('orders');
-                    if (stored) {
-                      try {
-                        const list = JSON.parse(stored);
-                        const updated = list.map(o => {
-                          if (o.id === selectedOrderDetails.id) {
-                            return { ...o, status: 'Paid', paymentMethod: 'Cash' };
-                          }
-                          return o;
-                        });
-                        localStorage.setItem('orders', JSON.stringify(updated));
-                        addLogEntry(`Order ${selectedOrderDetails.id} marked as Paid (Settled)`, 'success');
-                        alert(`Order ${selectedOrderDetails.id} settled successfully!`);
+                  onClick={async () => {
+                    try {
+                      const updatedOrder = await updateOrderStatus(selectedOrderDetails.id, 'Paid', 'Cash');
+                      addLogEntry(`Order ${selectedOrderDetails.id} marked as Paid (Settled)`, 'success');
+                      alert(`Order ${selectedOrderDetails.id} settled successfully!`);
 
-                        if (selectedOrderDetails.customerName && selectedOrderDetails.customerName !== 'Walk-in Customer') {
-                          const custStored = localStorage.getItem('customers');
-                          if (custStored) {
-                            const custs = JSON.parse(custStored);
-                            const updatedCusts = custs.map(c => {
-                              if (c.name === selectedOrderDetails.customerName) {
-                                return {
-                                  ...c,
-                                  spend: (c.spend || 0) + selectedOrderDetails.amount,
-                                  ordersCount: (c.ordersCount || 0) + 1
-                                };
-                              }
-                              return c;
-                            });
-                            localStorage.setItem('customers', JSON.stringify(updatedCusts));
-                          }
-                        }
-
-                        setSelectedOrderDetails({ ...selectedOrderDetails, status: 'Paid', paymentMethod: 'Cash' });
-                        setOrdersList(updated);
-                      } catch (e) {
-                        console.error(e);
+                      setSelectedOrderDetails({ ...selectedOrderDetails, status: 'Paid', paymentMethod: 'Cash' });
+                      const backendOrders = await getOrders();
+                      if (Array.isArray(backendOrders)) {
+                        setOrdersList(backendOrders);
                       }
+                    } catch (e) {
+                      console.error(e);
+                      alert('Failed to settle order on backend.');
                     }
                   }}
                   style={{

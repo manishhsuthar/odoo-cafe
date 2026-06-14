@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import Table from '../../components/ui/Table';
@@ -33,9 +34,15 @@ const Employees = () => {
   const [cpNewPassword, setCpNewPassword] = useState('');
   const [cpConfirmPassword, setCpConfirmPassword] = useState('');
 
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+    const params = new URLSearchParams(location.search);
+    if (params.get('add') === 'true') {
+      setIsAddModalOpen(true);
+    }
+  }, [location]);
 
   const loadData = async () => {
     try {

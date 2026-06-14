@@ -11,8 +11,10 @@ const Navbar = () => {
       borderBottom: '1px solid var(--border-color)',
       backgroundColor: 'var(--bg-primary)',
     }}>
-      <div className="handwritten" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-        <Link to="/" style={{ color: 'var(--text-primary)' }}>Odoo POS</Link>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Odoo Logo" style={{ height: '40px', objectFit: 'contain' }} />
+        </Link>
       </div>
       <div style={{ display: 'flex', gap: '20px' }}>
         <Link to="/dashboard" className="handwritten" style={{ color: 'var(--text-secondary)' }}>Dashboard</Link>

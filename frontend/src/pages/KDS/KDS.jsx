@@ -20,6 +20,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { getOrders, getProducts, getCategories } from '../../utils/db';
+import useSocket from '../../hooks/useSocket';
 
 const KDS = () => {
   const { user, logout } = useAuth();
@@ -99,6 +100,17 @@ const KDS = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Connect to KDS Websocket channel
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  const wsScheme = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
+  const wsUrl = `${wsScheme}://${apiBaseUrl.replace(/^https?:\/\//, '')}/ws/kds/`;
+
+  useSocket(wsUrl, (message) => {
+    if (message.type === 'ORDER_CREATED' || message.type === 'ORDER_UPDATED' || message.type === 'ITEM_UPDATED') {
+      loadKDSData();
+    }
+  });
+
   // Helper: map items to sidebar products/categories for filtering
   const getProductFilterKey = (itemName) => {
     const name = itemName.toLowerCase();
@@ -121,23 +133,23 @@ const KDS = () => {
   const parseOrderItems = (orderId, itemsString) => {
     if (!itemsString) return [];
     const state = kdsStates[orderId];
-    return itemsString.split(',').map(item => {
+    return itemsString.split(',').map((item, idx) => {
       const trimmed = item.trim();
       const match = trimmed.match(/^(\d+)\s*x\s*(.+)$/i);
       const quantity = match ? parseInt(match[1]) : 1;
       const name = match ? match[2].trim() : trimmed;
-      const isPrepared = state?.preparedItems?.[name] || false;
+      const isPrepared = state?.preparedItems?.[idx] || false;
       return { quantity, name, prepared: isPrepared };
     });
   };
 
   // Actions
-  const handleToggleProductPrepared = (orderId, itemName, e) => {
+  const handleToggleProductPrepared = (orderId, itemIndex, e) => {
     e.stopPropagation(); // Avoid triggering card bump
     setKdsStates(prev => {
       const ticketState = prev[orderId] || { stage: 'To Cook', preparedItems: {} };
       const preparedItems = { ...ticketState.preparedItems };
-      preparedItems[itemName] = !preparedItems[itemName];
+      preparedItems[itemIndex] = !preparedItems[itemIndex];
       return {
         ...prev,
         [orderId]: {
@@ -195,7 +207,7 @@ const KDS = () => {
   const processedTickets = useMemo(() => {
     return orders.map(order => {
       const state = kdsStates[order.id] || { stage: 'To Cook', preparedItems: {} };
-      const parsedItems = parseOrderItems(order.id, order.items);
+      const parsedItems = parseOrderItems(order.id, order.kdsItems || order.items);
       return {
         ...order,
         stage: state.stage,
@@ -220,7 +232,7 @@ const KDS = () => {
         const query = searchQuery.toLowerCase();
         const matchesId = ticket.id.toLowerCase().includes(query) || (ticket.displayId && ticket.displayId.toLowerCase().includes(query));
         const matchesTable = ticket.table.toLowerCase().includes(query);
-        const matchesItems = ticket.items.toLowerCase().includes(query);
+        const matchesItems = (ticket.kdsItems || ticket.items || '').toLowerCase().includes(query);
         if (!matchesId && !matchesTable && !matchesItems) return false;
       }
 
@@ -373,23 +385,12 @@ const KDS = () => {
       }}>
         {/* Left: Logo & Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button style={{
-            backgroundColor: '#ab4b38',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '24px',
-            padding: '8px 24px',
-            fontSize: '16px',
-            fontWeight: '800',
-            letterSpacing: '1px',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-            boxShadow: '0 4px 12px rgba(171, 75, 56, 0.3)'
-          }}
+          <div
             onClick={() => navigate('/kds')}
+            style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           >
-            Logo
-          </button>
+            <img src="/logo.png" alt="Odoo Logo" style={{ height: '70px', objectFit: 'contain' }} />
+          </div>
           <span style={{
             fontSize: '22px',
             fontWeight: '700',
@@ -886,30 +887,36 @@ const KDS = () => {
 
                     {/* Card Items List (Normalized standard font style) */}
                     <div className="normalized-style" style={{ flex: 1, padding: '4px 0' }}>
-                      {ticket.parsedItems.map((item, idx) => (
-                        <div
-                          key={idx}
-                          onClick={(e) => handleToggleProductPrepared(ticket.id, item.name, e)}
-                          className={item.prepared ? 'strikethrough-item' : ''}
-                          style={{
-                            padding: '6px 0',
-                            borderBottom: '1px solid rgba(160, 149, 138, 0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
-                            userSelect: 'none'
-                          }}
-                        >
-                          <span>
-                            {item.quantity} &times; {item.name}
-                          </span>
+                      {ticket.parsedItems.map((item, idx) => {
+                        const isRemoved = item.name.toLowerCase().includes('(removed)');
+                        return (
+                          <div
+                            key={idx}
+                            onClick={(e) => !isRemoved && handleToggleProductPrepared(ticket.id, idx, e)}
+                            className={item.prepared ? 'strikethrough-item' : ''}
+                            style={{
+                              padding: '6px 0',
+                              borderBottom: '1px solid rgba(160, 149, 138, 0.2)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: isRemoved ? 'default' : 'pointer',
+                              userSelect: 'none',
+                              color: isRemoved ? '#ef4444' : 'inherit',
+                              textDecoration: isRemoved ? 'line-through' : (item.prepared ? 'line-through' : 'none'),
+                              opacity: isRemoved ? 0.7 : (item.prepared ? 0.45 : 1)
+                            }}
+                          >
+                            <span>
+                              {item.quantity} &times; {item.name}
+                            </span>
 
-                          {item.prepared && (
-                            <Check size={14} color="#10b981" style={{ marginLeft: '8px' }} />
-                          )}
-                        </div>
-                      ))}
+                            {item.prepared && !isRemoved && (
+                              <Check size={14} color="#10b981" style={{ marginLeft: '8px' }} />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Card Footer Bump Action Button */}

@@ -169,6 +169,14 @@ const AppRoutes = () => {
             <POS view="reports" />
           </PrivateRoute>
         }
+      />
+      <Route
+        path="/pos-customers"
+        element={
+          <PrivateRoute>
+            <POS view="customers" />
+          </PrivateRoute>
+        }
       />      <Route
         path="/pos-sessions"
         element={

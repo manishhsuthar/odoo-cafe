@@ -169,7 +169,7 @@ const Customers = () => {
 
   // Compute metrics
   const totalCustomersCount = customers.length;
-  const totalRevenueSpend = customers.reduce((sum, c) => sum + c.spend, 0);
+  const totalRevenueSpend = customers.reduce((sum, c) => sum + (parseFloat(c.spend) || 0), 0);
   const avgLifetimeValue = totalCustomersCount > 0 ? Math.round(totalRevenueSpend / totalCustomersCount) : 0;
 
   // Filter and sort customer list
@@ -183,8 +183,8 @@ const Customers = () => {
       );
     })
     .sort((a, b) => {
-      if (sortBy === 'spend-desc') return b.spend - a.spend;
-      if (sortBy === 'spend-asc') return a.spend - b.spend;
+      if (sortBy === 'spend-desc') return (parseFloat(b.spend) || 0) - (parseFloat(a.spend) || 0);
+      if (sortBy === 'spend-asc') return (parseFloat(a.spend) || 0) - (parseFloat(b.spend) || 0);
       if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
       if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
       if (sortBy === 'orders-desc') return b.ordersCount - a.ordersCount;
@@ -430,7 +430,7 @@ const Customers = () => {
 
                       {/* Spend */}
                       <td style={{ padding: '16px 24px', fontSize: '14.5px', fontWeight: '800', color: 'var(--text-link)', textAlign: 'right' }}>
-                        ₹{c.spend.toLocaleString()}
+                        ₹{(parseFloat(c.spend) || 0).toLocaleString('en-IN')}
                       </td>
 
                       {/* Total Orders */}
@@ -622,9 +622,9 @@ const Customers = () => {
                 {errors.phone && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.phone}</span>}
               </div>
 
-              {/* Spend & Orders side by side */}
-              <div style={{ display: 'flex', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
+              {/* Spend & Orders side by side with responsive wrapping */}
+              <div style={{ display: 'flex', gap: '16px', width: '100%', boxSizing: 'border-box', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 180px', minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Spend (₹)</label>
                   <input
                     type="number"
@@ -649,7 +649,7 @@ const Customers = () => {
                   />
                   {errors.spend && <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>{errors.spend}</span>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 180px', minWidth: 0, boxSizing: 'border-box' }}>
                   <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)' }}>Total Orders</label>
                   <input
                     type="number"

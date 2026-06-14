@@ -67,6 +67,11 @@ export const addOrder = async (order) => {
   return camelizeKeys(res.data);
 };
 
+export const updateOrder = async (id, order) => {
+  const res = await axiosInstance.patch(`/api/orders/${id}/`, order);
+  return camelizeKeys(res.data);
+};
+
 export const updateOrderStatus = async (id, status, paymentMethod) => {
   const res = await axiosInstance.patch(`/api/orders/${id}/status/`, {
     status,

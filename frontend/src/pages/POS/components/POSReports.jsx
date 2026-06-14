@@ -1,26 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, ChevronDown, TrendingUp, Receipt, BarChart3, Clock } from 'lucide-react';
 import { bodyOrdersStyle } from './POSSharedStyles';
+import { getReportsSummary } from '../../../utils/db';
 
 const POSReports = ({
   ordersList,
   logs,
   reloadManagementData
 }) => {
-    const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState({
+    totalRevenue: 0,
+    totalOrdersCount: 0,
+    aov: 0
+  });
+
+  const fetchBackendSummary = async () => {
+    try {
+      const summary = await getReportsSummary();
+      setSummaryData({
+        totalRevenue: parseFloat(summary.totalRevenue || 0),
+        totalOrdersCount: parseInt(summary.totalOrders || 0),
+        aov: parseFloat(summary.avgOrderValue || 0)
+      });
+    } catch (err) {
+      console.error("Failed to fetch reports summary:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBackendSummary();
+  }, [ordersList]);
 
   // Calculate statistics
-  const totalRevenue = ordersList.reduce((acc, o) => acc + o.amount, 0);
-  const totalOrdersCount = ordersList.length;
-  const aov = totalOrdersCount > 0 ? (totalRevenue / totalOrdersCount).toFixed(2) : 0;
+  const totalRevenue = summaryData.totalRevenue;
+  const totalOrdersCount = summaryData.totalOrdersCount;
+  const aov = summaryData.aov.toFixed(2);
   const unpaidRevenue = ordersList
-    .filter(o => o.status === 'Unpaid')
-    .reduce((acc, o) => acc + o.amount, 0);
+    .filter(o => o.status === 'Unpaid' || o.status === 'pending')
+    .reduce((acc, o) => acc + parseFloat(o.amount || 0), 0);
 
   // Calculate payment method percentage statistics
   const paymentCounts = ordersList.reduce((acc, o) => {
     const method = o.paymentMethod || '-';
-    acc[method] = (acc[method] || 0) + o.amount;
+    acc[method] = (acc[method] || 0) + parseFloat(o.amount || 0);
     return acc;
   }, {});
 

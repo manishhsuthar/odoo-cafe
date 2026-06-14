@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { getCategories, getProducts, getCoupons, addCoupon, updateCoupon, deleteCoupon } from '../../utils/db';
@@ -25,6 +26,8 @@ const Coupons = () => {
   const [formTargetValue, setFormTargetValue] = useState('');
   const [formActivated, setFormActivated] = useState(true);
 
+  const location = useLocation();
+
   useEffect(() => {
     loadCoupons();
     (async () => {
@@ -33,7 +36,11 @@ const Coupons = () => {
       setCategories(cats.map(c => c.name));
       setProducts(prods.map(p => p.name));
     })();
-  }, []);
+    const params = new URLSearchParams(location.search);
+    if (params.get('add') === 'true') {
+      handleOpenNewModal();
+    }
+  }, [location]);
 
   const loadCoupons = async () => {
     try {
