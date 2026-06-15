@@ -15,14 +15,15 @@ const POSProductsManagement = ({
   newProdName, setNewProdName,
   newProdPrice, setNewProdPrice,
   newProdCategory, setNewProdCategory,
-  newProdDesc, setNewProdDesc
+  newProdDesc, setNewProdDesc,
+  getProductCategoryName
 }) => {
   const [editProductId, setEditProductId] = useState(null);
   const [editFormData, setEditFormData] = useState({ name: '', price: '', category: '' });
 
   const handleEditClick = (prod) => {
     setEditProductId(prod.id);
-    setEditFormData({ name: prod.name, price: prod.price, category: prod.category });
+    setEditFormData({ name: prod.name, price: prod.price, category: getProductCategoryName(prod) });
   };
 
   const handleCancelEdit = () => {
@@ -279,7 +280,7 @@ const POSProductsManagement = ({
                 const filtered = productsList.filter((prod) => {
                   const q = searchCatalogQuery.toLowerCase();
                   const name = (prod.name || '').toLowerCase();
-                  const cat = (prod.category || '').toLowerCase();
+                  const cat = getProductCategoryName(prod).toLowerCase();
                   return name.includes(q) || cat.includes(q);
                 });
 
@@ -336,7 +337,7 @@ const POSProductsManagement = ({
                       ) : (
                         <>
                           <td style={{ ...tdStyle, fontWeight: '700' }}>{prod.name}</td>
-                          <td style={tdStyle}>{prod.category}</td>
+                          <td style={tdStyle}>{getProductCategoryName(prod)}</td>
                           <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{prod.price}</td>
                         </>
                       )}

@@ -67,6 +67,11 @@ export const addOrder = async (order) => {
   return camelizeKeys(res.data);
 };
 
+export const updateOrder = async (id, order) => {
+  const res = await axiosInstance.patch(`/api/orders/${id}/`, order);
+  return camelizeKeys(res.data);
+};
+
 export const updateOrderStatus = async (id, status, paymentMethod) => {
   const res = await axiosInstance.patch(`/api/orders/${id}/status/`, {
     status,
@@ -106,8 +111,23 @@ export const getTables = async () => {
 };
 
 export const updateTable = async (id, data) => {
-  const res = await axiosInstance.put(`/api/tables/${id}/`, data);
+  const res = await axiosInstance.patch(`/api/tables/${id}/`, data);
   return camelizeKeys(res.data);
+};
+
+export const addTable = async (table) => {
+  const res = await axiosInstance.post('/api/tables/', {
+    floor: table.floor,
+    name: table.name,
+    capacity: table.capacity || 4,
+    status: table.status || 'free',
+    customer_name: table.customerName || table.customer_name || ''
+  });
+  return camelizeKeys(res.data);
+};
+
+export const deleteTable = async (id) => {
+  await axiosInstance.delete(`/api/tables/${id}/`);
 };
 
 // Coupons
@@ -198,4 +218,70 @@ export const getKitchenInventory = () => {
 
 export const saveKitchenInventory = (items) => {
   localStorage.setItem('kitchen_inventory', JSON.stringify(items));
+};
+
+// Reservations
+export const getReservations = async () => {
+  const res = await axiosInstance.get('/api/reservations/');
+  return camelizeKeys(res.data);
+};
+
+export const addReservation = async (reservation) => {
+  const res = await axiosInstance.post('/api/reservations/', reservation);
+  return camelizeKeys(res.data);
+};
+
+export const updateReservation = async (id, data) => {
+  const res = await axiosInstance.put(`/api/reservations/${id}/`, data);
+  return camelizeKeys(res.data);
+};
+
+export const deleteReservation = async (id) => {
+  await axiosInstance.delete(`/api/reservations/${id}/`);
+};
+
+export const checkInReservation = async (id) => {
+  const res = await axiosInstance.post(`/api/reservations/${id}/check-in/`);
+  return camelizeKeys(res.data);
+};
+
+export const cancelReservation = async (id) => {
+  const res = await axiosInstance.post(`/api/reservations/${id}/cancel/`);
+  return camelizeKeys(res.data);
+};
+
+export const getUpcomingReservations = async () => {
+  const res = await axiosInstance.get('/api/reservations/upcoming/');
+  return camelizeKeys(res.data);
+};
+
+export const createReservation = async (reservation) => {
+  const res = await axiosInstance.post('/api/reservations/', reservation);
+  return camelizeKeys(res.data);
+};
+
+// Reports
+export const getReportsSummary = async (params) => {
+  const res = await axiosInstance.get('/api/reports/summary/', { params });
+  return camelizeKeys(res.data);
+};
+
+export const getSalesTrend = async (params) => {
+  const res = await axiosInstance.get('/api/reports/sales-trend/', { params });
+  return camelizeKeys(res.data);
+};
+
+export const getTopOrders = async (params) => {
+  const res = await axiosInstance.get('/api/reports/top-orders/', { params });
+  return camelizeKeys(res.data);
+};
+
+export const getTopProducts = async (params) => {
+  const res = await axiosInstance.get('/api/reports/top-products/', { params });
+  return camelizeKeys(res.data);
+};
+
+export const getTopCategories = async (params) => {
+  const res = await axiosInstance.get('/api/reports/top-categories/', { params });
+  return camelizeKeys(res.data);
 };

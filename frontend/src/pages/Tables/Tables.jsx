@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { Layers, CalendarClock, User, Check, X, LogIn, RefreshCcw } from 'lucide-react';
-import { getTables, updateTable } from '../../utils/db';
+import { getTables, updateTable, addTable, deleteTable } from '../../utils/db';
 
 const Tables = () => {
   const [tables, setTables] = useState([]);
@@ -32,31 +32,27 @@ const Tables = () => {
 
   const loadTables = async () => {
     try {
-      let data = await getTables().catch(() => []);
+      let data = await getTables();
       if (!Array.isArray(data) || data.length === 0) {
-        const stored = localStorage.getItem('floor_plan_tables');
-        if (stored) {
-          data = JSON.parse(stored);
-        } else {
-          // create default layout
-          const defaults = [];
-          for (let i = 1; i <= 10; i++) {
-            defaults.push({ id: `f${i}`, name: `f${i}`, floor: 1, status: 'free' });
-            defaults.push({ id: `s${i}`, name: `s${i}`, floor: 2, status: 'free' });
-          }
-          localStorage.setItem('floor_plan_tables', JSON.stringify(defaults));
-          data = defaults;
+        // create default layout in backend database
+        const defaults = [];
+        for (let i = 1; i <= 10; i++) {
+          defaults.push({ name: `f${i}`, floor: 1, status: 'free' });
+          defaults.push({ name: `s${i}`, floor: 2, status: 'free' });
         }
+        await Promise.all(defaults.map(t => addTable(t).catch(e => console.error("Seeding table failed:", e))));
+        data = await getTables();
       }
       const mapped = data.map(t => ({
         id: t.id,
         name: t.name,
-        floor: t.floor || 1,
+        floor: (t.floor && typeof t.floor === 'object') ? t.floor.id : (t.floor || 1),
         status: t.status || 'free',
         customerName: t.customerName || t.customer_name || '',
       }));
       setTables(mapped);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load tables:", err);
       setTables([]);
     }
   };
@@ -92,14 +88,7 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'reserved',
         customer_name: customerInput.trim()
-      }).catch(() => {});
-
-      const stored = localStorage.getItem('floor_plan_tables');
-      if (stored) {
-        const list = JSON.parse(stored);
-        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'reserved', customerName: customerInput.trim() } : t);
-        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-      }
+      });
 
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} reserved for ${customerInput.trim()}`, 'warning');
       await loadTables();
@@ -118,14 +107,7 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'occupied',
         customer_name: ''
-      }).catch(() => {});
-
-      const stored = localStorage.getItem('floor_plan_tables');
-      if (stored) {
-        const list = JSON.parse(stored);
-        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'occupied', customerName: '' } : t);
-        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-      }
+      });
 
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} occupied`, 'danger');
       await loadTables();
@@ -143,14 +125,7 @@ const Tables = () => {
         name: selectedTable.name,
         status: 'free',
         customer_name: ''
-      }).catch(() => {});
-
-      const stored = localStorage.getItem('floor_plan_tables');
-      if (stored) {
-        const list = JSON.parse(stored);
-        const updated = list.map(t => t.id === selectedTable.id ? { ...t, status: 'free', customerName: '' } : t);
-        localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-      }
+      });
 
       addSessionLog(`Table ${selectedTable.name.toUpperCase()} cleared (free)`, 'success');
       await loadTables();
@@ -170,15 +145,8 @@ const Tables = () => {
             name: t.name,
             status: 'free',
             customer_name: ''
-          }).catch(() => {})
+          })
         ));
-
-        const stored = localStorage.getItem('floor_plan_tables');
-        if (stored) {
-          const list = JSON.parse(stored);
-          const updated = list.map(t => ({ ...t, status: 'free', customerName: '' }));
-          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-        }
 
         addSessionLog('All table statuses reset to free', 'info');
         await loadTables();
@@ -369,9 +337,17 @@ const Tables = () => {
                         localStorage.setItem('floor_plan_floors', JSON.stringify(updatedFloors));
                         
                         // Update tables list
-                        const updatedTables = tables.map(t => t.floor === targetFloor ? { ...t, floor: 1 } : t);
-                        setTables(updatedTables);
-                        localStorage.setItem('floor_plan_tables', JSON.stringify(updatedTables));
+                        const tablesToMove = tables.filter(t => t.floor === targetFloor);
+                        Promise.all(tablesToMove.map(t => 
+                          updateTable(t.id, {
+                            floor: 1,
+                            name: t.name,
+                            status: t.status,
+                            customer_name: t.customerName || ''
+                          }).catch(e => console.error("Moving table failed:", e))
+                        )).then(() => {
+                          loadTables();
+                        });
                         
                         setActiveFloor(1);
                         addSessionLog(`Removed Floor ${targetFloor} from layout`, 'warning');
@@ -417,25 +393,27 @@ const Tables = () => {
                   }}
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newTableName.trim()) return;
                     const name = newTableName.trim();
                     if (tables.some(t => t.name.toLowerCase() === name.toLowerCase())) {
                       alert('Table name already exists!');
                       return;
                     }
-                    const newTable = {
-                      id: `t_${Date.now()}`,
-                      name,
-                      floor: activeFloor,
-                      status: 'free',
-                      customerName: ''
-                    };
-                    const updated = [...tables, newTable];
-                    setTables(updated);
-                    localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-                    setNewTableName('');
-                    addSessionLog(`Added Table ${name} to Floor ${activeFloor}`, 'success');
+                    try {
+                      await addTable({
+                        name,
+                        floor: activeFloor,
+                        status: 'free',
+                        customerName: ''
+                      });
+                      setNewTableName('');
+                      addSessionLog(`Added Table ${name} to Floor ${activeFloor}`, 'success');
+                      await loadTables();
+                    } catch (err) {
+                      console.error(err);
+                      alert('Failed to add table to backend.');
+                    }
                   }}
                   style={{
                     padding: '8px 16px',
@@ -530,17 +508,21 @@ const Tables = () => {
                             setEditingTableId(table.id);
                             setEditingTableName(e.target.value);
                           }}
-                          onBlur={() => {
+                          onBlur={async () => {
                             if (editingTableId === table.id && editingTableName.trim()) {
                               const name = editingTableName.trim();
                               if (tables.some(item => item.id !== table.id && item.name.toLowerCase() === name.toLowerCase())) {
                                 alert('Table name already exists!');
                                 return;
                               }
-                              const updated = tables.map(item => item.id === table.id ? { ...item, name } : item);
-                              setTables(updated);
-                              localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-                              setEditingTableId(null);
+                              try {
+                                await updateTable(table.id, { name });
+                                setEditingTableId(null);
+                                await loadTables();
+                              } catch (err) {
+                                console.error(err);
+                                alert('Failed to update table name.');
+                              }
                             }
                           }}
                           style={{
@@ -559,12 +541,16 @@ const Tables = () => {
                         />
                         <select
                           value={table.floor}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const targetFloor = Number(e.target.value);
-                            const updated = tables.map(item => item.id === table.id ? { ...item, floor: targetFloor } : item);
-                            setTables(updated);
-                            localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-                            addSessionLog(`Moved Table ${table.name} to Floor ${targetFloor}`, 'info');
+                            try {
+                              await updateTable(table.id, { floor: targetFloor });
+                              addSessionLog(`Moved Table ${table.name} to Floor ${targetFloor}`, 'info');
+                              await loadTables();
+                            } catch (err) {
+                              console.error(err);
+                              alert('Failed to move table to different floor.');
+                            }
                           }}
                           style={{
                             padding: '4px 8px',
@@ -617,13 +603,17 @@ const Tables = () => {
                   {/* Delete button inline */}
                   {isEditingPlan && (
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
                         if (window.confirm(`Delete table ${table.name}?`)) {
-                          const updated = tables.filter(item => item.id !== table.id);
-                          setTables(updated);
-                          localStorage.setItem('floor_plan_tables', JSON.stringify(updated));
-                          addSessionLog(`Deleted Table ${table.name}`, 'warning');
+                          try {
+                            await deleteTable(table.id);
+                            addSessionLog(`Deleted Table ${table.name}`, 'warning');
+                            await loadTables();
+                          } catch (err) {
+                            console.error(err);
+                            alert('Failed to delete table from backend.');
+                          }
                         }
                       }}
                       style={{

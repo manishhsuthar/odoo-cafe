@@ -7,7 +7,7 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import useAuth from '../../hooks/useAuth';
-import { getOrders, getEmployeeLogs, getTables } from '../../utils/db';
+import { getOrders, getEmployeeLogs, getTables, getCategories, getProducts, addCoupon } from '../../utils/db';
 
 const Dashboard = () => {
   const { registerEmployee } = useAuth();
@@ -23,6 +23,33 @@ const Dashboard = () => {
   const [recentActivities, setRecentActivities] = useState([]);
   const [viewAll, setViewAll] = useState(false);
 
+  // Coupon form state
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [couponName, setCouponName] = useState('Mock Promo');
+  const [couponType, setCouponType] = useState('Coupon');
+  const [couponCode, setCouponCode] = useState('MOCK50');
+  const [couponDiscountType, setCouponDiscountType] = useState('Percentage');
+  const [couponValue, setCouponValue] = useState(50);
+  const [couponMinAmount, setCouponMinAmount] = useState(200);
+  const [couponTargetType, setCouponTargetType] = useState('All');
+  const [couponTargetValue, setCouponTargetValue] = useState('');
+  const [couponActivated, setCouponActivated] = useState(true);
+
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+
+  useEffect(() => {
+    if (isCouponModalOpen) {
+      Promise.all([
+        getCategories().catch(() => []),
+        getProducts().catch(() => [])
+      ]).then(([cats, prods]) => {
+        setCategoriesList(cats.map(c => c.name));
+        setProductsList(prods.map(p => p.name));
+      });
+    }
+  }, [isCouponModalOpen]);
+
 
   useEffect(() => {
     Promise.all([
@@ -35,10 +62,15 @@ const Dashboard = () => {
         const stored = localStorage.getItem('floor_plan_tables');
         tables = stored ? JSON.parse(stored) : [];
       }
-      const totalOrders = orders.length;
-      const totalRev = orders
+      const today = new Date().toDateString();
+      const todayOrders = orders.filter(
+        o => o.dateTime && new Date(o.dateTime).toDateString() === today
+      );
+
+      const totalOrders = todayOrders.length;
+      const totalRev = todayOrders
         .filter(o => o.status === 'Paid')
-        .reduce((sum, o) => sum + o.amount, 0);
+        .reduce((sum, o) => sum + parseFloat(o.amount || 0), 0);
       const activeTbls = new Set(orders.filter(o => o.status === 'Unpaid').map(o => o.table)).size;
       const totalTblsCount = tables.length || 12; // fallback to 12 if no tables in db
       const vacantTbls = Math.max(0, totalTblsCount - activeTbls);
@@ -54,12 +86,9 @@ const Dashboard = () => {
       });
 
       // Filter activities to only include orders of "today" (that day) sorted newest first
-      const today = new Date().toDateString();
-      const todayOrders = orders
-        .filter(o => o.dateTime && new Date(o.dateTime).toDateString() === today)
-        .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+      const sortedTodayOrders = [...todayOrders].sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
 
-      const activities = todayOrders.map(o => ({
+      const activities = sortedTodayOrders.map(o => ({
         id: o.id,
         iconColor: o.status === 'Paid' ? '#10b981' : '#f59e0b',
         icon: ShoppingBag,
@@ -93,6 +122,61 @@ const Dashboard = () => {
       setIsEmployeeModalOpen(false);
     } else {
       alert(result.error);
+    }
+  };
+
+  const handleCreateCouponSubmit = async (e) => {
+    e.preventDefault();
+    if (!couponName.trim()) {
+      alert('Promotion name is required');
+      return;
+    }
+    if (couponType === 'Coupon' && !couponCode.trim()) {
+      alert('Coupon code is required');
+      return;
+    }
+
+    const payload = {
+      name: couponName.trim(),
+      type: couponType,
+      code: couponType === 'Coupon' ? couponCode.trim().toUpperCase() : '',
+      discountType: couponDiscountType,
+      value: Number(couponValue),
+      minAmount: Number(couponMinAmount),
+      targetType: couponTargetType,
+      targetValue: couponTargetValue,
+      activated: couponActivated
+    };
+
+    const apiPayload = {
+      name: payload.name,
+      type: payload.type,
+      code: payload.code,
+      discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'flat',
+      discount_value: payload.value,
+      min_order_amount: payload.minAmount,
+      target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
+      target_value: payload.targetValue,
+      is_active: payload.activated
+    };
+
+    try {
+      await addCoupon(apiPayload);
+      alert('Coupon created successfully!');
+      setIsCouponModalOpen(false);
+      // Reset form
+      setCouponName('Mock Promo');
+      setCouponType('Coupon');
+      setCouponCode('MOCK50');
+      setCouponDiscountType('Percentage');
+      setCouponValue(50);
+      setCouponMinAmount(200);
+      setCouponTargetType('All');
+      setCouponTargetValue('');
+      setCouponActivated(true);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create coupon');
     }
   };
 
@@ -322,7 +406,7 @@ const Dashboard = () => {
               {/* Quick Action 2: Add Employees */}
               <button
                 style={quickActionCardStyle}
-                onClick={() => setIsEmployeeModalOpen(true)}
+                onClick={() => navigate('/employees?add=true')}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#b09677';
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -341,7 +425,7 @@ const Dashboard = () => {
               {/* Quick Action 3: Create Coupon */}
               <button
                 style={quickActionCardStyle}
-                onClick={() => navigate('/coupons')}
+                onClick={() => setIsCouponModalOpen(true)}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#b09677';
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -501,6 +585,190 @@ const Dashboard = () => {
             </Button>
             <Button type="submit" variant="primary">
               Add Employee
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Create Coupon Modal */}
+      <Modal
+        isOpen={isCouponModalOpen}
+        onClose={() => setIsCouponModalOpen(false)}
+        title="Create New Coupon"
+      >
+        <form onSubmit={handleCreateCouponSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Input
+            label="Promotions Name"
+            placeholder="e.g. Summer Sale"
+            value={couponName}
+            onChange={(e) => setCouponName(e.target.value)}
+            required
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Promo Type</label>
+              <select
+                value={couponType}
+                onChange={(e) => setCouponType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--input-bg)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-standard)',
+                  outline: 'none',
+                }}
+              >
+                <option value="Coupon">Coupon (Code based)</option>
+                <option value="Automated Promo">Automated</option>
+              </select>
+            </div>
+            <Input
+              label={couponType === 'Coupon' ? 'Coupon Code' : 'Automatic Trigger Code'}
+              disabled={couponType === 'Automated Promo'}
+              placeholder={couponType === 'Coupon' ? 'e.g. NEW20' : 'N/A'}
+              value={couponType === 'Coupon' ? couponCode : ''}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              required={couponType === 'Coupon'}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Discount Type</label>
+              <select
+                value={couponDiscountType}
+                onChange={(e) => setCouponDiscountType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--input-bg)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-standard)',
+                  outline: 'none',
+                }}
+              >
+                <option value="Percentage">Percentage (%)</option>
+                <option value="Fixed Amount">Fixed Amount (₹)</option>
+              </select>
+            </div>
+            <Input
+              label={`Discount Value (${couponDiscountType === 'Percentage' ? '%' : '₹'})`}
+              type="number"
+              value={couponValue}
+              onChange={(e) => setCouponValue(e.target.value)}
+              required
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Apply To</label>
+              <select
+                value={couponTargetType}
+                onChange={(e) => {
+                  setCouponTargetType(e.target.value);
+                  setCouponTargetValue('');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border-color)',
+                  backgroundColor: 'var(--input-bg)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-standard)',
+                  outline: 'none',
+                }}
+              >
+                <option value="All">All Products</option>
+                <option value="Category">Specific Category</option>
+                <option value="Product">Specific Product</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Target Value</label>
+              {couponTargetType === 'All' ? (
+                <input
+                  type="text"
+                  disabled
+                  placeholder="All Store Products"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-standard)',
+                    outline: 'none',
+                    opacity: 0.6
+                  }}
+                />
+              ) : couponTargetType === 'Category' ? (
+                <select
+                  value={couponTargetValue}
+                  required
+                  onChange={(e) => setCouponTargetValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-standard)',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">-- Choose Category --</option>
+                  {categoriesList.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={couponTargetValue}
+                  required
+                  onChange={(e) => setCouponTargetValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--border-color)',
+                    backgroundColor: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-standard)',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">-- Choose Product --</option>
+                  {productsList.map(prod => (
+                    <option key={prod} value={prod}>{prod}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          <Input
+            label="Minimum Order Amount (₹)"
+            type="number"
+            value={couponMinAmount}
+            onChange={(e) => setCouponMinAmount(e.target.value)}
+          />
+
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+            <Button variant="secondary" onClick={() => setIsCouponModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary">
+              Create Coupon
             </Button>
           </div>
         </form>

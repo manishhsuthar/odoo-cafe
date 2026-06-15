@@ -83,6 +83,7 @@ const Sidebar = () => {
     { name: 'Order Tracking', path: '/orders', icon: ShoppingCart },
     { name: 'Employee Record', path: '/employees', icon: Users },
     { name: 'Tables & Floor Plans', path: '/tables', icon: Grid3X3 },
+    { name: 'Table Bookings', path: '/table-booking', icon: CalendarClock },
     { name: 'Payment Methods', path: '/payment-methods', icon: DollarSign },
     { name: 'Coupon Generation', path: '/coupons', icon: Ticket },
     { name: 'Revenue Reports', path: '/reports', icon: BarChart3 },
@@ -93,8 +94,9 @@ const Sidebar = () => {
 
   return (
     <aside style={sidebarStyle}>
-      <div style={headerStyle}>
-        <img src="/logo.png" alt="Bite & Brew Logo" style={{ height: '100px', transform: 'scale(1.2)', transformOrigin: 'left center', objectFit: 'contain' }} />
+      <div style={{ ...headerStyle, display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px' }}>
+        <img src="/logo.png" alt="Byte & Brew" style={{ height: '50px', maxWidth: '100%', objectFit: 'contain' }} />
+        <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--border-focus)' }}>Admin</span>
       </div>
       <ul style={navListStyle}>
         {menuItems.map((item) => (

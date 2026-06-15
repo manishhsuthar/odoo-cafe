@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
 import { getCategories, getProducts, getCoupons, addCoupon, updateCoupon, deleteCoupon } from '../../utils/db';
@@ -25,6 +26,8 @@ const Coupons = () => {
   const [formTargetValue, setFormTargetValue] = useState('');
   const [formActivated, setFormActivated] = useState(true);
 
+  const location = useLocation();
+
   useEffect(() => {
     loadCoupons();
     (async () => {
@@ -33,7 +36,11 @@ const Coupons = () => {
       setCategories(cats.map(c => c.name));
       setProducts(prods.map(p => p.name));
     })();
-  }, []);
+    const params = new URLSearchParams(location.search);
+    if (params.get('add') === 'true') {
+      handleOpenNewModal();
+    }
+  }, [location]);
 
   const loadCoupons = async () => {
     try {
@@ -95,11 +102,11 @@ const Coupons = () => {
         type: target.type,
         code: target.code,
         discount_type: target.discountType === 'Percentage' ? 'percentage' : 'fixed',
-        value: target.value,
-        min_amount: target.minAmount,
+        discount_value: target.value,
+        min_order_amount: target.minAmount,
         target_type: target.targetType === 'All' ? 'all' : target.targetType.toLowerCase(),
         target_value: target.targetValue,
-        activated: nextActiveState
+        is_active: nextActiveState
       };
 
       await updateCoupon(id, apiPayload).catch(() => {});
@@ -161,18 +168,17 @@ const Coupons = () => {
       activated: formActivated
     };
 
-    const apiPayload = {
-      name: payload.name,
-      type: payload.type,
-      code: payload.code,
-      discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'fixed',
-      value: payload.value,
-      min_amount: payload.minAmount,
-      target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
-      target_value: payload.targetValue,
-      activated: payload.activated
-    };
-
+  const apiPayload = {
+    name: payload.name,
+    type: payload.type,
+    code: payload.code,
+    discount_type: payload.discountType === 'Percentage' ? 'percentage' : 'flat',
+    discount_value: payload.value,
+    min_order_amount: payload.minAmount,
+    target_type: payload.targetType === 'All' ? 'all' : payload.targetType.toLowerCase(),
+    target_value: payload.targetValue,
+    is_active: payload.activated
+    }; 
     try {
       let savedObj = payload;
       if (selectedCoupon) {

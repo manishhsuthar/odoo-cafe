@@ -11,9 +11,9 @@ const Navbar = () => {
       borderBottom: '1px solid var(--border-color)',
       backgroundColor: 'var(--bg-primary)',
     }}>
-      <div className="handwritten" style={{ fontSize: '24px', fontWeight: 'bold' }}>
-        <Link to="/" style={{ color: 'transparent', display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.png" alt="Bite & Brew Logo" style={{ height: '140px', transform: 'scale(1.2)', transformOrigin: 'left center', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Byte & Brew" style={{ height: '40px', objectFit: 'contain' }} />
         </Link>
       </div>
       <div style={{ display: 'flex', gap: '20px' }}>

@@ -228,11 +228,12 @@ const Products = () => {
     }
 
     try {
+      const selectedCat = categories.find(c => c.name === productForm.category);
       await addProduct({
         name: productForm.name,
         price: priceNum,
         tax: parseInt(productForm.tax),
-        category: productForm.category,
+        category: selectedCat ? selectedCat.id : productForm.category,
         description: productForm.description
       });
 

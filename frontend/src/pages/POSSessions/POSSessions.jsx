@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import Sidebar from '../../components/layout/Sidebar';
+import { getOrders } from '../../utils/db';
 import { 
   Zap, 
   Search, 
@@ -23,16 +24,77 @@ const POSSessions = () => {
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
 
   // Load logs
-  const loadLogs = () => {
+  const loadLogs = async () => {
+    let localLogsList = [];
     const storedLogs = localStorage.getItem('pos_session_logs');
     if (storedLogs) {
       try {
-        setLogs(JSON.parse(storedLogs));
+        localLogsList = JSON.parse(storedLogs);
       } catch {
-        setLogs([]);
+        localLogsList = [];
       }
-    } else {
-      setLogs([]);
+    }
+
+    try {
+      const orders = await getOrders().catch(() => []);
+      const orderLogs = [];
+      orders.forEach(order => {
+        const dateObj = new Date(order.dateTime || order.created_at);
+        const orderTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        const orderDate = `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+        
+        // Log entry for order sent to kitchen
+        orderLogs.push({
+          id: `ord_sent_${order.id}`,
+          time: `${orderDate} ${orderTime}`,
+          category: 'Orders',
+          type: 'warning',
+          message: `Sent Order #${order.id} to Kitchen (${order.status === 'Paid' || order.status === 'completed' ? 'Paid' : 'Unpaid'}) for Table ${order.table || 'Takeaway'}: ${order.items || ''}`
+        });
+
+        // Log entry for completed payments
+        if (order.status === 'Paid' || order.status === 'completed') {
+          const updateObj = new Date(order.updatedAt || order.updated_at || order.dateTime);
+          const updateTime = updateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+          const updateDate = `${updateObj.getDate().toString().padStart(2, '0')}/${(updateObj.getMonth() + 1).toString().padStart(2, '0')}/${updateObj.getFullYear()}`;
+          orderLogs.push({
+            id: `ord_paid_${order.id}`,
+            time: `${updateDate} ${updateTime}`,
+            category: 'Payments',
+            type: 'success',
+            message: `Collected payment of ₹${order.amount} via ${order.paymentMethod || 'Cash'} for Table ${order.table || 'Takeaway'} (Order #${order.id})`
+          });
+        }
+      });
+
+      const combined = [...localLogsList, ...orderLogs];
+      combined.sort((a, b) => {
+        const getTs = (str) => {
+          try {
+            if (str.includes('/')) {
+              const parts = str.split(' ');
+              if (parts.length === 2) {
+                const dateParts = parts[0].split('/');
+                if (dateParts.length === 3) {
+                  const isoDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+                  return new Date(`${isoDate}T${parts[1]}`).getTime();
+                }
+              }
+              return new Date(str).getTime();
+            } else {
+              return new Date(`${new Date().toISOString().split('T')[0]}T${str}`).getTime();
+            }
+          } catch {
+            return Date.now();
+          }
+        };
+        return getTs(b.time) - getTs(a.time);
+      });
+
+      setLogs(combined);
+    } catch (err) {
+      console.error(err);
+      setLogs(localLogsList);
     }
   };
 

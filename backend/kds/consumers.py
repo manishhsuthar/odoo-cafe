@@ -17,6 +17,19 @@ class KDSConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "kds_update",
+                    "data": data
+                }
+            )
+        except Exception as e:
+            print(f"Error in KDSConsumer receive: {e}")
+
     async def kds_update(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 

@@ -196,7 +196,6 @@ const POSPaymentMethodsManagement = ({
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14.5px' }}>
             <thead>
               <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '2px solid var(--border-color)' }}>
-                <th style={thStyle}>Method Name</th>
                 <th style={thStyle}>Type</th>
                 <th style={thStyle}>Gateway info</th>
                 <th style={thStyle}>Status</th>
@@ -212,7 +211,7 @@ const POSPaymentMethodsManagement = ({
                 if (filtered.length === 0) {
                   return (
                     <tr>
-                      <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         No payment methods registered.
                       </td>
                     </tr>
@@ -220,7 +219,6 @@ const POSPaymentMethodsManagement = ({
                 }
                 return filtered.map(pm => (
                   <tr key={pm.id} style={{ borderBottom: '1.5px solid var(--border-color)' }}>
-                    <td style={{ ...tdStyle, fontWeight: '700' }}>{pm.name}</td>
                     <td style={tdStyle}>{pm.type}</td>
                     <td style={{ ...tdStyle, fontFamily: 'var(--mono)', fontSize: '13px' }}>{pm.value || '-'}</td>
                     <td style={tdStyle}>

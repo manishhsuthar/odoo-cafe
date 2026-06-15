@@ -78,13 +78,14 @@ const POSOrdersHistory = ({
             {(() => {
               const filtered = ordersList.filter((ord) => {
                 const q = searchOrdersQuery.toLowerCase();
-                const customer = (ord.customerName || 'Walk-in Customer').toLowerCase();
-                const orderId = (ord.id || '').toLowerCase();
-                const table = (ord.table || 'Takeaway').toLowerCase();
+                const customer = String(ord.customerName || ord.customer || 'Walk-in Customer').toLowerCase();
+                const orderId = String(ord.id || '').toLowerCase();
+                const table = String(ord.table || 'Takeaway').toLowerCase();
 
-                const dateObj = new Date(ord.dateTime);
-                const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
-                const dateFull = dateObj.toLocaleDateString().toLowerCase();
+                const rawDate = ord.dateTime || ord.date_time || ord.created_at;
+                const dateObj = rawDate ? new Date(rawDate) : new Date();
+                const dateStr = isNaN(dateObj.getTime()) ? '' : `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
+                const dateFull = isNaN(dateObj.getTime()) ? '' : dateObj.toLocaleDateString().toLowerCase();
 
                 return (
                   customer.includes(q) ||
@@ -106,9 +107,10 @@ const POSOrdersHistory = ({
               }
 
               return filtered.map((ord) => {
-                const dateObj = new Date(ord.dateTime);
-                const dateFormatted = `${dateObj.getDate()}/${dateObj.getMonth() + 1} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-                const isPaid = ord.status === 'Paid';
+                const rawDate = ord.dateTime || ord.date_time || ord.created_at;
+                const dateObj = rawDate ? new Date(rawDate) : new Date();
+                const dateFormatted = isNaN(dateObj.getTime()) ? 'N/A' : `${dateObj.getDate()}/${dateObj.getMonth() + 1} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                const isPaid = ord.status === 'Paid' || ord.status === 'completed';
 
                 return (
                   <tr
@@ -125,7 +127,7 @@ const POSOrdersHistory = ({
                     <td style={tdStyle}>{dateFormatted}</td>
                     <td style={{ ...tdStyle, color: '#3b82f6', fontWeight: '800' }}>{ord.id}</td>
                     <td style={tdStyle}>{ord.table || 'Takeaway'}</td>
-                    <td style={tdStyle}>{ord.customerName || 'Walk-in Customer'}</td>
+                    <td style={tdStyle}>{ord.customerName || ord.customer || 'Walk-in Customer'}</td>
                     <td style={{ ...tdStyle, color: 'var(--text-link)', fontWeight: '750' }}>₹{ord.amount}</td>
                     <td style={tdStyle}>
                       <span style={{
