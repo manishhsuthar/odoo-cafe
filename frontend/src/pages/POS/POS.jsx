@@ -24,7 +24,7 @@ import {
 import useAuth from '../../hooks/useAuth';
 import useTheme from '../../hooks/useTheme';
 import { Sun, Moon } from 'lucide-react';
-import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct, getTables, updateTable, deleteTable, updateOrderStatus, updateOrder } from '../../utils/db';
+import { getCategories, getProducts, addOrder, addProduct, getOrders, updateProduct, deleteProduct, getTables, updateTable, deleteTable, updateOrderStatus, updateOrder, getCoupons } from '../../utils/db';
 import POSOrdersHistory from './components/POSOrdersHistory';
 import POSProductsManagement from './components/POSProductsManagement';
 import POSCategoriesManagement from './components/POSCategoriesManagement';
@@ -190,7 +190,7 @@ const POS = ({ view = 'pos' }) => {
   const [attendanceLogsList, setAttendanceLogsList] = useState([]);
 
   // Combined management loader
-  const reloadManagementData = () => {
+  const reloadManagementData = async () => {
     // Payment methods
     const pmStored = localStorage.getItem('payment_methods');
     if (pmStored) {
@@ -205,16 +205,54 @@ const POS = ({ view = 'pos' }) => {
       setAllPaymentMethods(defaultPM);
     }
     // Coupons list
-    const cpStored = localStorage.getItem('coupons_list');
-    if (cpStored) {
-      setAllCouponsList(JSON.parse(cpStored));
-    } else {
-      const defaultCoupons = [
-        { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
-        { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
-      setAllCouponsList(defaultCoupons);
+    try {
+      const backendCoupons = await getCoupons();
+      if (backendCoupons && backendCoupons.length > 0) {
+        const mapped = backendCoupons.map(c => {
+          const isPercentage = 
+            (c.discountType && c.discountType.toLowerCase() === 'percentage') ||
+            (c.discount_type && c.discount_type.toLowerCase() === 'percentage');
+          return {
+            id: c.id,
+            name: c.name || 'Promotion',
+            type: c.type || (c.code ? 'Coupon' : 'Automated Promo'),
+            code: c.code || '',
+            discountType: isPercentage ? 'Percentage' : 'Fixed',
+            value: Number(c.value !== undefined ? c.value : (c.discountValue !== undefined ? c.discountValue : (c.discount_value !== undefined ? c.discount_value : 0))),
+            minAmount: Number(c.minAmount !== undefined ? c.minAmount : (c.minOrderAmount !== undefined ? c.minOrderAmount : (c.min_order_amount !== undefined ? c.min_order_amount : 0))),
+            targetType: (c.targetType || c.target_type || 'all').toLowerCase() === 'category' ? 'Category' : ((c.targetType || c.target_type || 'all').toLowerCase() === 'product' ? 'Product' : 'All'),
+            targetValue: c.targetValue || c.target_value || '',
+            activated: c.activated !== undefined ? c.activated : (c.isActive !== undefined ? c.isActive : (c.is_active !== undefined ? c.is_active : true))
+          };
+        });
+        setAllCouponsList(mapped);
+        localStorage.setItem('coupons_list', JSON.stringify(mapped));
+      } else {
+        const cpStored = localStorage.getItem('coupons_list');
+        if (cpStored) {
+          setAllCouponsList(JSON.parse(cpStored));
+        } else {
+          const defaultCoupons = [
+            { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
+            { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
+          ];
+          localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
+          setAllCouponsList(defaultCoupons);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load coupons from backend:", err);
+      const cpStored = localStorage.getItem('coupons_list');
+      if (cpStored) {
+        setAllCouponsList(JSON.parse(cpStored));
+      } else {
+        const defaultCoupons = [
+          { id: 'c_1', name: 'Regular Discount', code: 'NEW20', value: 20, discountType: 'Percentage', minAmount: 100, activated: true },
+          { id: 'c_2', name: 'Festive Offer', code: 'FEST50', value: 50, discountType: 'Fixed', minAmount: 500, activated: true }
+        ];
+        localStorage.setItem('coupons_list', JSON.stringify(defaultCoupons));
+        setAllCouponsList(defaultCoupons);
+      }
     }
     // Bookings
     const bkStored = localStorage.getItem('pos_bookings');
@@ -651,20 +689,8 @@ const POS = ({ view = 'pos' }) => {
       alert('Please enter a coupon code.');
       return;
     }
-    const stored = localStorage.getItem('coupons_list');
-    let couponsList = [];
-    if (stored) {
-      couponsList = JSON.parse(stored);
-    } else {
-      couponsList = [
-        { id: '1', name: 'Summur Sale', type: 'Coupon', code: 'SUMMER20', discountType: 'Percentage', value: 20, minAmount: 100, targetType: 'All', targetValue: '', activated: true },
-        { id: '2', name: 'Promotions', type: 'Automated Promo', code: 'AUTO10', discountType: 'Percentage', value: 10, minAmount: 150, targetType: 'All', targetValue: '', activated: true },
-        { id: '3', name: 'New user', type: 'Coupon', code: 'NEW20', discountType: 'Fixed Amount', value: 50, minAmount: 200, targetType: 'All', targetValue: '', activated: true }
-      ];
-      localStorage.setItem('coupons_list', JSON.stringify(couponsList));
-    }
 
-    const found = couponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
+    const found = allCouponsList.find(c => c.code && c.code.toUpperCase() === codeStr.trim().toUpperCase() && c.activated);
     if (!found) {
       alert('Coupon code invalid or expired.');
       return;

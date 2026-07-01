@@ -60,18 +60,23 @@ const Coupons = () => {
           data = defaultCoupons;
         }
       }
-      const mapped = data.map(c => ({
-        id: c.id,
-        name: c.name,
-        type: c.type || (c.code ? 'Coupon' : 'Automated Promo'),
-        code: c.code || '',
-        discountType: c.discountType || (c.discount_type === 'percentage' ? 'Percentage' : 'Fixed Amount') || 'Percentage',
-        value: Number(c.value || c.discount_value || 0),
-        minAmount: Number(c.minAmount || c.min_amount || 0),
-        targetType: c.targetType || (c.target_type === 'all' ? 'All' : c.target_type) || 'All',
-        targetValue: c.targetValue || c.target_value || '',
-        activated: c.activated !== undefined ? c.activated : true
-      }));
+      const mapped = data.map(c => {
+        const isPercentage = 
+          (c.discountType && c.discountType.toLowerCase() === 'percentage') ||
+          (c.discount_type && c.discount_type.toLowerCase() === 'percentage');
+        return {
+          id: c.id,
+          name: c.name || 'Promotion',
+          type: c.type || (c.code ? 'Coupon' : 'Automated Promo'),
+          code: c.code || '',
+          discountType: isPercentage ? 'Percentage' : 'Fixed Amount',
+          value: Number(c.value !== undefined ? c.value : (c.discountValue !== undefined ? c.discountValue : (c.discount_value !== undefined ? c.discount_value : 0))),
+          minAmount: Number(c.minAmount !== undefined ? c.minAmount : (c.minOrderAmount !== undefined ? c.minOrderAmount : (c.min_order_amount !== undefined ? c.min_order_amount : 0))),
+          targetType: (c.targetType || c.target_type || 'all').toLowerCase() === 'category' ? 'Category' : ((c.targetType || c.target_type || 'all').toLowerCase() === 'product' ? 'Product' : 'All'),
+          targetValue: c.targetValue || c.target_value || '',
+          activated: c.activated !== undefined ? c.activated : (c.isActive !== undefined ? c.isActive : (c.is_active !== undefined ? c.is_active : true))
+        };
+      });
       setCoupons(mapped);
     } catch {
       setCoupons([]);

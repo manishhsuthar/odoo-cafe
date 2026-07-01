@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Trash2, Edit2, Save, X } from 'lucide-react';
 import { bodyOrdersStyle, thStyle, tdStyle } from './POSSharedStyles';
+import { addCoupon, updateCoupon, deleteCoupon } from '../../../utils/db';
 
 const POSCouponsManagement = ({
   allCouponsList,
@@ -26,8 +27,28 @@ const POSCouponsManagement = ({
     setEditCouponId(null);
   };
 
-  const handleSaveEdit = (cpId) => {
+  const handleSaveEdit = async (cpId) => {
     if (!editCouponData.name || !editCouponData.code || !editCouponData.value) return;
+
+    const discountTypeMapped = editCouponData.discountType === 'Percentage' ? 'percentage' : 'flat';
+    const apiPayload = {
+      name: editCouponData.name,
+      type: 'Coupon',
+      code: editCouponData.code.toUpperCase(),
+      discount_type: discountTypeMapped,
+      discount_value: parseFloat(editCouponData.value),
+      min_order_amount: parseFloat(editCouponData.minAmount || 0),
+      is_active: true
+    };
+
+    if (typeof cpId === 'number' || !isNaN(cpId)) {
+      try {
+        await updateCoupon(cpId, apiPayload);
+      } catch (err) {
+        console.error("Failed to update coupon on backend:", err);
+      }
+    }
+
     const updated = allCouponsList.map(cp => 
       cp.id === cpId ? { ...cp, name: editCouponData.name, code: editCouponData.code.toUpperCase(), discountType: editCouponData.discountType, value: parseFloat(editCouponData.value), minAmount: parseFloat(editCouponData.minAmount || 0) } : cp
     );
@@ -37,10 +58,21 @@ const POSCouponsManagement = ({
     setEditCouponId(null);
   };
 
-  const handleAddCoupon = (e) => {
+  const handleAddCoupon = async (e) => {
     e.preventDefault();
     if (!newCouponName || !newCouponCode || !newCouponValue) return;
-    const newCP = {
+
+    const apiPayload = {
+      name: newCouponName,
+      type: 'Coupon',
+      code: newCouponCode.toUpperCase(),
+      discount_type: newCouponDiscountType === 'Percentage' ? 'percentage' : 'flat',
+      discount_value: parseFloat(newCouponValue),
+      min_order_amount: parseFloat(newCouponMinAmount || 0),
+      is_active: true
+    };
+
+    let savedObj = {
       id: `cp_${Date.now()}`,
       name: newCouponName,
       code: newCouponCode.toUpperCase(),
@@ -49,33 +81,78 @@ const POSCouponsManagement = ({
       minAmount: parseFloat(newCouponMinAmount || 0),
       activated: true
     };
-    const updated = [...allCouponsList, newCP];
+
+    try {
+      const created = await addCoupon(apiPayload);
+      if (created && created.id) {
+        savedObj = {
+          id: created.id,
+          name: created.name || newCouponName,
+          code: (created.code || newCouponCode).toUpperCase(),
+          value: parseFloat(created.value || created.discountValue || newCouponValue),
+          discountType: created.discountType || (created.discountType === 'percentage' ? 'Percentage' : 'Fixed') || newCouponDiscountType,
+          minAmount: parseFloat(created.minAmount || created.minOrderAmount || newCouponMinAmount || 0),
+          activated: created.activated !== undefined ? created.activated : true
+        };
+      }
+    } catch (err) {
+      console.error("Failed to save coupon to backend:", err);
+    }
+
+    const updated = [...allCouponsList, savedObj];
     localStorage.setItem('coupons_list', JSON.stringify(updated));
     setAllCouponsList(updated);
     setNewCouponName('');
     setNewCouponCode('');
     setNewCouponValue('');
     setNewCouponMinAmount('');
-    addLogEntry(`Added coupon code: ${newCP.code}`, 'success');
+    addLogEntry(`Added coupon code: ${savedObj.code}`, 'success');
     alert('Coupon added successfully!');
   };
 
-  const handleToggleCoupon = (cpId) => {
+  const handleToggleCoupon = async (cpId) => {
+    let nextActiveState = true;
     const updated = allCouponsList.map(cp => {
       if (cp.id === cpId) {
-        const newAct = !cp.activated;
-        addLogEntry(`Coupon ${cp.code} marked as ${newAct ? 'Active' : 'Inactive'}`, 'info');
-        return { ...cp, activated: newAct };
+        nextActiveState = !cp.activated;
+        addLogEntry(`Coupon ${cp.code} marked as ${nextActiveState ? 'Active' : 'Inactive'}`, 'info');
+        return { ...cp, activated: nextActiveState };
       }
       return cp;
     });
+
+    const target = allCouponsList.find(cp => cp.id === cpId);
+    if (target && (typeof cpId === 'number' || !isNaN(cpId))) {
+      try {
+        const discountTypeMapped = target.discountType === 'Percentage' ? 'percentage' : 'flat';
+        await updateCoupon(cpId, {
+          name: target.name,
+          type: target.type || 'Coupon',
+          code: target.code,
+          discount_type: discountTypeMapped,
+          discount_value: target.value,
+          min_order_amount: target.minAmount,
+          is_active: nextActiveState
+        });
+      } catch (err) {
+        console.error("Failed to toggle coupon status on backend:", err);
+      }
+    }
+
     localStorage.setItem('coupons_list', JSON.stringify(updated));
     setAllCouponsList(updated);
   };
 
-  const handleDeleteCoupon = (cpId) => {
+  const handleDeleteCoupon = async (cpId) => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
       const cp = allCouponsList.find(c => c.id === cpId);
+      if (cp && (typeof cpId === 'number' || !isNaN(cpId))) {
+        try {
+          await deleteCoupon(cpId);
+        } catch (err) {
+          console.error("Failed to delete coupon on backend:", err);
+        }
+      }
       const updated = allCouponsList.filter(c => c.id !== cpId);
       localStorage.setItem('coupons_list', JSON.stringify(updated));
       setAllCouponsList(updated);
