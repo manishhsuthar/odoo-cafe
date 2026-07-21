@@ -1,9 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
-from django.db.models import Sum, Count, Avg, F
+from django.db.models import Sum, Count, Avg, F, Q
 from django.db.models.functions import TruncDate
 from orders.models import Order, OrderItem
+from content.models import Product, Category
 from datetime import datetime
 from decimal import Decimal
 
@@ -13,11 +14,33 @@ class IsAdmin(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role in ["admin", "cashier"]
 
 
+def get_completed_orders():
+    return Order.objects.exclude(status__iexact="cancelled").distinct()
+
+
+def get_completed_order_items():
+    return OrderItem.objects.exclude(order__status__iexact="cancelled").distinct()
+
+
+def apply_date_filter(queryset, request, prefix=""):
+    date_from = request.query_params.get("from")
+    date_to = request.query_params.get("to")
+    if date_from:
+        clean_from = str(date_from).split("T")[0] if "T" in str(date_from) else str(date_from)
+        filter_kwargs = {f"{prefix}created_at__date__gte": clean_from}
+        queryset = queryset.filter(**filter_kwargs)
+    if date_to:
+        clean_to = str(date_to).split("T")[0] if "T" in str(date_to) else str(date_to)
+        filter_kwargs = {f"{prefix}created_at__date__lte": clean_to}
+        queryset = queryset.filter(**filter_kwargs)
+    return queryset
+
+
 class ReportsSummaryView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        queryset = Order.objects.filter(status="completed")
+        queryset = get_completed_orders()
         queryset = apply_date_filter(queryset, request)
 
         result = queryset.aggregate(
@@ -37,7 +60,7 @@ class SalesTrendView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        queryset = Order.objects.filter(status="completed")
+        queryset = get_completed_orders()
         queryset = apply_date_filter(queryset, request)
 
         trend = queryset.annotate(
@@ -54,13 +77,16 @@ class TopOrdersView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        queryset = Order.objects.filter(status="completed")
+        queryset = get_completed_orders()
         queryset = apply_date_filter(queryset, request)
 
-        # Customer filter
-        customer_id = request.query_params.get("customer")
-        if customer_id:
-            queryset = queryset.filter(customer_id=customer_id)
+        # Customer filter (numeric ID or customer name search)
+        customer_param = request.query_params.get("customer")
+        if customer_param:
+            if str(customer_param).isdigit():
+                queryset = queryset.filter(customer_id=customer_param)
+            else:
+                queryset = queryset.filter(customer__name__icontains=customer_param)
 
         orders = queryset.select_related(
             "customer", "table"
@@ -68,10 +94,12 @@ class TopOrdersView(APIView):
 
         data = []
         for order in orders:
-            items_summary = ", ".join([
+            items_list = [
                 f"{item.product.name} x{item.quantity}"
                 for item in order.items.all()
-            ])
+                if item.product
+            ]
+            items_summary = ", ".join(items_list) if items_list else (order.kds_items or "")
             data.append({
                 "order_id": order.id,
                 "customer": order.customer.name if order.customer else "Walk-in",
@@ -87,20 +115,16 @@ class TopProductsView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        queryset = OrderItem.objects.filter(order__status="completed")
-
-        # Date filter on related order
-        date_from = request.query_params.get("from")
-        date_to = request.query_params.get("to")
-        if date_from:
-            queryset = queryset.filter(order__created_at__date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(order__created_at__date__lte=date_to)
+        queryset = get_completed_order_items()
+        queryset = apply_date_filter(queryset, request, prefix="order__")
 
         # Product filter
-        product_id = request.query_params.get("product")
-        if product_id:
-            queryset = queryset.filter(product_id=product_id)
+        product_param = request.query_params.get("product")
+        if product_param:
+            if str(product_param).isdigit():
+                queryset = queryset.filter(product_id=product_param)
+            else:
+                queryset = queryset.filter(product__name__icontains=product_param)
 
         products = queryset.values(
             "product__name"
@@ -109,18 +133,57 @@ class TopProductsView(APIView):
             revenue=Sum("subtotal")
         ).order_by("-revenue")
 
-        # Calculate total revenue for percentage
         total_revenue = sum(p["revenue"] or 0 for p in products)
 
         data = []
         for p in products:
+            prod_name = p["product__name"] or "Unknown Product"
             revenue = p["revenue"] or Decimal("0")
             data.append({
-                "product": p["product__name"],
+                "product": prod_name,
                 "quantity_sold": p["quantity_sold"],
                 "revenue": revenue,
                 "percent_of_revenue": round((revenue / total_revenue * 100), 2) if total_revenue else 0,
             })
+
+        # Fallback to order.kds_items if OrderItems are missing but completed orders exist
+        if not data:
+            orders = get_completed_orders()
+            orders = apply_date_filter(orders, request)
+            product_totals = {}
+            for order in orders:
+                if not order.kds_items:
+                    continue
+                parts = [pt.strip() for pt in order.kds_items.split(",") if pt.strip()]
+                for part in parts:
+                    if " x " in part:
+                        try:
+                            q_str, name = part.split(" x ", 1)
+                            qty = int(q_str)
+                        except Exception:
+                            qty, name = 1, part
+                    else:
+                        qty, name = 1, part
+                    name = name.strip()
+                    if product_param and product_param.lower() not in name.lower():
+                        continue
+                    prod_obj = Product.objects.filter(Q(name__iexact=name) | Q(name__icontains=name)).first()
+                    price = prod_obj.price if prod_obj else Decimal("0")
+                    if price == Decimal("0") and order.total_amount > 0 and len(parts) > 0:
+                        price = order.total_amount / Decimal(len(parts))
+                    if name not in product_totals:
+                        product_totals[name] = {"quantity_sold": 0, "revenue": Decimal("0")}
+                    product_totals[name]["quantity_sold"] += qty
+                    product_totals[name]["revenue"] += price * qty
+
+            fallback_total_rev = sum(item["revenue"] for item in product_totals.values())
+            for pname, item in sorted(product_totals.items(), key=lambda x: x[1]["revenue"], reverse=True):
+                data.append({
+                    "product": pname,
+                    "quantity_sold": item["quantity_sold"],
+                    "revenue": item["revenue"],
+                    "percent_of_revenue": round((item["revenue"] / fallback_total_rev * 100), 2) if fallback_total_rev else 0,
+                })
 
         return Response(data)
 
@@ -129,20 +192,16 @@ class TopCategoriesView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        queryset = OrderItem.objects.filter(order__status="completed")
-
-        # Date filter
-        date_from = request.query_params.get("from")
-        date_to = request.query_params.get("to")
-        if date_from:
-            queryset = queryset.filter(order__created_at__date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(order__created_at__date__lte=date_to)
+        queryset = get_completed_order_items()
+        queryset = apply_date_filter(queryset, request, prefix="order__")
 
         # Category filter
-        category_id = request.query_params.get("category")
-        if category_id:
-            queryset = queryset.filter(product__category_id=category_id)
+        category_param = request.query_params.get("category")
+        if category_param:
+            if str(category_param).isdigit():
+                queryset = queryset.filter(product__category_id=category_param)
+            else:
+                queryset = queryset.filter(product__category__name__icontains=category_param)
 
         categories = queryset.values(
             "product__category__name"
@@ -155,22 +214,53 @@ class TopCategoriesView(APIView):
 
         data = []
         for c in categories:
+            cat_name = c["product__category__name"] or "Other"
             revenue = c["revenue"] or Decimal("0")
             data.append({
-                "category": c["product__category__name"],
+                "category": cat_name,
                 "revenue": revenue,
                 "orders": c["orders"],
                 "percent_of_revenue": round((revenue / total_revenue * 100), 2) if total_revenue else 0,
             })
 
+        # Fallback to parsing order.kds_items if OrderItems are missing but completed orders exist
+        if not data:
+            orders = get_completed_orders()
+            orders = apply_date_filter(orders, request)
+            cat_totals = {}
+            for order in orders:
+                if not order.kds_items:
+                    continue
+                parts = [pt.strip() for pt in order.kds_items.split(",") if pt.strip()]
+                for part in parts:
+                    if " x " in part:
+                        try:
+                            q_str, name = part.split(" x ", 1)
+                            qty = int(q_str)
+                        except Exception:
+                            qty, name = 1, part
+                    else:
+                        qty, name = 1, part
+                    name = name.strip()
+                    prod_obj = Product.objects.filter(Q(name__iexact=name) | Q(name__icontains=name)).first()
+                    cat_name = prod_obj.category.name if (prod_obj and prod_obj.category) else "Other"
+                    if category_param and category_param.lower() not in cat_name.lower():
+                        continue
+                    price = prod_obj.price if prod_obj else Decimal("0")
+                    if price == Decimal("0") and order.total_amount > 0 and len(parts) > 0:
+                        price = order.total_amount / Decimal(len(parts))
+                    if cat_name not in cat_totals:
+                        cat_totals[cat_name] = {"revenue": Decimal("0"), "order_ids": set()}
+                    cat_totals[cat_name]["revenue"] += price * qty
+                    cat_totals[cat_name]["order_ids"].add(order.id)
+
+            fallback_total_rev = sum(item["revenue"] for item in cat_totals.values())
+            for cname, item in sorted(cat_totals.items(), key=lambda x: x[1]["revenue"], reverse=True):
+                data.append({
+                    "category": cname,
+                    "revenue": item["revenue"],
+                    "orders": len(item["order_ids"]),
+                    "percent_of_revenue": round((item["revenue"] / fallback_total_rev * 100), 2) if fallback_total_rev else 0,
+                })
+
         return Response(data)
-
-
-def apply_date_filter(queryset, request):
-    date_from = request.query_params.get("from")
-    date_to = request.query_params.get("to")
-    if date_from:
-        queryset = queryset.filter(created_at__date__gte=date_from)
-    if date_to:
-        queryset = queryset.filter(created_at__date__lte=date_to)
-    return queryset
