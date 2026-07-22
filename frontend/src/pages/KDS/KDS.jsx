@@ -143,9 +143,15 @@ const KDS = () => {
     });
   };
 
+  const isCashier = user?.role === 'cashier';
+
   // Actions
   const handleToggleProductPrepared = (orderId, itemIndex, e) => {
     e.stopPropagation(); // Avoid triggering card bump
+    if (isCashier) {
+      alert("Cashiers have read-only access to KDS.");
+      return;
+    }
     setKdsStates(prev => {
       const ticketState = prev[orderId] || { stage: 'To Cook', preparedItems: {} };
       const preparedItems = { ...ticketState.preparedItems };
@@ -161,6 +167,10 @@ const KDS = () => {
   };
 
   const handleBumpCard = (orderId) => {
+    if (isCashier) {
+      alert("Cashiers have read-only access to KDS.");
+      return;
+    }
     setKdsStates(prev => {
       const ticketState = prev[orderId] || { stage: 'To Cook', preparedItems: {} };
       let nextStage = 'Preparing';
@@ -182,6 +192,10 @@ const KDS = () => {
 
   const handleResetTicket = (orderId, e) => {
     e.stopPropagation();
+    if (isCashier) {
+      alert("Cashiers have read-only access to KDS.");
+      return;
+    }
     setKdsStates(prev => ({
       ...prev,
       [orderId]: {
@@ -867,21 +881,23 @@ const KDS = () => {
                           {ticket.table}
                         </span>
 
-                        <button
-                          onClick={(e) => handleResetTicket(ticket.id, e)}
-                          title="Reset Ticket State"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '4px'
-                          }}
-                        >
-                          <RotateCcw size={14} />
-                        </button>
+                        {!isCashier && (
+                          <button
+                            onClick={(e) => handleResetTicket(ticket.id, e)}
+                            title="Reset Ticket State"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-secondary)',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '4px'
+                            }}
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -900,7 +916,7 @@ const KDS = () => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              cursor: isRemoved ? 'default' : 'pointer',
+                              cursor: (isRemoved || isCashier) ? 'default' : 'pointer',
                               userSelect: 'none',
                               color: isRemoved ? '#ef4444' : 'inherit',
                               textDecoration: isRemoved ? 'line-through' : (item.prepared ? 'line-through' : 'none'),
@@ -937,18 +953,24 @@ const KDS = () => {
                       </span>
 
                       <button
+                        disabled={isCashier}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBumpCard(ticket.id);
+                        }}
                         style={{
-                          backgroundColor: ticket.stage === 'To Cook' ? '#ab4b38' : ticket.stage === 'Preparing' ? '#d97706' : '#10b981',
+                          backgroundColor: isCashier ? '#6b7280' : (ticket.stage === 'To Cook' ? '#ab4b38' : ticket.stage === 'Preparing' ? '#d97706' : '#10b981'),
                           color: '#ffffff',
                           border: 'none',
                           borderRadius: '8px',
                           padding: '6px 12px',
                           fontSize: '12px',
                           fontWeight: '800',
-                          cursor: 'pointer'
+                          cursor: isCashier ? 'not-allowed' : 'pointer',
+                          opacity: isCashier ? 0.65 : 1
                         }}
                       >
-                        {ticket.stage === 'To Cook' ? 'Start Preparing' : ticket.stage === 'Preparing' ? 'Complete' : 'Archive'}
+                        {isCashier ? 'Read-Only' : (ticket.stage === 'To Cook' ? 'Start Preparing' : ticket.stage === 'Preparing' ? 'Complete' : 'Archive')}
                       </button>
                     </div>
                   </div>

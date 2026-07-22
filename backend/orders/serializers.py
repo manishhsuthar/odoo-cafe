@@ -120,6 +120,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     print(f"Error parsing part: {e}")
 
             # For any product in new_totals, see if it is added or quantity increased
+            kds_parts = []
             for prod_name_key, new_qty in new_totals.items():
                 existing_qty = existing_totals.get(prod_name_key, 0)
                 if new_qty > existing_qty:
@@ -135,41 +136,13 @@ class OrderSerializer(serializers.ModelSerializer):
                             subtotal=product.price * diff_qty,
                             status="pending"
                         )
+                        kds_parts.append(f"{diff_qty} x {product.name} (Added)")
 
-            # For any product in existing_totals, see if it is decreased/removed
-            for prod_name_key, existing_qty in existing_totals.items():
-                new_qty = new_totals.get(prod_name_key, 0)
-                if new_qty < existing_qty:
-                    diff_to_remove = existing_qty - new_qty
-                    for item in instance.items.filter(product__name__iexact=prod_name_key, status="pending").order_by("-created_at"):
-                        if diff_to_remove <= 0:
-                            break
-                        if item.quantity <= diff_to_remove:
-                            diff_to_remove -= item.quantity
-                            item.delete()
-                        else:
-                            item.quantity -= diff_to_remove
-                            item.save()
-                            diff_to_remove = 0
-
-            # Calculate KDS items (only added or altered items)
-            kds_parts = []
-            for prod_name_key, new_qty in new_totals.items():
-                old_qty = existing_totals.get(prod_name_key, 0)
-                if new_qty > old_qty:
-                    diff_qty = new_qty - old_qty
-                    kds_parts.append(f"{diff_qty} x {prod_name_key.title()}")
-
-            for prod_name_key, old_qty in existing_totals.items():
-                new_qty = new_totals.get(prod_name_key, 0)
-                if new_qty < old_qty:
-                    diff_qty = old_qty - new_qty
-                    kds_parts.append(f"{diff_qty} x {prod_name_key.title()} (Removed)")
-
-            instance.kds_items = ", ".join(kds_parts) if kds_parts else ""
+            if kds_parts:
+                instance.kds_items = ", ".join(kds_parts)
             instance.save()
 
-            # Recalculate totals
+            # Recalculate totals across all items (original + newly added)
             instance.calculate_totals()
 
             # Send WebSocket update
@@ -234,6 +207,15 @@ class OrderSerializer(serializers.ModelSerializer):
                     table_obj = Table.objects.create(name=table_name, floor=1, capacity=4)
         except Exception as e:
             raise serializers.ValidationError({"table": f"Error resolving table: {str(e)}"})
+
+        # Preserve Ticket Continuity: if an active order exists for this table, update it instead of creating a new ticket
+        if table_obj and table_name.strip().lower() != "takeaway":
+            existing_order = Order.objects.filter(
+                table=table_obj,
+                status__in=["pending", "in_progress", "ready"]
+            ).order_by("-created_at").first()
+            if existing_order:
+                return self.update(existing_order, validated_data)
 
         # 2. Resolve Coupon
         coupon_obj = None

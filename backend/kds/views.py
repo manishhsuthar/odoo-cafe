@@ -8,14 +8,18 @@ from .serializers import KDSOrderSerializer, KDSOrderItemSerializer
 from inventory.utils import deduct_inventory
 
 
-class IsKitchen(permissions.BasePermission):
+class IsKDSReadOrKitchenWrite(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ["kitchen", "admin"]
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.role in ["kitchen", "admin", "cashier"]
+        return request.user.role in ["kitchen", "admin"]
 
 
 class KDSOrderListView(generics.ListAPIView):
     serializer_class = KDSOrderSerializer
-    permission_classes = [IsKitchen]
+    permission_classes = [IsKDSReadOrKitchenWrite]
 
     def get_queryset(self):
         queryset = Order.objects.filter(
@@ -46,12 +50,12 @@ class KDSOrderListView(generics.ListAPIView):
 
 class KDSOrderDetailView(generics.RetrieveAPIView):
     serializer_class = KDSOrderSerializer
-    permission_classes = [IsKitchen]
+    permission_classes = [IsKDSReadOrKitchenWrite]
     queryset = Order.objects.all()
 
 
 class KDSDashboardView(APIView):
-    permission_classes = [IsKitchen]
+    permission_classes = [IsKDSReadOrKitchenWrite]
 
     def get(self, request):
         all_orders = Order.objects.filter(status__in=["pending", "in_progress"])
@@ -72,7 +76,7 @@ class KDSDashboardView(APIView):
 
 
 class KDSUpdateItemView(APIView):
-    permission_classes = [IsKitchen]
+    permission_classes = [IsKDSReadOrKitchenWrite]
 
     def patch(self, request, item_pk):
         try:
@@ -107,38 +111,44 @@ class KDSUpdateItemView(APIView):
             order.save()
 
             # Notify cashier that order is ready
-            async_to_sync(channel_layer.group_send)(
-                "cashier",
-                {
-                    "type": "order_ready",
-                    "data": {
-                        "type": "ORDER_READY",
-                        "order_id": order.id,
-                        "table_number": order.table.number,
-                        "floor_name": order.table.floor.name,
-                        "message": f"Order #{order.id} — Table {order.table.number} is ready!"
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    "cashier",
+                    {
+                        "type": "order_ready",
+                        "data": {
+                            "type": "ORDER_READY",
+                            "order_id": order.id,
+                            "table_number": order.table.number,
+                            "floor_name": order.table.floor.name,
+                            "message": f"Order #{order.id} — Table {order.table.number} is ready!"
+                        }
                     }
-                }
-            )
+                )
+            except Exception as e:
+                print(f"Failed to send cashier notification via WebSocket: {e}")
 
         elif any(i.status == "preparing" for i in all_items):
             order.status = "in_progress"
             order.save()
 
         # Notify KDS of item update
-        async_to_sync(channel_layer.group_send)(
-            "kds",
-            {
-                "type": "kds_update",
-                "data": {
-                    "type": "ITEM_UPDATED",
-                    "order_id": order.id,
-                    "item_id": item.id,
-                    "item_status": item.status,
-                    "order_status": order.status,
+        try:
+            async_to_sync(channel_layer.group_send)(
+                "kds",
+                {
+                    "type": "kds_update",
+                    "data": {
+                        "type": "ITEM_UPDATED",
+                        "order_id": order.id,
+                        "item_id": item.id,
+                        "item_status": item.status,
+                        "order_status": order.status,
+                    }
                 }
-            }
-        )
+            )
+        except Exception as e:
+            print(f"Failed to send KDS update via WebSocket: {e}")
 
         return Response(KDSOrderItemSerializer(item).data)
     

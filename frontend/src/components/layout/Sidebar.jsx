@@ -18,8 +18,9 @@ import {
 import useAuth from '../../hooks/useAuth';
 
 const Sidebar = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
 
   const sidebarStyle = {
     width: '260px',
@@ -78,19 +79,19 @@ const Sidebar = () => {
   };
 
   const menuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Product Listing', path: '/products', icon: Package },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, adminOnly: true },
+    { name: 'Product Listing', path: '/products', icon: Package, adminOnly: true },
     { name: 'Order Tracking', path: '/orders', icon: ShoppingCart },
-    { name: 'Employee Record', path: '/employees', icon: Users },
-    { name: 'Tables & Floor Plans', path: '/tables', icon: Grid3X3 },
-    { name: 'Table Bookings', path: '/table-booking', icon: CalendarClock },
-    { name: 'Payment Methods', path: '/payment-methods', icon: DollarSign },
-    { name: 'Coupon Generation', path: '/coupons', icon: Ticket },
-    { name: 'Revenue Reports', path: '/reports', icon: BarChart3 },
-    { name: 'POS Sessions', path: '/pos-sessions', icon: Zap },
-    { name: 'Customers', path: '/customers', icon: ChefHat },
-    { name: 'Kitchen Inventory', path: '/kitchen-inventory', icon: ClipboardList },
-  ];
+    { name: 'Employee Record', path: '/employees', icon: Users, adminOnly: true },
+    { name: 'Tables & Floor Plans', path: '/tables', icon: Grid3X3, adminOnly: true },
+    { name: 'Table Bookings', path: '/table-booking', icon: CalendarClock, adminOnly: true },
+    { name: 'Payment Methods', path: '/payment-methods', icon: DollarSign, adminOnly: true },
+    { name: 'Coupon Generation', path: '/coupons', icon: Ticket, adminOnly: true },
+    { name: 'Revenue Reports', path: '/reports', icon: BarChart3, adminOnly: true },
+    { name: 'POS Sessions', path: '/pos-sessions', icon: Zap, adminOnly: true },
+    { name: 'Customers', path: '/customers', icon: ChefHat, adminOnly: true },
+    { name: 'Kitchen Inventory', path: '/kitchen-inventory', icon: ClipboardList, adminOnly: true },
+  ].filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside style={sidebarStyle}>

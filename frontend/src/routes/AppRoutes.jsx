@@ -165,7 +165,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-reports"
         element={
-          <PrivateRoute>
+          <PrivateRoute adminOnly>
             <POS view="reports" />
           </PrivateRoute>
         }

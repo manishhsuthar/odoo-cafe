@@ -3,11 +3,14 @@ import { Download, ChevronDown, TrendingUp, Receipt, BarChart3, Clock } from 'lu
 import { bodyOrdersStyle } from './POSSharedStyles';
 import { getReportsSummary } from '../../../utils/db';
 
+import useAuth from '../../../hooks/useAuth';
+
 const POSReports = ({
   ordersList,
   logs,
   reloadManagementData
 }) => {
+  const { user } = useAuth();
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [summaryData, setSummaryData] = useState({
     totalRevenue: 0,
@@ -29,8 +32,19 @@ const POSReports = ({
   };
 
   useEffect(() => {
-    fetchBackendSummary();
-  }, [ordersList]);
+    if (user?.role === 'admin') {
+      fetchBackendSummary();
+    }
+  }, [ordersList, user]);
+
+  if (user && user.role !== 'admin') {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
+        <h2>Access Denied</h2>
+        <p>Reports and Analytics are restricted to Admin users only.</p>
+      </div>
+    );
+  }
 
   // Calculate statistics
   const totalRevenue = summaryData.totalRevenue;

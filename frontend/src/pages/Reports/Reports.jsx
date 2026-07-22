@@ -8,7 +8,7 @@ import {
   getTopProducts,
   getTopCategories
 } from '../../utils/db';
-import { Calendar, User, Clock, ShoppingBag, ArrowUpRight, TrendingUp, BarChart3, Receipt, Award, Download, ChevronDown, Search } from 'lucide-react';
+import useAuth from '../../hooks/useAuth';
 
 const getMockDate = (daysAgo, hour, minute) => {
   const d = new Date();
@@ -141,6 +141,7 @@ const MOCK_REPORTS_ORDERS = [
 ];
 
 const Reports = () => {
+  const { user } = useAuth();
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   // Filter states
@@ -170,8 +171,22 @@ const Reports = () => {
   const [hoveredCategory, setHoveredCategory] = useState(null);
 
   useEffect(() => {
-    computeLiveMetrics();
-  }, [fromDate, toDate, customerSearch, session, product]);
+    if (user?.role === 'admin') {
+      computeLiveMetrics();
+    }
+  }, [fromDate, toDate, customerSearch, session, product, user]);
+
+  if (user && user.role !== 'admin') {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+        <Sidebar />
+        <div style={{ flex: 1, padding: '40px', textAlign: 'center', color: '#ef4444' }}>
+          <h2>Access Denied</h2>
+          <p>Reports and Analytics are restricted to Admin users only.</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleFromDateChange = (val) => {
     if (val > todayStr) {

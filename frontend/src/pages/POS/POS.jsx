@@ -492,8 +492,10 @@ const POS = ({ view = 'pos' }) => {
     setIsTableModalOpen(false);
 
     setTableCarts(prev => {
-      // First check if there is an active unpaid order for this table on the backend
-      const existingUnpaidOrder = ordersList.find(o => o.table === tableName && o.status === 'Unpaid');
+      const isNonTakeaway = tableName && tableName.toLowerCase() !== 'takeaway';
+      const existingUnpaidOrder = isNonTakeaway ? ordersList.find(o => 
+        o.table === tableName && ['unpaid', 'pending', 'in_progress', 'ready'].includes(String(o.status).toLowerCase())
+      ) : null;
       if (existingUnpaidOrder && existingUnpaidOrder.orderItems) {
         const reconstructedCart = existingUnpaidOrder.orderItems.map(item => {
           const productObj = productsList.find(p => p.id === item.product);
@@ -771,7 +773,10 @@ const POS = ({ view = 'pos' }) => {
     }
     const orderItemsString = cart.map(item => `${item.quantity} x ${item.name}`).join(', ');
     try {
-      const existingOrder = ordersList.find(o => o.table === activeTable && o.status === 'Unpaid');
+      const isNonTakeaway = activeTable && activeTable.toLowerCase() !== 'takeaway';
+      const existingOrder = isNonTakeaway ? ordersList.find(o => 
+        o.table === activeTable && ['unpaid', 'pending', 'in_progress', 'ready'].includes(String(o.status).toLowerCase())
+      ) : null;
       let targetOrder;
       if (existingOrder) {
         // Calculate the diff of items for the log
@@ -1327,7 +1332,9 @@ const POS = ({ view = 'pos' }) => {
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'coupons' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'coupons' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-coupons')}><Tag size={18} /> Coupons & Promos</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'bookings' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'bookings' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-bookings')}><Calendar size={18} /> Bookings & Tables</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'employees' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'employees' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-employees')}><User size={18} /> Staff / Employees</button>
-          <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}><BarChart2 size={18} /> Sales Reports</button>
+          {user?.role === 'admin' && (
+            <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'reports' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'reports' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-reports')}><BarChart2 size={18} /> Sales Reports</button>
+          )}
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: view === 'customers' ? 'rgba(234, 88, 12, 0.1)' : 'transparent', color: view === 'customers' ? 'var(--border-focus)' : 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/pos-customers')}><User size={18} /> Customers</button>
           <button style={{ ...menuLinkStyle, display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'transparent', color: 'var(--text-secondary)' }} onClick={() => handleSidebarNavigation('/kds')}><ChefHat size={18} /> Kitchen Display (KDS)</button>
         </div>
@@ -1569,11 +1576,18 @@ const POS = ({ view = 'pos' }) => {
             addLogEntry={addLogEntry}
           />
         ) : view === 'reports' ? (
-          <POSReports
-            ordersList={ordersList}
-            logs={logs}
-            reloadManagementData={reloadManagementData}
-          />
+          user?.role === 'admin' ? (
+            <POSReports
+              ordersList={ordersList}
+              logs={logs}
+              reloadManagementData={reloadManagementData}
+            />
+          ) : (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
+              <h2>Access Denied</h2>
+              <p>Reports and Analytics are restricted to Admin users only.</p>
+            </div>
+          )
         ) : view === 'customers' ? (
           <POSCustomers />
         ) : (
