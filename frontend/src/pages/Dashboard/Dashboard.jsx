@@ -366,7 +366,6 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-
               {/* Card 4: Employees on Shift */}
               <div style={cardStyle}>
                 <div style={iconContainerStyle('#a855f7')}>
@@ -379,7 +378,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
           {/* Quick Actions Section */}
           <div>
             <h2 style={sectionTitleStyle}>Quick Actions</h2>

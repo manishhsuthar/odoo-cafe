@@ -482,6 +482,29 @@ const POS = ({ view = 'pos' }) => {
   const [tableCarts, setTableCarts] = useState({});
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
+  const parseItemsString = (itemsStr) => {
+    if (!itemsStr || typeof itemsStr !== 'string') return [];
+    const parts = itemsStr.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.map((part, idx) => {
+      let qty = 1;
+      let name = part;
+      if (part.includes(' x ')) {
+        const split = part.split(' x ');
+        qty = parseInt(split[0]) || 1;
+        name = split.slice(1).join(' x ').trim();
+      }
+      const productObj = productsList.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
+      return {
+        id: productObj ? productObj.id : `restored_${idx}_${Date.now()}`,
+        name: productObj ? productObj.name : name,
+        price: productObj ? (parseFloat(productObj.price) || 0) : 0,
+        quantity: qty,
+        category: productObj ? (productObj.categoryName || productObj.category || '') : '',
+        inStock: productObj ? productObj.isAvailable !== false : true
+      };
+    });
+  };
+
   const handleTableSelect = (tableName) => {
     if (activeTable) {
       setTableCarts(prev => ({
@@ -498,40 +521,67 @@ const POS = ({ view = 'pos' }) => {
       const existingUnpaidOrder = isNonTakeaway ? ordersList.find(o => 
         o.table === tableName && ['unpaid', 'pending', 'in_progress', 'ready'].includes(String(o.status).toLowerCase())
       ) : null;
-      if (existingUnpaidOrder && existingUnpaidOrder.orderItems) {
-        const reconstructedCart = existingUnpaidOrder.orderItems.map(item => {
-          const productObj = productsList.find(p => p.id === item.product);
-          return {
-            id: item.product,
-            name: item.productName || (productObj ? productObj.name : ''),
-            price: parseFloat(item.price) || (productObj ? parseFloat(productObj.price) : 0),
-            quantity: item.quantity,
-            category: productObj ? productObj.categoryName || productObj.category : '',
-            inStock: productObj ? productObj.isAvailable : true
-          };
-        });
-        
-        let couponObj = null;
-        if (existingUnpaidOrder.couponCode) {
-          couponObj = { code: existingUnpaidOrder.couponCode };
+
+      let reconstructedCart = [];
+      if (existingUnpaidOrder) {
+        if (existingUnpaidOrder.orderItems && existingUnpaidOrder.orderItems.length > 0) {
+          reconstructedCart = existingUnpaidOrder.orderItems.map(item => {
+            const productObj = productsList.find(p => p.id === item.product || String(p.id) === String(item.product) || (p.name && item.productName && p.name.toLowerCase() === item.productName.toLowerCase()));
+            const parsedPrice = parseFloat(item.price || item.unitPrice || (productObj ? productObj.price : 0));
+            return {
+              id: item.product || (productObj ? productObj.id : `item_${Math.random()}`),
+              name: item.productName || (productObj ? productObj.name : ''),
+              price: isNaN(parsedPrice) ? 0 : parsedPrice,
+              quantity: parseInt(item.quantity) || 1,
+              category: productObj ? (productObj.categoryName || productObj.category || '') : '',
+              inStock: productObj ? productObj.isAvailable !== false : true
+            };
+          });
         }
-        
-        const discAmt = parseFloat(existingUnpaidOrder.discountAmount) || 0;
-        
-        setCart(reconstructedCart);
-        setAppliedCoupon(couponObj);
-        setDiscountAmount(discAmt);
-        setPaidAmount('0');
-        
-        prev[tableName] = { cart: reconstructedCart, appliedCoupon: couponObj, discountAmount: discAmt, paidAmount: '0' };
-        return prev;
+
+        if (reconstructedCart.length === 0 && existingUnpaidOrder.items) {
+          reconstructedCart = parseItemsString(existingUnpaidOrder.items);
+        }
       }
 
-      const existingData = prev[tableName] || { cart: [], appliedCoupon: null, discountAmount: 0, paidAmount: '0' };
-      setCart(existingData.cart);
-      setAppliedCoupon(existingData.appliedCoupon);
-      setDiscountAmount(existingData.discountAmount);
-      setPaidAmount(existingData.paidAmount);
+      const localData = prev[tableName];
+      const hasLocalCart = localData && Array.isArray(localData.cart) && localData.cart.length > 0;
+
+      const finalCart = hasLocalCart ? localData.cart : reconstructedCart;
+
+      const discAmt = parseFloat(existingUnpaidOrder?.discountAmount) || (localData ? parseFloat(localData.discountAmount) || 0 : 0);
+      const validDiscAmt = isNaN(discAmt) ? 0 : discAmt;
+
+      let couponObj = localData ? localData.appliedCoupon : null;
+      const couponCodeToUse = existingUnpaidOrder?.couponCode || (couponObj ? couponObj.code : null);
+      if (couponCodeToUse) {
+        const codeToMatch = String(couponCodeToUse).trim().toUpperCase();
+        const found = allCouponsList.find(c => c.code && String(c.code).trim().toUpperCase() === codeToMatch);
+        if (found) {
+          couponObj = found;
+        } else if (!couponObj || String(couponObj.code).trim().toUpperCase() !== codeToMatch) {
+          couponObj = {
+            code: couponCodeToUse,
+            name: couponCodeToUse,
+            value: validDiscAmt,
+            discountType: 'Fixed',
+            minAmount: 0,
+            targetType: 'All'
+          };
+        }
+      }
+
+      setCart(finalCart);
+      setAppliedCoupon(couponObj);
+      setDiscountAmount(validDiscAmt);
+      setPaidAmount(localData ? localData.paidAmount : '0');
+
+      prev[tableName] = {
+        cart: finalCart,
+        appliedCoupon: couponObj,
+        discountAmount: validDiscAmt,
+        paidAmount: localData ? localData.paidAmount : '0'
+      };
       return prev;
     });
   };
@@ -604,7 +654,11 @@ const POS = ({ view = 'pos' }) => {
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [couponInput, setCouponInput] = useState('');
 
-  const subTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const subTotal = cart.reduce((acc, item) => {
+    const itemPrice = parseFloat(item.price) || 0;
+    const itemQty = parseInt(item.quantity) || 0;
+    return acc + (itemPrice * itemQty);
+  }, 0);
 
   // Recalculate discount whenever cart, subTotal, or appliedCoupon changes
   useEffect(() => {
@@ -613,8 +667,11 @@ const POS = ({ view = 'pos' }) => {
       return;
     }
 
+    const minAmt = parseFloat(appliedCoupon.minAmount) || 0;
+    const couponVal = parseFloat(appliedCoupon.value) || 0;
+
     // Min subtotal total check
-    if (subTotal < appliedCoupon.minAmount) {
+    if (subTotal < minAmt) {
       setDiscountAmount(0);
       setAppliedCoupon(null);
       return;
@@ -624,19 +681,23 @@ const POS = ({ view = 'pos' }) => {
     if (appliedCoupon.targetType === 'All' || !appliedCoupon.targetType) {
       discountableSum = subTotal;
     } else if (appliedCoupon.targetType === 'Category') {
-      const cat = appliedCoupon.targetValue.toLowerCase();
+      const cat = (appliedCoupon.targetValue || '').toLowerCase();
       discountableSum = cart.reduce((acc, item) => {
         const itemCatName = getProductCategoryName(item);
         if (itemCatName && itemCatName.toLowerCase() === cat) {
-          return acc + (item.price * item.quantity);
+          const itemPrice = parseFloat(item.price) || 0;
+          const itemQty = parseInt(item.quantity) || 0;
+          return acc + (itemPrice * itemQty);
         }
         return acc;
       }, 0);
     } else if (appliedCoupon.targetType === 'Product') {
-      const prodName = appliedCoupon.targetValue.toLowerCase();
+      const prodName = (appliedCoupon.targetValue || '').toLowerCase();
       discountableSum = cart.reduce((acc, item) => {
         if (item.name && item.name.toLowerCase() === prodName) {
-          return acc + (item.price * item.quantity);
+          const itemPrice = parseFloat(item.price) || 0;
+          const itemQty = parseInt(item.quantity) || 0;
+          return acc + (itemPrice * itemQty);
         }
         return acc;
       }, 0);
@@ -644,11 +705,11 @@ const POS = ({ view = 'pos' }) => {
 
     let calculatedDisc = 0;
     if (appliedCoupon.discountType === 'Percentage') {
-      calculatedDisc = Math.round(discountableSum * (appliedCoupon.value / 100));
+      calculatedDisc = Math.round(discountableSum * (couponVal / 100));
     } else {
-      calculatedDisc = Math.min(appliedCoupon.value, discountableSum);
+      calculatedDisc = Math.min(couponVal, discountableSum);
     }
-    setDiscountAmount(calculatedDisc);
+    setDiscountAmount(isNaN(calculatedDisc) ? 0 : calculatedDisc);
   }, [cart, appliedCoupon, subTotal]);
 
   // Automatic Promo engine
@@ -664,10 +725,10 @@ const POS = ({ view = 'pos' }) => {
     try {
       const list = JSON.parse(stored);
       // Find active Automated Promos where subtotal fits
-      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= c.minAmount);
+      const autoPromos = list.filter(c => c.type === 'Automated Promo' && c.activated && subTotal >= (parseFloat(c.minAmount) || 0));
       if (autoPromos.length > 0) {
         // Find the one with maximum benefit
-        const bestPromo = autoPromos.sort((a, b) => b.value - a.value)[0];
+        const bestPromo = autoPromos.sort((a, b) => (parseFloat(b.value) || 0) - (parseFloat(a.value) || 0))[0];
         setAppliedCoupon(bestPromo);
       } else {
         // Clear if conditions no longer match
@@ -680,12 +741,13 @@ const POS = ({ view = 'pos' }) => {
     }
   }, [subTotal, cart]);
 
-  const totalBeforeTax = Math.max(0, subTotal - discountAmount);
+  const validDiscountAmount = isNaN(discountAmount) ? 0 : discountAmount;
+  const totalBeforeTax = Math.max(0, subTotal - validDiscountAmount);
   const tax = Math.round(totalBeforeTax * 0.05); // 5% GST
   const total = totalBeforeTax + tax;
 
   useEffect(() => {
-    setPaidAmount(total.toString());
+    setPaidAmount(isNaN(total) ? '0' : total.toString());
   }, [total]);
 
   const handleApplyCouponCode = (codeStr) => {
