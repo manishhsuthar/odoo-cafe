@@ -1,149 +1,110 @@
 import React, { createContext, useState, useEffect } from 'react';
 import authAPI from '../services/authService';
+import store from '../store/store';
+import { loginSuccess, logoutSuccess } from '../features/auth/authSlice';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const storedEmployees = localStorage.getItem('employees');
-    const storedLogs = localStorage.getItem('employee_logs');
-
-    if (storedToken && storedUser) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
+  const clearSessionState = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('pos_session_logs');
+    sessionStorage.clear();
+    if (store) {
+      try {
+        store.dispatch(logoutSuccess());
+      } catch (e) {
+        console.error('Failed to dispatch logout to store:', e);
+      }
     }
+  };
 
+  useEffect(() => {
+    const verifySession = async () => {
+      const storedToken = localStorage.getItem('token');
+
+      if (!storedToken) {
+        clearSessionState();
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Validate token with backend API (/api/auth/me/) before trusting session
+        const userData = await authAPI.getCurrentUser();
+        if (userData && userData.id && userData.role) {
+          const userInfo = {
+            id: userData.id,
+            email: userData.email,
+            name: userData.full_name,
+            role: userData.role,
+          };
+          setUser(userInfo);
+          setToken(storedToken);
+          localStorage.setItem('user', JSON.stringify(userInfo));
+          if (store) {
+            try {
+              store.dispatch(loginSuccess({ user: userInfo, token: storedToken }));
+            } catch (e) {
+              console.error('Failed to dispatch loginSuccess:', e);
+            }
+          }
+        } else {
+          clearSessionState();
+        }
+      } catch (err) {
+        // Token is invalid, expired, or revoked by backend -> purge session completely
+        clearSessionState();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifySession();
+
+    const storedEmployees = localStorage.getItem('employees');
     if (storedEmployees) {
-      setEmployees(JSON.parse(storedEmployees));
+      try {
+        setEmployees(JSON.parse(storedEmployees));
+      } catch (e) {
+        setEmployees([]);
+      }
     } else {
       setEmployees([]);
       localStorage.setItem('employees', '[]');
     }
 
-    if (!storedLogs) {
+    if (!localStorage.getItem('employee_logs')) {
       localStorage.setItem('employee_logs', '[]');
     }
-
-    setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    const lowerEmail = email ? email.toLowerCase().trim() : '';
-    if (lowerEmail === 'cafe@admin.com' && password === 'cafe123') {
-      try {
-        localStorage.removeItem('token');
-        setToken(null);
-        const data = await authAPI.login(email, password);
-        const accessToken = data.access;
-        localStorage.setItem('token', accessToken);
-        setToken(accessToken);
-        const userData = await authAPI.getCurrentUser();
-        const userInfo = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.full_name,
-          role: userData.role,
-        };
-        setUser(userInfo);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: userData.role };
-      } catch (err) {
-        const userInfo = {
-          id: 'mock_admin_id',
-          email: 'cafe@admin.com',
-          name: 'Cafe Admin',
-          role: 'admin',
-        };
-        setUser(userInfo);
-        setToken('mock_admin_token');
-        localStorage.setItem('token', 'mock_admin_token');
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: 'admin' };
-      }
-    }
-
-    if (lowerEmail === 'john@cafe.com' && password === 'john123') {
-      try {
-        localStorage.removeItem('token');
-        setToken(null);
-        const data = await authAPI.login(email, password);
-        const accessToken = data.access;
-        localStorage.setItem('token', accessToken);
-        setToken(accessToken);
-        const userData = await authAPI.getCurrentUser();
-        const userInfo = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.full_name,
-          role: userData.role,
-        };
-        setUser(userInfo);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: userData.role };
-      } catch (err) {
-        const userInfo = {
-          id: 'mock_manager_id',
-          email: 'john@cafe.com',
-          name: 'John Manager',
-          role: 'manager',
-        };
-        setUser(userInfo);
-        setToken('mock_manager_token');
-        localStorage.setItem('token', 'mock_manager_token');
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: 'manager' };
-      }
-    }
-
-    if (lowerEmail === 'chef@cafe.com' && password === 'chef123') {
-      try {
-        localStorage.removeItem('token');
-        setToken(null);
-        const data = await authAPI.login(email, password);
-        const accessToken = data.access;
-        localStorage.setItem('token', accessToken);
-        setToken(accessToken);
-        const userData = await authAPI.getCurrentUser();
-        const userInfo = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.full_name,
-          role: userData.role,
-        };
-        setUser(userInfo);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: userData.role };
-      } catch (err) {
-        const userInfo = {
-          id: 'mock_chef_id',
-          email: 'chef@cafe.com',
-          name: 'Chef User',
-          role: 'chef',
-        };
-        setUser(userInfo);
-        setToken('mock_chef_token');
-        localStorage.setItem('token', 'mock_chef_token');
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        return { success: true, role: 'chef' };
-      }
-    }
+    // 1. Purge any previous session/user data before starting new login attempt
+    clearSessionState();
 
     try {
-      localStorage.removeItem('token');
-      setToken(null);
+      // 2. Authenticate with backend API
       const data = await authAPI.login(email, password);
       const accessToken = data.access;
+      if (!accessToken) {
+        throw new Error('No access token returned from server');
+      }
 
+      // 3. Temporarily set token in localStorage and state for user verification
       localStorage.setItem('token', accessToken);
       setToken(accessToken);
 
+      // 4. Always fetch verified user profile and role from backend (/api/auth/me/)
       const userData = await authAPI.getCurrentUser();
       const userInfo = {
         id: userData.id,
@@ -151,10 +112,19 @@ export const AuthProvider = ({ children }) => {
         name: userData.full_name,
         role: userData.role,
       };
+
       setUser(userInfo);
       localStorage.setItem('user', JSON.stringify(userInfo));
 
-      // Record employee shift if not admin
+      if (store) {
+        try {
+          store.dispatch(loginSuccess({ user: userInfo, token: accessToken }));
+        } catch (e) {
+          console.error('Failed to dispatch loginSuccess:', e);
+        }
+      }
+
+      // Record employee shift if non-admin
       if (userData.role !== 'admin') {
         const storedLogs = localStorage.getItem('employee_logs');
         const logs = storedLogs ? JSON.parse(storedLogs) : [];
@@ -176,7 +146,9 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, role: userData.role };
     } catch (err) {
-      const message = err.response?.data?.detail || err.response?.data?.message || 'Invalid email or password';
+      // Failed login: ensure session remains completely cleared
+      clearSessionState();
+      const message = err.response?.data?.detail || err.response?.data?.message || err.message || 'Invalid email or password';
       return { success: false, error: message };
     }
   };
@@ -191,22 +163,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (user && user.role !== 'admin') {
       const storedLogs = localStorage.getItem('employee_logs');
       if (storedLogs) {
-        const logs = JSON.parse(storedLogs);
-        const activeLogIndex = logs.findIndex(log => log.employeeEmail === user.email && !log.logoutTime);
-        if (activeLogIndex !== -1) {
-          logs[activeLogIndex].logoutTime = new Date().toISOString();
-          localStorage.setItem('employee_logs', JSON.stringify(logs));
+        try {
+          const logs = JSON.parse(storedLogs);
+          const activeLogIndex = logs.findIndex(log => log.employeeEmail === user.email && !log.logoutTime);
+          if (activeLogIndex !== -1) {
+            logs[activeLogIndex].logoutTime = new Date().toISOString();
+            localStorage.setItem('employee_logs', JSON.stringify(logs));
+          }
+        } catch (e) {
+          console.error('Error updating shift log on logout:', e);
         }
       }
     }
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+
+    try {
+      await authAPI.logout();
+    } catch (e) {
+      // Ignore backend logout errors
+    }
+
+    clearSessionState();
   };
 
   const value = {
@@ -217,7 +197,7 @@ export const AuthProvider = ({ children }) => {
     login,
     registerEmployee,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated: !!(user && token),
   };
 
   return (
@@ -226,3 +206,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+

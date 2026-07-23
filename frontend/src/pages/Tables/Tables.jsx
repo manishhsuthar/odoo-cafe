@@ -50,6 +50,7 @@ const Tables = () => {
         status: t.status || 'free',
         customerName: t.customerName || t.customer_name || '',
       }));
+      mapped.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
       setTables(mapped);
     } catch (err) {
       console.error("Failed to load tables:", err);

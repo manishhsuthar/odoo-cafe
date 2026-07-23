@@ -60,16 +60,58 @@ const KDS = () => {
     localStorage.setItem('kds_ticket_states', JSON.stringify(kdsStates));
   }, [kdsStates]);
 
+  // Track updated ticket IDs for temporary highlight animation
+  const [updatedTicketIds, setUpdatedTicketIds] = useState({});
+
   // Fetch orders from db
-  const loadKDSData = async () => {
+  const loadKDSData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent && orders.length === 0) {
+        setLoading(true);
+      }
       const dbOrders = await getOrders().catch(() => []);
 
       let combined = [...dbOrders];
 
-      // Sort by date (newest first)
+      // Sort by date (newest first) to maintain stable ticket positions
       combined.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+
+      // Detect changed/updated existing tickets for smooth highlight animation
+      if (orders.length > 0) {
+        const changedIds = [];
+        combined.forEach(newOrder => {
+          const oldOrder = orders.find(o => o.id === newOrder.id);
+          if (oldOrder) {
+            const oldContent = (oldOrder.kdsItems || oldOrder.items || '') + '|' + (oldOrder.status || '') + '|' + (oldOrder.amount || '');
+            const newContent = (newOrder.kdsItems || newOrder.items || '') + '|' + (newOrder.status || '') + '|' + (newOrder.amount || '');
+            if (oldContent !== newContent) {
+              changedIds.push(newOrder.id);
+            }
+          }
+        });
+
+        if (changedIds.length > 0) {
+          setUpdatedTicketIds(prev => {
+            const next = { ...prev };
+            changedIds.forEach(id => {
+              next[id] = true;
+            });
+            return next;
+          });
+
+          // Soft highlight lasts for 900ms then clears
+          setTimeout(() => {
+            setUpdatedTicketIds(prev => {
+              const next = { ...prev };
+              changedIds.forEach(id => {
+                delete next[id];
+              });
+              return next;
+            });
+          }, 900);
+        }
+      }
+
       setOrders(combined);
 
       // Initialize status for each order if not already in kdsStates
@@ -89,14 +131,18 @@ const KDS = () => {
     } catch (err) {
       console.error("Failed to load KDS data", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadKDSData();
-    // Auto refresh every 5 seconds to get new orders
-    const interval = setInterval(loadKDSData, 5000);
+    loadKDSData(false);
+    // Silent auto refresh every 5 seconds to keep data fresh without UI blinking
+    const interval = setInterval(() => {
+      loadKDSData(true);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -107,7 +153,7 @@ const KDS = () => {
 
   useSocket(wsUrl, (message) => {
     if (message.type === 'ORDER_CREATED' || message.type === 'ORDER_UPDATED' || message.type === 'ITEM_UPDATED') {
-      loadKDSData();
+      loadKDSData(true);
     }
   });
 
@@ -330,6 +376,27 @@ const KDS = () => {
           transform: translateY(-5px);
           border-color: #9d4838;
           box-shadow: 0 15px 40px rgba(157, 72, 56, 0.2);
+        }
+        @keyframes subtleUpdatePulse {
+          0% {
+            border-color: #ea580c;
+            box-shadow: 0 0 15px rgba(234, 88, 12, 0.45);
+            background-color: rgba(234, 88, 12, 0.08);
+          }
+          50% {
+            border-color: #f97316;
+            box-shadow: 0 0 20px rgba(249, 115, 22, 0.55);
+            background-color: rgba(249, 115, 22, 0.12);
+          }
+          100% {
+            border-color: var(--border-color);
+            box-shadow: var(--card-shadow);
+            background-color: var(--bg-card);
+          }
+        }
+        .kds-card.updated-highlight {
+          animation: subtleUpdatePulse 0.9s cubic-bezier(0.25, 0.8, 0.25, 1);
+          border-color: #ea580c !important;
         }
         .kds-card.preparing {
           border-left: 5px solid #d97706;
@@ -842,11 +909,12 @@ const KDS = () => {
             }}>
               {paginatedTickets.map((ticket) => {
                 const allPrepared = ticket.parsedItems.every(item => item.prepared);
+                const isUpdated = !!updatedTicketIds[ticket.id];
 
                 return (
                   <div
                     key={ticket.id}
-                    className={`kds-card ${ticket.stage === 'Preparing' ? 'preparing' : ''} ${ticket.stage === 'Completed' ? 'completed' : ''}`}
+                    className={`kds-card ${ticket.stage === 'Preparing' ? 'preparing' : ''} ${ticket.stage === 'Completed' ? 'completed' : ''} ${isUpdated ? 'updated-highlight' : ''}`}
                     onClick={() => handleBumpCard(ticket.id)}
                   >
 

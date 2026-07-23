@@ -400,13 +400,15 @@ const POS = ({ view = 'pos' }) => {
         }
 
         const finalTables = backendTables && backendTables.length > 0 ? backendTables : [];
-        setTablesList(finalTables.map(t => ({
+        const mappedTables = finalTables.map(t => ({
           id: t.id,
           name: t.name,
           floor: (t.floor && typeof t.floor === 'object') ? t.floor.id : (t.floor || 1),
           status: t.status || 'free',
           customerName: t.customerName || t.customer_name || ''
-        })));
+        }));
+        mappedTables.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+        setTablesList(mappedTables);
       } catch (err) {
         console.error("Error loading POS initial data, using mock data:", err);
         setCategoriesList(MOCK_CATEGORIES.map(c => c.name));

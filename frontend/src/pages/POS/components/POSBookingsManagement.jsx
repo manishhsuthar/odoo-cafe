@@ -33,8 +33,9 @@ const POSBookingsManagement = ({
         getReservations().catch(() => []),
         getTables().catch(() => [])
       ]);
-      setBackendBookings(Array.isArray(resList) ? resList : []);
-      setBackendTables(Array.isArray(tabList) ? tabList : []);
+      const tablesSorted = Array.isArray(tabList) ? tabList : [];
+      tablesSorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+      setBackendTables(tablesSorted);
     } catch (err) {
       console.error("Failed to fetch reservations/tables from backend:", err);
     } finally {
