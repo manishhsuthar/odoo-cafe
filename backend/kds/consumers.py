@@ -5,33 +5,45 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 class KDSConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.group_name = "kds"
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
+        try:
+            if self.channel_layer is not None:
+                await self.channel_layer.group_add(
+                    self.group_name,
+                    self.channel_name
+                )
+        except Exception as e:
+            print(f"Warning: Failed to add channel to group 'kds': {e}")
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        try:
+            if self.channel_layer is not None:
+                await self.channel_layer.group_discard(
+                    self.group_name,
+                    self.channel_name
+                )
+        except Exception as e:
+            print(f"Warning: Failed to discard channel from group 'kds': {e}")
 
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
-            await self.channel_layer.group_send(
-                self.group_name,
-                {
-                    "type": "kds_update",
-                    "data": data
-                }
-            )
+            if self.channel_layer is not None:
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "kds_update",
+                        "data": data
+                    }
+                )
         except Exception as e:
             print(f"Error in KDSConsumer receive: {e}")
 
     async def kds_update(self, event):
-        await self.send(text_data=json.dumps(event["data"]))
+        try:
+            await self.send(text_data=json.dumps(event["data"]))
+        except Exception as e:
+            print(f"Error sending kds_update via WebSocket: {e}")
 
 
 class CashierConsumer(AsyncWebsocketConsumer):

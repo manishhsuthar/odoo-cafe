@@ -5,6 +5,7 @@ const useSocket = (url, onMessage, options = {}) => {
     maxDelay = 30000,
     initialDelay = 1000,
     backoffFactor = 2,
+    maxAttempts = 15,
   } = options;
 
   const [status, setStatus] = useState('Disconnected');
@@ -87,6 +88,12 @@ const useSocket = (url, onMessage, options = {}) => {
   const scheduleReconnect = useCallback(() => {
     if (isExplicitCloseRef.current) return;
 
+    if (maxAttempts > 0 && reconnectCountRef.current >= maxAttempts) {
+      console.warn(`WebSocket reconnection limit reached (${maxAttempts} attempts). Stopping auto-reconnect.`);
+      setStatus('Disconnected');
+      return;
+    }
+
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
     }
@@ -104,7 +111,7 @@ const useSocket = (url, onMessage, options = {}) => {
     reconnectTimerRef.current = setTimeout(() => {
       connect();
     }, totalDelay);
-  }, [connect, initialDelay, backoffFactor, maxDelay]);
+  }, [connect, initialDelay, backoffFactor, maxDelay, maxAttempts]);
 
   useEffect(() => {
     isExplicitCloseRef.current = false;
