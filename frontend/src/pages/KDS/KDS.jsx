@@ -204,6 +204,7 @@ const KDS = () => {
   };
 
   const isCashier = user?.role === 'cashier';
+  const isKitchen = user?.role === 'kitchen' || user?.role === 'chef';
 
   // Actions
   const handleToggleProductPrepared = (orderId, itemIndex, e) => {
@@ -1084,18 +1085,17 @@ const KDS = () => {
                           handleBumpCard(ticket.id);
                         }}
                         style={{
-                          backgroundColor: isCashier ? '#6b7280' : (ticket.stage === 'To Cook' ? '#ab4b38' : ticket.stage === 'Preparing' ? '#d97706' : '#10b981'),
+                          backgroundColor: ticket.stage === 'To Cook' ? '#ab4b38' : ticket.stage === 'Preparing' ? '#d97706' : '#10b981',
                           color: '#ffffff',
                           border: 'none',
                           borderRadius: '8px',
                           padding: '6px 12px',
                           fontSize: '12px',
                           fontWeight: '800',
-                          cursor: isCashier ? 'not-allowed' : 'pointer',
-                          opacity: isCashier ? 0.65 : 1
+                          cursor: isCashier ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        {isCashier ? 'Read-Only' : (ticket.stage === 'To Cook' ? 'Start Preparing' : ticket.stage === 'Preparing' ? 'Complete' : 'Archive')}
+                        {ticket.stage === 'To Cook' ? 'Start Preparing' : ticket.stage === 'Preparing' ? 'Complete' : 'Archive'}
                       </button>
                     </div>
                   </div>
@@ -1218,37 +1218,39 @@ const KDS = () => {
 
             {/* Quick Links Menu */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-              <button
-                onClick={() => {
-                  setIsRightSidebarOpen(false);
-                  navigate('/pos');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-link)',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-button)';
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-link)';
-                }}
-              >
-                <Monitor size={18} /> POS Register
-              </button>
+              {!isKitchen && (
+                <button
+                  onClick={() => {
+                    setIsRightSidebarOpen(false);
+                    navigate('/pos');
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-link)',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--bg-button)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-link)';
+                  }}
+                >
+                  <Monitor size={18} /> POS Register
+                </button>
+              )}
 
               <button
                 onClick={() => {

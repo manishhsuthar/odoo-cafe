@@ -7,10 +7,15 @@ from .serializers import OrderSerializer, OrderItemSerializer
 from payments.models import Payment
 
 
+class IsCashierOrAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role in ["cashier", "admin"]
+
+
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsCashierOrAdmin]
 
     def perform_create(self, serializer):
         serializer.save(cashier=self.request.user)
@@ -23,7 +28,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class OrderStatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsCashierOrAdmin]
 
     def patch(self, request, pk):
         try:

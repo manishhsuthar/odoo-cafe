@@ -101,7 +101,7 @@ const AppRoutes = () => {
       <Route
         path="/pos"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="pos" />
           </PrivateRoute>
         }
@@ -109,7 +109,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-orders"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="orders" />
           </PrivateRoute>
         }
@@ -117,7 +117,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-products"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="products" />
           </PrivateRoute>
         }
@@ -125,7 +125,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-categories"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="categories" />
           </PrivateRoute>
         }
@@ -133,7 +133,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-payment-methods"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="payment-methods" />
           </PrivateRoute>
         }
@@ -141,7 +141,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-coupons"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="coupons" />
           </PrivateRoute>
         }
@@ -149,7 +149,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-bookings"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="bookings" />
           </PrivateRoute>
         }
@@ -157,7 +157,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-employees"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="employees" />
           </PrivateRoute>
         }
@@ -173,7 +173,7 @@ const AppRoutes = () => {
       <Route
         path="/pos-customers"
         element={
-          <PrivateRoute>
+          <PrivateRoute posOnly>
             <POS view="customers" />
           </PrivateRoute>
         }
