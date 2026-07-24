@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -147,15 +147,29 @@ const KDS = () => {
   }, []);
 
   // Connect to KDS Websocket channel
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-  const wsScheme = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
-  const wsUrl = `${wsScheme}://${apiBaseUrl.replace(/^https?:\/\//, '')}/ws/kds/`;
+  const wsUrl = useMemo(() => {
+    const defaultBackendHost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:8000'
+      : window.location.origin;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || defaultBackendHost;
 
-  useSocket(wsUrl, (message) => {
+    try {
+      const parsed = new URL(baseUrl);
+      const scheme = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${scheme}//${parsed.host}/ws/kds/`;
+    } catch {
+      const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${scheme}//${window.location.host}/ws/kds/`;
+    }
+  }, []);
+
+  const handleSocketMessage = useCallback((message) => {
     if (message.type === 'ORDER_CREATED' || message.type === 'ORDER_UPDATED' || message.type === 'ITEM_UPDATED') {
       loadKDSData(true);
     }
-  });
+  }, []);
+
+  const { status: socketStatus } = useSocket(wsUrl, handleSocketMessage);
 
   // Helper: map items to sidebar products/categories for filtering
   const getProductFilterKey = (itemName) => {
@@ -480,6 +494,49 @@ const KDS = () => {
           }}>
             KDS
           </span>
+          {/* WebSocket Connection Status Indicator */}
+          <div
+            title={`WebSocket Connection Status: ${socketStatus}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: '600',
+              backgroundColor:
+                socketStatus === 'Connected' ? 'rgba(16, 185, 129, 0.15)' :
+                socketStatus === 'Connecting' ? 'rgba(245, 158, 11, 0.15)' :
+                socketStatus === 'Reconnecting' ? 'rgba(234, 88, 12, 0.15)' :
+                'rgba(239, 68, 68, 0.15)',
+              color:
+                socketStatus === 'Connected' ? '#10b981' :
+                socketStatus === 'Connecting' ? '#f59e0b' :
+                socketStatus === 'Reconnecting' ? '#ea580c' :
+                '#ef4444',
+              border: `1px solid ${
+                socketStatus === 'Connected' ? 'rgba(16, 185, 129, 0.3)' :
+                socketStatus === 'Connecting' ? 'rgba(245, 158, 11, 0.3)' :
+                socketStatus === 'Reconnecting' ? 'rgba(234, 88, 12, 0.3)' :
+                'rgba(239, 68, 68, 0.3)'
+              }`,
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <span style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              backgroundColor:
+                socketStatus === 'Connected' ? '#10b981' :
+                socketStatus === 'Connecting' ? '#f59e0b' :
+                socketStatus === 'Reconnecting' ? '#ea580c' :
+                '#ef4444',
+              display: 'inline-block'
+            }} />
+            {socketStatus === 'Reconnecting' ? 'Reconnecting...' : socketStatus === 'Connecting' ? 'Connecting...' : socketStatus}
+          </div>
         </div>
 
         {/* Center: Theme Toggle Button */}
