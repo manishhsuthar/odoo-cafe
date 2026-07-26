@@ -1106,29 +1106,6 @@ const KDS = () => {
         </main>
       </div>
 
-      {/* --- FOOTER INSTRUCTIONS MATCHING THE SPECIFICATIONS --- */}
-      <footer style={{
-        backgroundColor: 'var(--input-bg)',
-        borderTop: '1px solid var(--border-color)',
-        padding: '16px 24px',
-        fontSize: '13px',
-        color: 'var(--text-secondary)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '12px',
-        transition: 'background-color var(--transition-speed), border-color var(--transition-speed)'
-      }}>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-          <span>💡 <strong>Click card:</strong> Advance ticket stage</span>
-          <span>✏️ <strong>Click item:</strong> Strikethrough (prepared)</span>
-          <span>🏷️ <strong>Ticket #:</strong> Same as Order #</span>
-        </div>
-        <div>
-          <span>🔗 Fixed URL: <code>localhost:5174/kds</code></span>
-        </div>
-      </footer>
 
       {/* --- RIGHT SLIDE-IN SIDEBAR CONTROL PANEL --- */}
       {isRightSidebarOpen && (
